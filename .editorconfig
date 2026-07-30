@@ -5,13 +5,20 @@ root = true
 # 핵심 원칙: 성능·신뢰성 규칙은 error, 취향 규칙은 suggestion.
 # 성능 규칙을 경고로 두면 결국 무시된다. 빌드를 깨야 지켜진다.
 
+# 줄바꿈은 .gitattributes 와 반드시 일치시킨다. 두 파일이 다른 말을 하면
+# 에디터가 쓴 것을 git 이 되돌리며 무한히 diff 가 뜬다.
+
 [*]
 charset = utf-8
-end_of_line = crlf
+end_of_line = lf
 indent_style = space
 indent_size = 4
 insert_final_newline = true
 trim_trailing_whitespace = true
+
+# .gitattributes 에서 CRLF 로 고정한 파일들 (Windows 셸 / .NET SDK 생성물)
+[*.{cmd,bat,sln,slnx}]
+end_of_line = crlf
 
 [*.{json,yml,yaml,md}]
 indent_size = 2

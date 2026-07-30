@@ -1,0 +1,51 @@
+# 줄바꿈 정규화
+#
+# 이 파일이 없으면 정규화가 각 개발자의 core.autocrlf 값에 의존한다.
+# CI를 ubuntu + windows 양쪽에서 돌리므로 저장소가 직접 규칙을 고정한다.
+# eol=lf 는 core.autocrlf 를 덮어써서 작업 트리까지 결정론적으로 만든다.
+
+* text=auto eol=lf
+
+# ──────────────────────────────────────────────────────────────
+# CRLF 를 유지해야 하는 것
+
+# Windows 셸은 CR 없이 파싱에 실패한다.
+*.cmd   text eol=crlf
+*.bat   text eol=crlf
+
+# .NET SDK 가 CRLF 로 생성한다(ChServerM.slnx 실측). LF 로 강제하면
+# dotnet sln 명령이 파일을 만질 때마다 전체 줄이 diff 로 뜬다.
+*.sln   text eol=crlf
+*.slnx  text eol=crlf
+
+# ──────────────────────────────────────────────────────────────
+# LF 를 강제해야 하는 것 (CRLF 면 실행이 깨진다)
+
+*.sh    text eol=lf
+
+# ──────────────────────────────────────────────────────────────
+# diff 품질
+#
+# 함수·타입 경계를 인식해 diff 헝크 헤더에 컨텍스트를 붙여준다.
+
+*.cs    text diff=csharp
+*.md    text diff=markdown
+
+# ──────────────────────────────────────────────────────────────
+# 바이너리 — 정규화·diff 대상에서 제외한다.
+
+*.exe   binary
+*.dll   binary
+*.pdb   binary
+*.so    binary
+*.dylib binary
+*.snk   binary
+*.nupkg binary
+*.zip   binary
+*.7z    binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.pdf   binary
