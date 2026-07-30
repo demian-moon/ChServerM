@@ -65,8 +65,8 @@
 
 ## ADR-0001: raw TCP 전송 구현 방식
 
-- **날짜**: —
-- **상태**: 제안 (미결정)
+- **날짜**: — (2026-07-30 근거 보강)
+- **상태**: 제안 (미결정, Kestrel 쪽으로 기울었음)
 - **영향 범위**: `ChServerM.Transport.Tcp`
 
 ### 배경
@@ -75,23 +75,90 @@ raw TCP 서버의 소켓 계층을 직접 만들 것인지, 검증된 엔진을 
 ### 후보
 | 후보 | 장점 | 우려 |
 |---|---|---|
-| Kestrel Socket Transport (`Microsoft.AspNetCore.Connections.Abstractions`) | 프로덕션 검증된 소켓 엔진, Pipelines 통합 완료, 유지보수 무료 | ASP.NET Core 의존 유입, 커넥션 추상화가 우리 것과 겹침 |
+| Kestrel Socket Transport (`Microsoft.AspNetCore.Connections.Abstractions`) | 프로덕션 검증된 소켓 엔진, `SocketAsyncEventArgs` 풀링 + 전용 IO 스케줄러, Pipelines 통합 완료, 유지보수 무료 | ASP.NET Core 의존 유입, 커넥션 추상화가 우리 것과 겹침 |
 | 순수 `Socket` + `SocketAsyncEventArgs` + Pipelines | 완전한 제어, 최소 의존, 스레드-퍼-코어 직접 구현 가능 | 엣지 케이스(half-open, 리눅스/윈도우 차이) 전부 직접 처리 |
 
-Phase 4 진입 전, 양쪽 프로토타입 벤치마크로 결정한다. 참고: Bedrock Framework(Kestrel 전송을 비HTTP 프로토콜에 쓰는 실험적 구현).
+### 2026-07-30 추가된 근거
+레거시 `LegacyServer/IoPipelineSrvM.cs`를 정독한 결과, 기존 구현은 `TcpClient.GetStream()` →
+`NetworkStream.ReadAsync` 노선이다. Kestrel Socket Transport에는 이 `NetworkStream` 계층이 없다.
+즉 **레거시 노선은 성능 상한이 더 낮다.** 이것이 Kestrel 재사용 쪽으로 기운 이유다.
+
+다만 레거시 자산 승계 비용이 있으므로, Phase 4 진입 전 양쪽 프로토타입 벤치마크로 확정한다.
+참고: Bedrock Framework(Kestrel 전송을 비HTTP 프로토콜에 쓰는 실험적 구현).
 
 ---
 
-## ADR-0002: 기본 직렬화 축
+## ADR-0002: 프레임 헤더에 직렬화 포맷을 쓰지 않는다
 
-- **날짜**: —
-- **상태**: 제안 (미결정)
-- **영향 범위**: `ChServerM.Serialization.*`
+- **날짜**: 2026-07-30
+- **상태**: 채택
+- **영향 범위**: `ChServerM.Core`(`IFrameDecoder`/`IFrameEncoder`), `ChServerM.Transport.*`
 
 ### 배경
-프레임워크의 기본값으로 어느 직렬화를 쓸지. (다른 축은 어댑터로 계속 제공한다.)
+레거시 `LegacyServer/FlatbufferM/PacketM.fbs`는 프레임 헤더 3종(`FbsPkHeadM`,
+`FbsContentHeadM`, `FbsEncryptHeadM`)을 모두 FlatBuffers `table`로 정의했다.
+스키마 주석이 문제를 자백하고 있다:
 
-### 후보
-MemoryPack(C#↔C# 최속, zero-encoding) / FlatSharp(FlatBuffers, 역직렬화 없는 접근) / Google.Protobuf·protobuf-net(크로스 언어) / MessagePack-CSharp
+```
+byteCheckSum : byte = -1;   // 0을 쓰면 안된다. 헤더 길이 달라짐
+packetType : ushort;        // 디폴트 값은 저장이 안되니까(패킷 사이즈가 달라짐)해서 1부터 쓴다
+conDataLen : int = -1;      // 0은 저장이 안되니까 -1로 설정 (헤더값 달라짐)
+gage : ushort = 65535;      // 65535는 변경이 없다는 의미
+```
 
-Phase 5에서 3자 벤치마크 후 확정한다. 크로스 언어 클라이언트가 요구사항에 들어오면 결론이 바뀔 수 있으므로 그 전에 워크로드를 확정해야 한다.
+원인은 명확하다. **FlatBuffers는 기본값과 같은 필드를 직렬화하지 않는다.** 그래서 헤더가
+가변 길이가 되고, 고정 길이를 전제로 하는 프레이밍이 깨진다. 이를 `-1`, `65535` 같은
+sentinel 값으로 우회하고 있어 값 공간이 오염되고 새 필드를 추가할 때마다 같은 함정을 밟는다.
+
+### 결정
+**프레임 헤더는 직렬화 라이브러리를 거치지 않는다.** 고정 크기 `struct` +
+`MemoryMarshal`/`BinaryPrimitives`로 직접 읽고 쓴다. 헤더 크기는 컴파일 타임에 확정된다.
+
+직렬화 라이브러리는 **페이로드에만** 적용한다. `docs/ARCHITECTURE.md`의
+"프레이밍과 직렬화를 분리한다" 원칙이 정확히 이 문제를 해결한다.
+
+### 대안과 탈락 이유
+| 대안 | 탈락 이유 |
+|---|---|
+| FlatBuffers 헤더 + sentinel 값 유지 (레거시 방식) | 가변 길이 헤더. 값 공간 오염. 필드 추가마다 재발. 파싱 비용도 불필요하게 발생 |
+| Protobuf 헤더 | 동일 문제. varint + 기본값 생략으로 길이가 가변 |
+| FlatBuffers를 페이로드에서도 배제 | 과잉 대응. 역직렬화 없는 랜덤 접근은 게임 패킷에 실익이 있다. 문제는 포맷이 아니라 용도 오배치였다 |
+
+### 결과
+- 긍정: 헤더 파싱 비용 0. 프레이밍과 직렬화 축을 독립적으로 교체 가능. sentinel 규약 소멸
+- 부정: 헤더 레이아웃 변경이 와이어 호환성을 직접 깬다. 버전 필드를 헤더에 미리 넣어야 한다
+
+### 남은 미결
+**페이로드 직렬화 기본값은 확정하지 않았다.** MemoryPack / FlatSharp /
+Google.Protobuf·protobuf-net / MessagePack-CSharp 4자 벤치마크(Phase 5)로 결정한다.
+레거시가 FlatBuffers 스키마와 생성 코드를 이미 운영 중이므로 승계 비용이 변수다.
+크로스 언어 클라이언트가 요구사항에 들어오면 결론이 바뀐다.
+
+---
+
+## ADR-0003: 목표 워크로드 — 실시간 게임 서버
+
+- **날짜**: 2026-07-30
+- **상태**: 제안 (사용자 확인 대기)
+- **영향 범위**: ROADMAP Phase 순서, `IExecutionModel`, 전송 축 우선순위
+
+### 배경
+"고성능 서버 프레임워크"만으로는 전송·동시성 모델의 우선순위를 정할 수 없다. 실시간 게임과
+일반 API 서버는 요구가 다르다 — 전자는 상시 연결·틱·순서 보장, 후자는 무상태·수평 확장.
+
+### 근거 (레거시 구성에서 도출)
+| 자산 | 시사점 |
+|---|---|
+| `RatingSystem/GlickoM.cs`, `WengLinM.cs` | Glicko / Weng-Lin 레이팅 → 매치메이킹 |
+| `QuadTreeM.cs`, `BoxColliderM.cs`, `HierachyM.cs` | 공간 분할·충돌·씬 계층 → 실시간 시뮬레이션 |
+| `FbsServerTick`, `FbsLoginOk.serverFrequency` | 서버 틱 주기 동기화 |
+| `NetWorkDelayM.cs` | 네트워크 지연 보정 |
+| `UserM.MemPkActionBlock` | 유저별 순서 보장 |
+
+### 제안하는 결정
+목표 워크로드를 **실시간 게임 서버 + 매치메이킹**으로 확정하고, TCP 상시 연결(Phase 4)을
+HTTP 무상태(Phase 8)보다 우선한다.
+
+### 확인 필요
+사용자 승인 전까지 ROADMAP Phase 순서는 변경하지 않았다. 승인되면 Phase 4/8 우선순위를
+교체하고 이 ADR을 `채택`으로 올린다.

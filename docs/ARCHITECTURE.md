@@ -68,8 +68,15 @@ Samples / Tests / Bench
 - **스케일아웃(무상태)**: 세션을 `ISessionStore`로 외부화 → 노드를 자유롭게 추가/제거.
 - **스케일아웃(상태 유지)**: `IClusterMembership` + 파티셔닝 키 라우팅. Phase 10.
 
+## 확정된 것
+
+- **ADR-0002** — 프레임 헤더는 직렬화 라이브러리를 거치지 않는다. 고정 크기 `struct` +
+  `MemoryMarshal`/`BinaryPrimitives`로 직접 처리하고, 직렬화는 페이로드에만 적용한다.
+  위 "프레임 처리 흐름"의 `IFrameDecoder` ↔ `IMessageSerializer` 경계가 이 결정을 구현한다.
+
 ## 미확정
 
-- 목표 워크로드 (게임 실시간 / 일반 API / 혼합) — 전송·동시성 모델의 우선순위를 결정
-- ADR-0001: raw TCP 구현 방식
-- ADR-0002: 기본 직렬화 축
+- **ADR-0003** — 목표 워크로드 (실시간 게임 서버 + 매치메이킹으로 제안, 사용자 확인 대기).
+  전송·동시성 모델의 우선순위를 결정한다
+- **ADR-0001** — raw TCP 구현 방식 (Kestrel Socket Transport 재사용 vs 순수 `Socket`)
+- **ADR-0002 남은 부분** — 페이로드 직렬화 기본값 (Phase 5 벤치마크)

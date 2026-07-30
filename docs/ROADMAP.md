@@ -9,12 +9,13 @@
 
 솔루션 골격과 빌드 규약. 여기서 정한 컴파일 옵션이 이후 모든 성능 작업의 전제가 된다.
 
-- [ ] `ChServerM.sln` 생성, `Server/` `Client/` `Tests/` `Bench/` `Samples/` 솔루션 폴더 구성
-- [ ] `Directory.Build.props` — `net10.0`, C# 14, nullable, `AllowUnsafeBlocks`, `IsAotCompatible`, ServerGC, TieredPGO
-- [ ] `Directory.Packages.props` — 중앙 패키지 버전 관리 활성화
-- [ ] `.editorconfig` — 코드 스타일 + 분석기 심각도 (성능 규칙 CA18xx는 warning-as-error)
-- [ ] `ChServerM.Core` 프로젝트 생성 — 서드파티 의존 0 검증 테스트 포함
-- [ ] CI 스크립트 (build + test + AOT 컴파일 검증)
+- [ ] `ChServerM.sln` 생성, `Server/` `Client/` `Tests/` `Bench/` `Samples/` 솔루션 폴더 구성 (진행 중: `.NET 10` SDK가 `ChServerM.slnx`로 생성. `Server/`·`Tests/` 폴더만 존재 — `dotnet sln add`가 프로젝트 없이 폴더를 만들 수 없어 `Client/`·`Bench/`·`Samples/`는 첫 프로젝트와 함께 추가)
+- [x] `Directory.Build.props` — `net10.0`, C# 14, nullable, `AllowUnsafeBlocks`, `IsAotCompatible`, ServerGC, TieredPGO
+- [x] `Directory.Packages.props` — 중앙 패키지 버전 관리 활성화
+- [x] `.editorconfig` — 코드 스타일 + 분석기 심각도 (Performance·Reliability 카테고리를 error로 승격)
+- [x] `ChServerM.Core` 프로젝트 생성 — 서드파티 의존 0 검증 테스트 포함 (2중 가드: `CHSM0001` MSBuild + `CoreDependencyTests`. 참/거짓 양성 모두 검증)
+- [ ] CI 스크립트 (build + test + AOT 컴파일 검증) (진행 중: `eng/build.ps1` + GitHub Actions 매트릭스 동작 확인. AOT 컴파일 검증은 실행 프로젝트가 없어 미수행 — 스크립트가 사유를 출력하며 Phase 2+ 자동 활성화)
+- [ ] `LegacyServer/` 미판정 자산 정독 — `PacketM.cs`(26K), `MemPacketM.cs`, `AllowedPacketM.cs`, `SendPacketGroupM.cs`, Pool/Concurrent/Scheduler 계열. `docs/LEGACY-INVENTORY.md` 4절 참조
 
 ## Phase 1 — Core 추상화
 
@@ -28,6 +29,7 @@
 - [ ] `ISessionStore` / `ISession` — 상태 저장 추상화
 - [ ] `IServerLogger` / `IMetricsSink` — 관측 추상화
 - [ ] `IPayloadCodec` / `ITransportSecurity`
+- [ ] **`IExecutionModel` — 유저별 순서 보장을 계약에 포함**. 레거시 `UserM.MemPkActionBlock`(TPL Dataflow)이 "한 유저의 패킷은 순서대로 처리"를 보장했고, 이는 게임 서버 필수 요건이다. 글로벌 처리(`NetworkM.gMemPkActionBlock`)와 유저별 처리를 분리하는 축도 함께 반영. 근거: `docs/LEGACY-INVENTORY.md` 3절
 - [ ] 각 축의 `XxxOptions` 타입 + 검증 계약
 - [ ] `docs/ARCHITECTURE.md`에 의존 방향·확장 지점 확정 기록
 
