@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/Server/">
+    <Project Path="Server/ChServerM.Core/ChServerM.Core.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/ChServerM.Core.Tests/ChServerM.Core.Tests.csproj" />
+  </Folder>
+</Solution>

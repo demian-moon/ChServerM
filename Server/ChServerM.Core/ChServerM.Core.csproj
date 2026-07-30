@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM</RootNamespace>
+    <Description>ChServerM 프레임워크의 추상화 계층. 서드파티 의존이 없다.</Description>
+  </PropertyGroup>
+
+  <!--
+    ══════════════════════════════════════════════════════════════
+    하드 룰: 이 프로젝트에는 PackageReference 를 추가하지 않는다.
+    Core 는 추상화·인터페이스·값 타입만 담는다.
+
+    벤더 통합이 필요하면 ChServerM.<축>.<벤더> 어댑터 어셈블리를 만든다.
+    이 규칙은 CoreHasNoThirdPartyDependencies 테스트가 강제한다.
+
+    깨야 한다면 먼저 docs/DECISIONS.md 에 ADR 을 남긴다.
+    ══════════════════════════════════════════════════════════════
+  -->
+
+  <!--
+    선언 시점 가드.
+
+    CoreDependencyTests 는 런타임에 GetReferencedAssemblies() 로 검사하는데,
+    C# 컴파일러는 IL 에서 실제로 쓰이지 않는 어셈블리 참조를 메타데이터에서 제거한다.
+    즉 "참조만 하고 쓰지 않은" 패키지는 그 테스트로 잡히지 않는다.
+    그 구멍을 여기서 막는다 — 선언 자체를 빌드 실패로 만든다.
+  -->
+  <Target Name="EnsureCoreHasNoPackageReferences" BeforeTargets="CoreCompile">
+    <ItemGroup>
+      <!--
+        SDK 가 암묵적으로 넣는 항목은 제외한다.
+        IsAotCompatible=true 는 Microsoft.NET.ILLink.Tasks(트리밍 도구)를 자동 추가하고,
+        분석기·빌드 도구는 PrivateAssets=all 로 소비자에게 흐르지 않는다.
+        우리가 막으려는 것은 "소비자에게 전파되는 벤더 의존"이다.
+      -->
+      <_CoreVendorPackage Include="@(PackageReference)"
+                          Condition="'%(PackageReference.IsImplicitlyDefined)' != 'true'
+                                     AND '%(PackageReference.PrivateAssets)' != 'all'" />
+    </ItemGroup>
+
+    <Error Condition="'@(_CoreVendorPackage)' != ''"
+           Code="CHSM0001"
+           Text="ChServerM.Core 는 서드파티 의존을 가질 수 없다 (CLAUDE.md 하드 룰). 발견된 PackageReference: @(_CoreVendorPackage). 벤더 통합은 ChServerM.&lt;축&gt;.&lt;벤더&gt; 어댑터 어셈블리로 분리하고, 예외가 필요하면 docs/DECISIONS.md 에 ADR 을 먼저 남긴다." />
+  </Target>
+
+</Project>

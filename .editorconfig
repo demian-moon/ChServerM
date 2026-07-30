@@ -1,0 +1,119 @@
+root = true
+
+# ChServerM 코드 스타일 및 분석기 정책
+#
+# 핵심 원칙: 성능·신뢰성 규칙은 error, 취향 규칙은 suggestion.
+# 성능 규칙을 경고로 두면 결국 무시된다. 빌드를 깨야 지켜진다.
+
+[*]
+charset = utf-8
+end_of_line = crlf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{json,yml,yaml,md}]
+indent_size = 2
+
+[*.{csproj,props,targets}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+# ──────────────────────────────────────────────────────────────
+[*.cs]
+
+#### 분석기 카테고리 정책 ####
+
+# 성능 — 이 프로젝트의 존재 이유다. 위반은 빌드 실패.
+# CA1805(불필요한 초기화), CA1825(길이 0 배열 할당), CA1832/1833(AsSpan),
+# CA1835(Memory 오버로드), CA1848(LoggerMessage), CA1859(구체 타입),
+# CA1870(SearchValues 캐시) 등이 모두 여기 포함된다.
+dotnet_analyzer_diagnostic.category-Performance.severity = error
+
+# 신뢰성 — 리소스 누수, ArrayPool 미반납 계열. 레거시에서 실제로 터진 영역이다.
+dotnet_analyzer_diagnostic.category-Reliability.severity = error
+
+# 설계 — public API 표면에 직결된다. 프레임워크이므로 엄격히 본다.
+dotnet_analyzer_diagnostic.category-Design.severity = warning
+
+# 나머지는 참고용. 빌드를 막지 않는다.
+dotnet_analyzer_diagnostic.category-Naming.severity = suggestion
+dotnet_analyzer_diagnostic.category-Documentation.severity = suggestion
+dotnet_analyzer_diagnostic.category-Globalization.severity = suggestion
+dotnet_analyzer_diagnostic.category-Maintainability.severity = suggestion
+
+# XML 문서 누락. Phase 1에서 Core 공개 API가 확정되면 warning으로 올린다.
+dotnet_diagnostic.CS1591.severity = suggestion
+
+#### 언어 규약 ####
+
+# 파일 스코프 네임스페이스 — CLAUDE.md 규약
+csharp_style_namespace_declarations = file_scoped:error
+
+# var 는 우변에서 타입이 자명할 때만
+csharp_style_var_for_built_in_types = false:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_var_elsewhere = false:suggestion
+
+# using 은 명시적. ImplicitUsings=disable 과 짝을 이룬다.
+dotnet_sort_system_directives_first = true
+csharp_using_directive_placement = outside_namespace:error
+
+# 불변성 우선
+dotnet_style_readonly_field = true:warning
+csharp_prefer_static_local_function = true:warning
+csharp_style_prefer_readonly_struct = true:warning
+csharp_style_prefer_readonly_struct_member = true:warning
+
+# 표현식 우선 (핫패스 가독성)
+csharp_style_expression_bodied_methods = when_on_single_line:suggestion
+csharp_style_expression_bodied_properties = true:suggestion
+csharp_style_throw_expression = true:suggestion
+
+# 패턴 매칭
+csharp_style_prefer_pattern_matching = true:suggestion
+csharp_style_prefer_switch_expression = true:suggestion
+csharp_style_prefer_not_pattern = true:suggestion
+
+# 중괄호는 항상. 조건부 컴파일과 섞였을 때 사고를 막는다.
+csharp_prefer_braces = true:warning
+
+# 접근 수준 명시
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:warning
+
+#### 서식 ####
+csharp_new_line_before_open_brace = all
+csharp_new_line_before_else = true
+csharp_new_line_before_catch = true
+csharp_new_line_before_finally = true
+csharp_indent_case_contents = true
+csharp_indent_switch_labels = true
+csharp_space_after_cast = false
+csharp_space_after_keywords_in_control_flow_statements = true
+csharp_preserve_single_line_blocks = true
+
+# ──────────────────────────────────────────────────────────────
+# 테스트 — 프로덕션 규칙을 그대로 적용하지 않는다.
+# 테스트는 의도를 드러내는 것이 성능보다 중요하다.
+[Tests/**/*.cs]
+dotnet_analyzer_diagnostic.category-Performance.severity = suggestion
+dotnet_analyzer_diagnostic.category-Design.severity = suggestion
+dotnet_diagnostic.CS1591.severity = none
+
+# Method_name_with_underscores 는 테스트 명명 관례다.
+dotnet_diagnostic.CA1707.severity = none
+
+# ──────────────────────────────────────────────────────────────
+# 벤치마크 — BenchmarkDotNet 은 public 메서드/비봉인 클래스를 요구한다.
+[Bench/**/*.cs]
+dotnet_analyzer_diagnostic.category-Design.severity = suggestion
+dotnet_diagnostic.CA1822.severity = none
+dotnet_diagnostic.CS1591.severity = none
+
+# ──────────────────────────────────────────────────────────────
+# 생성 코드 — 소스 제너레이터 산출물에는 규칙을 적용하지 않는다.
+[*.{g,generated}.cs]
+generated_code = true

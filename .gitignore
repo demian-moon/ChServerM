@@ -3,6 +3,11 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
+# 레거시 서버 — 로컬 참조 전용. 이 저장소에 승계하지 않는다.
+# 설계 비교·자산 판정 근거로만 읽고, 코드는 새로 작성하거나 개선해 옮긴다.
+# 판정 결과는 docs/LEGACY-INVENTORY.md 에 기록한다.
+/LegacyServer/
+
 # User-specific files
 *.rsuser
 *.suo

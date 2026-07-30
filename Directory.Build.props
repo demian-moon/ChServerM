@@ -1,0 +1,52 @@
+<Project>
+
+  <!--
+    모든 ChServerM 프로젝트의 공통 컴파일 규약.
+    여기서 정한 값이 이후 모든 성능 작업의 전제가 된다. 개별 csproj에서 재정의하지 않는다.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>14.0</LangVersion>
+    <Nullable>enable</Nullable>
+
+    <!-- 프레임워크 코드는 의존성이 명시적이어야 한다. 암묵적 using은 쓰지 않는다. -->
+    <ImplicitUsings>disable</ImplicitUsings>
+
+    <!-- 핫패스에서 Span/포인터/MemoryMarshal을 쓴다. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <!-- public API 문서가 제품의 일부다. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!--
+      AOT/트리밍 분석기를 켜는 장치.
+      런타임 리플렉션이 유입되면 컴파일 타임에 경고로 잡힌다 — 이것이 목적이고,
+      실제 Native AOT 배포 여부와는 별개다.
+    -->
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>All</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- 결정적 빌드 — 벤치마크 재현성의 전제. -->
+    <Deterministic>true</Deterministic>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <!--
+    런타임 GC/JIT 설정. 라이브러리에는 영향이 없고 실행 가능 프로젝트의
+    runtimeconfig.json 에만 반영된다.
+  -->
+  <PropertyGroup>
+    <ServerGarbageCollector>true</ServerGarbageCollector>
+    <ConcurrentGarbageCollector>true</ConcurrentGarbageCollector>
+    <TieredPGO>true</TieredPGO>
+  </PropertyGroup>
+
+</Project>

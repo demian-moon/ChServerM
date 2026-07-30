@@ -1,0 +1,30 @@
+<Project>
+
+  <!--
+    중앙 패키지 버전 관리.
+    개별 csproj는 <PackageReference Include="..."/> 만 쓰고 Version 을 적지 않는다.
+    버전은 전부 여기서 결정한다.
+  -->
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup Label="Testing">
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+  </ItemGroup>
+
+  <!--
+    축 어댑터 패키지는 해당 Phase에 진입할 때 추가한다.
+    ADR 없이 여기에 항목을 늘리지 않는다 — docs/DECISIONS.md 참조.
+      Serialization : MemoryPack / Google.Protobuf / FlatSharp
+      Transport     : Microsoft.AspNetCore.Connections.Abstractions
+      Observability : ZLogger / OpenTelemetry
+      Benchmark     : BenchmarkDotNet / NBomber
+  -->
+
+</Project>

@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # 같은 브랜치에 새 푸시가 오면 진행 중인 실행을 취소한다.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build · test · aot (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # 서버는 Linux 배포가 주 대상이지만 개발은 Windows 에서 한다.
+        # 소켓 계층은 두 플랫폼에서 동작이 갈리므로 양쪽을 모두 돌린다.
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ matrix.os }}-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ matrix.os }}-
+
+      # 로컬과 동일한 스크립트를 쓴다. CI 에서만 깨지는 상황을 막는다.
+      - name: Build · Test · AOT
+        shell: pwsh
+        run: ./eng/build.ps1 -Configuration Release -WarnAsError
