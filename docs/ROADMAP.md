@@ -12,12 +12,33 @@
 4. 라이브러리·아키텍처 선택이 있었으면 **ADR**이 `docs/DECISIONS.md`에 있을 때
 5. 축을 추가했으면 **두 번째 구현체 또는 교체 테스트**가 있을 때 (추상화가 실제로 교체 가능함을 증명)
 
+## 검증용 참조 프로필 (ADR-0004)
+
+**이 프레임워크에는 목표 워크로드가 없다.** 축 구현체의 조합이 워크로드를 만든다.
+Phase 순서는 워크로드가 아니라 **"무엇이 추상화를 먼저 증명하는가"**로 정한다.
+
+대신 조립 가능성을 증명하는 참조 프로필 2개를 상시 유지한다. `Samples/`의 산출물이다.
+
+| 프로필 | 축 조합 | 증명하는 것 |
+|---|---|---|
+| `realtime-stateful` | TCP + 고정 헤더 프레이밍 + 유저별 순서 보장 실행 모델 + 인메모리 세션 | 상시 연결, 순서 보장, 커넥션 생명주기 |
+| `stateless-web` | HTTP/Kestrel + 무상태 + 외부 세션 저장소 + 병렬 실행 모델 | 세션 외부화, 수평 확장, 전송 교체 |
+
+**두 프로필이 같은 핸들러 코드로 동작해야 한다. 이것이 조립 가능성의 합격 기준이다.**
+한쪽만 도는 추상화는 추상화가 아니다.
+
+`realtime-stateful`을 먼저 세우는 이유는 선호가 아니라 검증 효율이다 — 프레이밍·순서 보장·
+커넥션 생명주기를 모두 통과해야 하므로 추상화를 더 강하게 압박한다. `stateless-web`은
+상당 부분 그 부분집합이다.
+
 ## Part 진행 규칙
 
 - Part 안에서는 Phase 순서를 지킨다. Part 사이는 게이트가 열리면 병행 가능하다.
 - **Part III(프로덕션 필수)를 건너뛰고 Part IV 이후로 가지 않는다.** 보안·복원력 없는 기능 추가는 부채다.
 - 각 Phase의 **게이트**는 다음 Phase로 넘어갈 최소 조건이다. 전 항목 완료가 아니라 게이트 충족이 기준이다.
 - ⚠ 표시 항목은 되돌리기 비용이 큰 결정이다. ADR 없이 진행하지 않는다.
+- **Part V(실시간 프리미티브)는 선택 축이다.** 전부 빼도 프레임워크가 성립해야 한다.
+  성립하지 않으면 Core가 도메인에 오염된 것이므로 Core를 고친다.
 
 ## 2026-07-31 Phase 재배치
 
@@ -83,7 +104,7 @@ Core에 들어간 인터페이스는 되돌리기 비용이 가장 크다 — �
 - [ ] `IServerTransport` / `IClientTransport` / `IConnection` — 전송 중립 커넥션 추상화
 - [ ] `IMessageDispatcher` / `IMessageHandler<T>` — 디스패치 계약
 - [ ] `IServerMiddleware` + 파이프라인 델리게이트 타입 — Chain of Responsibility 계약
-- [ ] ⚠ **`IExecutionModel` — 유저별 순서 보장을 계약에 포함**. 레거시 `UserM.MemPkActionBlock`(TPL Dataflow)이 "한 유저의 패킷은 순서대로 처리"를 보장했고, 이는 게임 서버 필수 요건이다. 글로벌 처리(`NetworkM.gMemPkActionBlock`)와 유저별 처리를 분리하는 축도 함께 반영. 근거: `docs/LEGACY-INVENTORY.md` 3절
+- [ ] ⚠ **`IExecutionModel` — 유저별 순서 보장을 *표현할 수 있어야* 한다**. 계약이 이 전략을 강제하는 것이 아니라, 필요한 프로필이 선택할 수 있어야 한다는 뜻이다. `realtime-stateful`은 이 전략을 쓰고 `stateless-web`은 병렬 실행을 쓴다 — **하나의 계약이 양쪽을 수용해야 한다.** 근거: 레거시 `UserM.MemPkActionBlock`(TPL Dataflow, 유저 단위 직렬) vs `NetworkM.gMemPkActionBlock`(글로벌). `docs/LEGACY-INVENTORY.md` 3절
 - [ ] `ISessionStore` / `ISession` — 상태 저장 추상화
 - [ ] `IServerLogger` / `IMetricsSink` — 관측 추상화
 - [ ] `IPayloadCodec` — 압축 계약
@@ -111,10 +132,12 @@ Core에 들어간 인터페이스는 되돌리기 비용이 가장 크다 — �
 - [ ] 옵션 검증 — 잘못된 축 조합을 **시작 시점에** 실패시킨다 (런타임에 발견되면 프로덕션 장애)
 - [ ] 설정 소스 — `IConfiguration` 통합, 환경별 오버레이. 레거시 INI 방식은 폐기 (`docs/LEGACY-INVENTORY.md` 3절)
 - [ ] `ClientBuilder` 대칭 구성
+- [ ] ⚠ **인메모리 루프백 전송** — `ChServerM.Transport.InMemory`. 소켓 없이 파이프라인을 끝까지 도는 전송. **전송 축의 두 번째 구현체 역할**을 싸게 수행해 추상화가 진짜 전송 중립인지 조기에 증명한다. 통합 테스트의 기본 전송이 되어 테스트 속도도 올라간다 (Kestrel의 인메모리 전송과 같은 발상)
 - [ ] 조립 테스트 — 축을 교체해도 컴파일·동작이 유지되는지 검증
 - [ ] 첫 실행 가능 프로젝트(`Samples/`) — 이 시점부터 CI의 **AOT 컴파일 검증이 활성화**된다
 
-**게이트**: 축을 교체한 두 가지 조합이 같은 샘플에서 동작하고, AOT publish가 성공할 때.
+**게이트**: 같은 핸들러 코드가 인메모리 전송과 (Phase 5 이후) TCP 전송 양쪽에서 동작하고, AOT publish가 성공할 때.
+전송 축이 두 구현으로 증명되기 전까지 `IServerTransport`는 가설로 취급한다(ADR-0000).
 
 ---
 
@@ -280,15 +303,16 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 - [ ] `ChServerM.Persistence.Redis` (StackExchange.Redis)
 - [ ] 로컬 KV 검토 (Tsavorite / Garnet)
 - [ ] MongoDB 어댑터 검토 — 레거시 `DBManager/MongoDBManagerM.cs` 판정 필요
-- [ ] ⚠ 세션 복구 / 재접속 — 끊긴 클라이언트가 상태를 잃지 않고 돌아오는 경로. 게임 서버 필수
+- [ ] ⚠ 세션 복구 / 재접속 — 끊긴 클라이언트가 상태를 잃지 않고 돌아오는 경로. `realtime-stateful` 프로필 필수
 - [ ] 일관성 모델 명시 — 무엇이 강한 일관성이고 무엇이 최종 일관성인가
 - [ ] 캐시 무효화 전략
 - [ ] 커넥션 풀 관리 / 외부 저장소 장애 시 동작
 - [ ] 벤치마크: 세션 조회·갱신 레이턴시
 
-## Phase 14 — 데이터 테이블 & 설정
+## Phase 14 — 데이터 테이블 & 설정 (선택 축)
 
-게임 서버 필수 계층. 레거시가 상당한 자산을 갖고 있다.
+정적 데이터 테이블을 로드해 서비스하는 서버는 흔하다 — 게임 밸런스 테이블, 요금표,
+룰 엔진 설정, 피처 플래그. `ChServerM.DataTable.*`로 분리한다. 레거시가 상당한 자산을 갖고 있다.
 
 - [ ] 정적 데이터 테이블 로딩 — 레거시 `Table/SrvTableM.cs`, `AbSrvTableM.cs`, `PublicLib/FileM/MetaDataM.cs`, `LoadableDataInStructM.cs` 판정 필요
 - [ ] CSV/Excel 임포트 검토 — 레거시 `CsvParser.cs`, `ExcelLibM/`. 빌드 타임 변환 vs 런타임 파싱
@@ -310,8 +334,12 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 
 ## Phase 16 — 대체 전송
 
+`stateless-web` 참조 프로필이 완성되는 지점. **여기서 "두 프로필이 같은 핸들러로 동작"이
+프로덕션 수준으로 증명된다** (Phase 2의 인메모리 전송이 그 예비 증명이었다).
+
 - [ ] `ChServerM.Transport.Http` — Kestrel 기반, 동일 파이프라인 재사용
 - [ ] 무상태 모드 — 세션을 `ISessionStore`로 외부화
+- [ ] **`stateless-web` 프로필 완성** — `realtime-stateful`과 동일한 핸들러 코드로 동작함을 통합 테스트로 고정
 - [ ] `ChServerM.Transport.WebSocket`
 - [ ] ⚠ `ChServerM.Transport.Udp` — 신뢰 UDP(순서·재전송·단편화). 실시간 게임에서 TCP head-of-line blocking 회피용. 자체 구현 vs LiteNetLib/ENet 어댑터 판단 필요
 - [ ] QUIC / HTTP/3 (`System.Net.Quic`) 검토
@@ -319,10 +347,14 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 
 ---
 
-# Part V — 실시간 게임 프리미티브 (선택 축)
+# Part V — 실시간 프리미티브 (선택 축)
 
-ADR-0003(목표 워크로드 = 실시간 게임 서버)에 따른 계층.
-**프레임워크는 프리미티브만 제공하고 게임 로직은 `Samples/`에 둔다.** 별도 NuGet 패키지로 분리해 필요 없는 사용자가 끌고 오지 않게 한다.
+**전부 빼도 프레임워크가 성립해야 한다** (ADR-0004). Core는 이 Part의 존재를 알지 않는다.
+`ChServerM.RealTime.*` 별도 패키지로 격리해, 쓰지 않는 사용자가 의존을 끌고 오지 않게 한다.
+
+실시간 상시 연결 워크로드에서 반복적으로 필요한 것들을 프리미티브로 제공한다.
+게임에만 쓰이는 것은 아니다 — 협업 편집, 실시간 대시보드, IoT 텔레메트리도 같은 프리미티브를 쓴다.
+도메인 로직(레이팅 공식, 충돌 판정 등)은 프레임워크가 아니라 `Samples/`에 둔다.
 
 ## Phase 17 — 틱 & 시간 동기화
 
@@ -337,12 +369,15 @@ ADR-0003(목표 워크로드 = 실시간 게임 서버)에 따른 계층.
 
 - [ ] 룸/채널 추상화 — 생성·참가·퇴장·해산 생명주기
 - [ ] 브로드캐스트 최적화 — 같은 페이로드를 N명에게 보낼 때 직렬화 1회
-- [ ] 관심 영역(AOI) — 레거시 `QuadTreeM.cs` 판정 필요. 공간 분할로 브로드캐스트 대상 축소
+- [ ] 관심 영역(AOI) — 레거시 `QuadTreeM.cs` 판정 필요. 공간 분할로 브로드캐스트 대상 축소. 공간이 없는 워크로드는 이 축을 쓰지 않는다
 - [ ] 충돌·공간 질의 — 레거시 `BoxColliderM.cs`, `MathM.cs`, `HierachyM.cs` 판정 필요
 - [ ] 스냅샷 / 델타 압축 — 변경분만 전송
 - [ ] 벤치마크: 룸 인원 대비 브로드캐스트 비용
 
-## Phase 19 — 매치메이킹 & 레이팅
+## Phase 19 — 매치메이킹 & 레이팅 (선택 축)
+
+대기열에서 조건에 맞는 참가자를 묶는 문제는 게임 밖에서도 나타난다 —
+대전 매칭, 배차, 상담 배정. 레이팅 공식 자체는 도메인이므로 `Samples/`에 둘 수도 있다.
 
 - [ ] 레이팅 시스템 — 레거시 `RatingSystem/GlickoM.cs`, `WengLinM.cs` 판정 필요
 - [ ] 매치메이킹 큐 — 대기 시간 vs 매칭 품질 트레이드오프

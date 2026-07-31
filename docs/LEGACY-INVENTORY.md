@@ -13,9 +13,12 @@
 
 ---
 
-## 1. 확정된 사실 — 목표 워크로드
+## 1. 레거시가 요구했던 능력
 
-레거시 구성이 워크로드를 사실상 특정한다. **실시간 게임 서버 + 매치메이킹**:
+**주의**: 이 절의 초판은 레거시 구성에서 "목표 워크로드 = 실시간 게임 서버"를 역추론했다.
+그 해석은 ADR-0004로 폐기됐다. ChServerM은 특정 워크로드용 서버가 아니라 워크로드를
+조립해내는 프레임워크다. 아래 증거가 증명하는 것은 제품의 정체가 아니라
+**프레임워크가 표현할 수 있어야 하는 능력**이다.
 
 - `RatingSystem/GlickoM.cs`, `WengLinM.cs` — Glicko / Weng-Lin 레이팅 (매치메이킹)
 - `QuadTreeM.cs`, `BoxColliderM.cs`, `MathM.cs`, `HierachyM.cs` — 공간 분할 · 충돌 · 씬 계층
@@ -23,7 +26,9 @@
 - `NetWorkDelayM.cs` — 네트워크 지연 보정
 - `DBManager/MongoDBManagerM.cs` — MongoDB 영속화
 
-→ ROADMAP 우선순위에 반영: TCP 상시 연결(Phase 5)이 HTTP 무상태(Phase 16)보다 우선. 사용자 확인 필요.
+→ 반영 결과: 이들은 전부 **선택 축**이 됐다. `IExecutionModel`이 유저별 순서 보장을
+*표현할 수 있어야* 한다는 요건(Phase 1)만 Core 계약에 남고, 틱·공간 분할·레이팅은
+`ChServerM.RealTime.*` 별도 패키지(Part V)로 격리된다. 근거: ADR-0004.
 
 ---
 
@@ -108,7 +113,7 @@ ServerM (abstract) ─ ServerStart() / AppStart()  ← 상속해서 비즈니스
 | `ServerM` abstract + `AppStart()` 상속 모델 | **개작** | Template Method는 옳지만, 우리는 상속 대신 `ServerBuilder` 조립(Phase 2)으로 간다. 상속 강제는 확장성을 제약 |
 | `MemPkDispatcher` `Dictionary<E_PACKET_TYPE, ...>` | **개작** | 딕셔너리 조회 → 소스 생성 스위치 테이블(Phase 7). 중복/누락 패킷 ID를 컴파일 타임에 검출 |
 | `AbMemPkAction` 패킷별 핸들러 (Command) | **승계** | `IMessageHandler<T>`로 직결 |
-| **`UserM.MemPkActionBlock` — 유저별 ActionBlock** | **승계 (중요)** | TPL Dataflow. **한 유저의 패킷을 순서대로 처리하는 보장**. 게임 서버 필수 요건이며 `IExecutionModel`(Phase 1 계약 / Phase 8 구현) 설계에 반드시 반영해야 한다 |
+| **`UserM.MemPkActionBlock` — 유저별 ActionBlock** | **승계 (중요)** | TPL Dataflow. **한 유저의 패킷을 순서대로 처리하는 보장**. `IExecutionModel`(Phase 1 계약 / Phase 8 구현)이 이 전략을 **표현할 수 있어야** 한다. 강제하는 것이 아니라 `realtime-stateful` 프로필이 선택하는 전략이다 — `stateless-web`은 병렬 실행을 쓴다 |
 | `NetworkM.gMemPkActionBlock` 글로벌 처리 | **승계** | 글로벌/유저별 처리 분리는 옳은 축 |
 | `UserM : IObservable` | **미판정** | Observer. 우리 이벤트 버스와 겹치는지 확인 필요 |
 | `IniOptionM` / `IniSrvOptionM` / `IniClntOptionM` (INI 설정) | **폐기** | Options 패턴 + `IValidateOptions<T>`로 대체 |

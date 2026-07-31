@@ -70,13 +70,15 @@ Samples / Tests / Bench
 
 ## 확정된 것
 
+- **ADR-0004** — 프레임워크에 목표 워크로드는 없다. 축 조합이 워크로드를 만든다.
+  검증용 참조 프로필 2개(`realtime-stateful`, `stateless-web`)를 상시 유지하고,
+  **두 프로필이 같은 핸들러 코드로 동작하는 것**이 조립 가능성의 합격 기준이다.
+  실시간 프리미티브(틱·룸·AOI)는 선택 패키지이며 Core는 그 존재를 알지 않는다.
 - **ADR-0002** — 프레임 헤더는 직렬화 라이브러리를 거치지 않는다. 고정 크기 `struct` +
   `MemoryMarshal`/`BinaryPrimitives`로 직접 처리하고, 직렬화는 페이로드에만 적용한다.
   위 "프레임 처리 흐름"의 `IFrameDecoder` ↔ `IMessageSerializer` 경계가 이 결정을 구현한다.
 
 ## 미확정
 
-- **ADR-0003** — 목표 워크로드 (실시간 게임 서버 + 매치메이킹으로 제안, 사용자 확인 대기).
-  전송·동시성 모델의 우선순위를 결정한다
 - **ADR-0001** — raw TCP 구현 방식 (Kestrel Socket Transport 재사용 vs 순수 `Socket`)
 - **ADR-0002 남은 부분** — 페이로드 직렬화 기본값 (Phase 6 벤치마크)
