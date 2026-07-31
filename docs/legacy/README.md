@@ -28,13 +28,14 @@
 | [00-overview.md](00-overview.md) | 전체 구조, 데이터 흐름, 의존 관계, 발견 요약 | 작성 중 |
 | [01-network-transport.md](01-network-transport.md) | 서버 부트스트랩, 소켓 수락, Pipelines, 전송 샤딩 | ✅ |
 | [02-packet-framing.md](02-packet-framing.md) | 패킷 구조, 프레이밍, FlatBuffers 래퍼, 화이트리스트 | ✅ |
-| [03-buffer-memory.md](03-buffer-memory.md) | 풀링, 스택 할당 | 예정 |
-| [04-concurrency.md](04-concurrency.md) | 실행기, 스케줄러, 시그널, SparseSet | 예정 |
-| [05-session-user.md](05-session-user.md) | 유저 모델, 세션, 멤버 그룹 | 예정 |
+| [03-ecs-object-model.md](03-ecs-object-model.md) | ECS 컴포넌트, 공간·충돌, 모튼 코드 | ✅ |
+| [04-concurrency.md](04-concurrency.md) | 실행기, 스케줄러(4종), 타이밍 휠, 시그널, SparseSet | ✅ |
+| [05-client.md](05-client.md) | **레거시 클라이언트** — 소스 공유 모델, 핸드셰이크 전체, 시각 동기화 | ✅ |
+| [06-session-user.md](06-session-user.md) | 유저 모델, Inner/Wrapper, 옵저버, 전역 OID | ✅ |
 | [06-data-table.md](06-data-table.md) | 메타데이터, INI, 파일, CSV/Excel | 예정 |
-| [07-persistence.md](07-persistence.md) | MongoDB | 예정 |
-| [08-security.md](08-security.md) | 압축·암호화, 인증, 해시 | 예정 |
-| [09-observability.md](09-observability.md) | 로깅, 통계 | 예정 |
+| [07-security.md](07-security.md) | 압축·암호화, 인증, 만료 KV | ✅ |
+| [08-persistence.md](08-persistence.md) | MongoDB 파사드, 재시도, 스키마 | ✅ |
+| [09-observability.md](09-observability.md) | 로깅(log4net), 로그 수집기, IQR 통계 | ✅ |
 | [10-time.md](10-time.md) | 틱, 타이머, 시간 유틸 | 예정 |
 | [11-domain-util.md](11-domain-util.md) | 계층 구조, 충돌, 수학, 레이팅, 유틸 | 예정 |
 | [12-discarded.md](12-discarded.md) | 폐기 확정 + 빈 파일 | 예정 |
@@ -70,27 +71,27 @@
 | 줄수 | 파일 | 판정 | 문서 |
 |---:|---|---|---|
 | 823 | `PacketM.cs` | 🟡 개작 | [02](02-packet-framing.md#packetm-struct) |
-| 470 | `UserM.cs` | ⏳ | 05 |
+| 470 | `UserM.cs` | 🟡 개작 | [06](06-session-user.md#inneruserm) |
 | 426 | `AllowedPacketM.cs` | 🟢 승계 | [02](02-packet-framing.md) |
 | 333 | `PkObjM.cs` | 🟡 개작 | [02](02-packet-framing.md#pkobjm) |
 | 295 | `MemPacketM.cs` | 🟡 개작 | [02](02-packet-framing.md) |
-| 273 | `CompressAndEncryptM.cs` | ⏳ | 08 |
+| 273 | `CompressAndEncryptM.cs` | 🔴 폐기 | [07](07-security.md#compressandencryptm) |
 | 172 | `IniOptionM.cs` | ⏳ | 06 |
-| 111 | `MembersM.cs` | ⏳ | 05 |
+| 111 | `MembersM.cs` | 🔵 참고 | [06](06-session-user.md#membersmcs--대부분이-주석이다) |
 | 100 | `NetWorkM.cs` | 🟡 개작 | [01](01-network-transport.md#abnetworkbase) |
-| 72 | `GlobalM.cs` | ⏳ | 05 |
+| 72 | `GlobalM.cs` | 🟡 개작 | [06](06-session-user.md#globalm--compressandencryptmanm) |
 | 66 | `SendPacketM.cs` | 🔴 폐기 | [02](02-packet-framing.md#sendpacketm) |
 | 25 | `CommonInterfaceM.cs` | 🔵 참고 | [01](01-network-transport.md#commoninterfacem) |
 | 28 | `SrvClaFuncM/SrvClaFuncM.cs` | 🔵 참고 | [01](01-network-transport.md#srvclafuncm) |
 | 5 | `AbTableBaseM.cs` | ⚪ 빈 파일 | [12](12-discarded.md) |
-| 870 | `ConcurSeqTaskExecM.cs` | ⏳ | 04 |
+| 870 | `ConcurSeqTaskExecM.cs` | 🟡 개작 | [04](04-concurrency.md) |
 | 1073 | `FileM/InIFileM.cs` | ⏳ | 06 |
 | 740 | `FileM/MetaDataM.cs` | ⏳ | 06 |
 | 349 | `FileM/FileM.cs` | ⏳ | 06 |
 | 193 | `FileM/StringAnalyzerM.cs` | ⏳ | 06 |
 | 170 | `FileM/LoadableDataInStructM.cs` | ⏳ | 06 |
 | 84 | `FileM/FileWatcherSystemM.cs` | ⏳ | 06 |
-| 165 | `Logger/LogM.cs` | ⏳ | 09 |
+| 165 | `Logger/LogM.cs` | 🔴 폐기 | [09](09-observability.md#ablogmt--log4netm) |
 
 ### `BasicLibM/` — 범용 라이브러리
 
@@ -98,27 +99,27 @@
 |---:|---|---|---|
 | 2166 | `ExcelLibM/ExcelLibM.cs` | ⏳ | 06 |
 | 927 | `ExcelLibM/ExcelODBCM.cs` | ⏳ | 06 |
-| 876 | `Scheduler/TimeEventSchedulerM.cs` | ⏳ | 04 |
-| 696 | `Concurrent/DataStructure/SparseSetM.cs` | ⏳ | 04 |
+| 876 | `Scheduler/TimeEventSchedulerM.cs` | 🟢 승계 | [04](04-concurrency.md#timeeventschedulerm--5단-계층적-타이밍-휠) |
+| 696 | `Concurrent/DataStructure/SparseSetM.cs` | 🟡 개작 | [04](04-concurrency.md#sparsesetmt-계열-4종) |
 | 610 | `DateTimeStartEndM.cs` | ⏳ | 10 |
 | 307 | `BigIntM.cs` | ⏳ | 11 |
-| 245 | `Scheduler/ExpireEventConCurSchedulerM.cs` | ⏳ | 04 |
-| 248 | `Log4Net/TcpLogRecieverM.cs` | ⏳ | 09 |
+| 245 | `Scheduler/ExpireEventConCurSchedulerM.cs` | 🔴 폐기 | [04](04-concurrency.md) |
+| 248 | `Log4Net/TcpLogRecieverM.cs` | 🔵 참고 | [09](09-observability.md) |
 | 226 | `HangulM/HangulM.cs` | ⏳ | 11 |
-| 186 | `JobSystemM.cs` | ⏳ | 04 |
+| 186 | `JobSystemM.cs` | 🔵 참고 | [04](04-concurrency.md) |
 | 183 | `TimeM.cs` | ⏳ | 10 |
 | 182 | `CsvParser.cs` | ⏳ | 06 |
-| 148 | `Signal/AsyncManualResetEventM.cs` | ⏳ | 04 |
+| 148 | `Signal/AsyncManualResetEventM.cs` | 🟢 승계 | [04](04-concurrency.md#asyncmanualreseteventm--무할당-비동기-시그널) |
 | 134 | `Pool/MemoryPoolM.cs` | ⏳ | 03 |
-| 130 | `HashM.cs` | ⏳ | 08 |
-| 124 | `Concurrent/ConcurrentQueueExecutorM.cs` | ⏳ | 04 |
-| 94 | `Concurrent/ExecutableTaskDispatcherM.cs` | ⏳ | 04 |
-| 92 | `Scheduler/ConcurrentSchedulerM.cs` | ⏳ | 04 |
+| 130 | `HashM.cs` | 🟡 개작 | [07](07-security.md#hashm--expirehasheventm--만료-지원-kv-저장소) |
+| 124 | `Concurrent/ConcurrentQueueExecutorM.cs` | 🟢 승계 | [04](04-concurrency.md) |
+| 94 | `Concurrent/ExecutableTaskDispatcherM.cs` | 🟢 승계 | [04](04-concurrency.md#executabletaskdispatcherm--락-없는-단일-소유자-디스패처) |
+| 92 | `Scheduler/ConcurrentSchedulerM.cs` | 🔴 폐기 | [04](04-concurrency.md) |
 | 79 | `RegM.cs` | ⏳ | 11 |
 | 76 | `SerializeM.cs` | ⚪ 빈 파일(참고) | [02](02-packet-framing.md#serializem) |
 | 72 | `StringBuilderM.cs` | ⏳ | 11 |
 | 49 | `StackMemAllocM.cs` | ⏳ | 03 |
-| 36 | `AuthM/AuthM.cs` | ⏳ | 08 |
+| 36 | `AuthM/AuthM.cs` | 🟢 승계 | [07](07-security.md#authm--유일하게-올바른-보안-컴포넌트) |
 | 32 | `Pool/ObjectPoolM.cs` | 🟡 개작 | [03](03-buffer-memory.md#objectpoolmt) |
 | 29 | `Memory/UnsafeCopyBlock.cs` | ⚪ 빈 파일 | [12](12-discarded.md) |
 | 8 | `QuadTreeM.cs` | ⚪ 빈 파일 | [12](12-discarded.md) |
@@ -130,17 +131,29 @@
 
 | 줄수 | 파일 | 판정 | 문서 |
 |---:|---|---|---|
-| 714 | `DBManager/MongoDBManagerM.cs` | ⏳ | 07 |
-| 38 | `DBManager/DBManagerM.cs` | ⏳ | 07 |
-| 24 | `DBManager/SrvUserAuthM.cs` | ⏳ | 07 |
+| 714 | `DBManager/MongoDBManagerM.cs` | 🟡 개작 | [08](08-persistence.md#mongodbmanagerm) |
+| 38 | `DBManager/DBManagerM.cs` | 🔴 폐기 | [08](08-persistence.md#dbmanagerm-싱글턴) |
+| 24 | `DBManager/SrvUserAuthM.cs` | 🟡 개작 | [08](08-persistence.md#srvuserauthm) |
 | 626 | `RatingSystem/WengLinM.cs` | ⏳ | 11 |
 | 301 | `RatingSystem/GlickoM.cs` | ⏳ | 11 |
 | 299 | `PublicUtil/TickTimeM.cs` | ⏳ | 10 |
 | 163 | `PublicUtil/TimerM.cs` | ⏳ | 10 |
-| 151 | `PublicUtil/StatisticsM.cs` | ⏳ | 09 |
+| 151 | `PublicUtil/StatisticsM.cs` | 🟢 승계 | [09](09-observability.md#interquartilemt--iqr-이상치-제거) |
 | 205 | `PublicUtil/ScreenLibM/ScreenLibM.cs` | 🔴 폐기 | 12 |
 | 457 | `Script/ScriptM.cs` | 🔴 폐기 | 12 |
 | 85 | `Script/ScriptUtilM.cs` | 🔴 폐기 | 12 |
 | 76 | `Table/SrvTableM.cs` | ⏳ | 06 |
 | ~600 | `FbsClassM/` (9 파일) | 🔴 폐기/🔵 참고 | [02](02-packet-framing.md) |
 | — | `Unused/` (8 파일) | 🔴 폐기 | 12 |
+
+### `LagacyClient/` — 레거시 클라이언트 (로컬 참조 전용)
+
+`.NET Framework 4.8` 타깃. 서버 소스 36개를 **파일 링크로 공유**한다 → [05-client.md](05-client.md)
+
+| 줄수 | 파일 | 판정 | 문서 |
+|---:|---|---|---|
+| 749 | `ClientM.cs` | 🟡 개작 | [05](05-client.md#clientm) |
+| 408 | `IoPipelineClaM.cs` | 🔴 폐기(중복) | [05](05-client.md#iopipelineclam) |
+| 66 | `ClientTimeM.cs` | 🟢 승계 | [05](05-client.md#clienttimem--시각-동기화-유틸) |
+| 59 | `TimerClaM.cs` | 🟡 개작 | [05](05-client.md) |
+| 16 | `IniOptionClaM.cs` | 🔴 폐기 | [05](05-client.md) |

@@ -18,7 +18,9 @@
 |---|---|
 | `HierachyM.cs` | `Entity`, `entity.Get<T>()` — 컴포넌트 정의와 접근 |
 | `BoxColliderM.cs` | 충돌 컴포넌트 |
-| `DBManager/MongoDBManagerM.cs` | (확인 필요 — 영속화에 Entity가 섞였을 가능성) |
+| ~~`DBManager/MongoDBManagerM.cs`~~ | **정정**: `using Arch.Core;`가 있으나 **미사용 잉여 using**이다. ECS를 쓰지 않는다 → [08-persistence.md](08-persistence.md#문서-03-정정--mongodb는-ecs를-쓰지-않는다) |
+
+**따라서 ECS를 실제로 쓰는 파일은 2개뿐이다.**
 
 네트워크·패킷·세션 계층(문서 01·02)은 ECS와 무관하게 전통적 OOP다. 즉 **ECS는 게임 오브젝트 계층에만 국소 적용**된 상태다.
 

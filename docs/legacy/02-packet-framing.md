@@ -120,7 +120,7 @@ ChServerM은 **이 결정을 되돌린다.** 단 `Marshal`/`AllocHGlobal`이 아
 | 8 | `PacketType` setter가 0을 감지해 로그를 남기고 **그대로 대입한다** | `:125` | 🟠 중간 |
 | 9 | `[StructLayout(Pack = 1)]` + `[Serializable]`이 참조 필드(`TcpClient`, `byte[]`)를 가진 struct에 붙어 있다 — 의미 없고 오해를 유발 | `:97~98` | 🟡 낮음 |
 | 10 | `SendPacket`이 예외를 `Debug.WriteLine`으로 삼킨다 | `:190~194` | 🟠 중간 |
-| 11 | `SerializeLoginIdPw(id, pw, version)` — **비밀번호를 페이로드에 평문 직렬화**. 핸드셰이크가 MITM 가능하므로(01 문서 참조) 자격증명이 실질적으로 노출 | `:415~429` | 🔴 치명 |
+| 11 | `SerializeLoginIdPw(id, pw, version)` — 비밀번호가 페이로드에 담긴다. **와이어에서는 AES로 암호화된다**(`ClientM._LoginFuncStep2`)므로 수동 도청에는 노출되지 않지만, **AES 키가 인증되지 않은 RSA 교환으로 합의**되므로 MITM이 키를 대체해 복원할 수 있다. 상세: [05-client.md](05-client.md#-인증-핸드셰이크-전체-흐름-양쪽-코드로-확정) | `:415~429` | 🔴 치명 |
 | 12 | `FsMetaDataFactory` 생성자에 `int k = 0;` 죽은 코드 | `:725` | 🟡 낮음 |
 
 ### 개선점 (ChServerM)
@@ -398,7 +398,7 @@ $(ProjectDir)FlatbufferM\flatc.exe --csharp -o $(SolutionDir) $(SolutionDir)AppP
 
 1. `PacketM.cs:147` — **`IsValidCheckSum`이 무조건 `true`**
 2. `PacketM.cs:102~104` — **헤더 길이가 `public static` 가변 필드**
-3. `PacketM.cs:415` — **비밀번호를 페이로드에 직렬화**
+3. `PacketM.cs:415` — 비밀번호 페이로드. 와이어에서는 AES 암호화되지만 **키 교환이 인증되지 않아** MITM에 노출 ([05](05-client.md) 참조)
 4. `PacketM.cs:177~204` — **`ArrayPool` 반납 누수 (경쟁 조건)**
 5. `MemPacketM.cs:203,219` — **화이트리스트 위반을 예외로 처리 + 스택 트레이스 유실 + 커넥션 유지**
 6. `MemPacketM.cs:197` — **로그인 전 경로에서 화이트리스트 검증 건너뜀**
