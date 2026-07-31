@@ -70,9 +70,11 @@ ChServerM/
 ├─ Directory.Packages.props         # 중앙 패키지 버전 관리
 ├─ docs/
 │  ├─ ARCHITECTURE.md               # 계층·의존 방향·확장 지점 상세
-│  ├─ ROADMAP.md                    # 단계별 계획 (체크박스 = 진행 상황의 근원)
+│  ├─ ROADMAP.md                    # Phase 0~22 계획 (체크박스 = 진행 상황의 근원)
 │  ├─ DECISIONS.md                  # ADR 로그 (라이브러리/설계 선택 근거)
 │  ├─ BENCHMARKS.md                 # 측정 결과 기록
+│  ├─ LEGACY-INVENTORY.md           # LegacyServer 자산 판정 (승계/개작/폐기/미판정)
+│  ├─ THREAT-MODEL.md               # 위협 모델 (Phase 9에서 작성)
 │  └─ standup/
 │     ├─ STANDUP.md                 # 최신 스탠드업 (항상 이 파일 하나만 최신)
 │     └─ history/YYYY-MM-DD.md      # 일별 아카이브
@@ -154,6 +156,7 @@ ChServerM/
 | `docs/standup/history/` | 일별 기록. 추가만 하고 수정하지 않는다 |
 | `docs/DECISIONS.md` | 왜 그렇게 정했는가. ADR 추가만, 뒤집을 때는 새 ADR로 supersede |
 | `docs/BENCHMARKS.md` | 성능 주장의 근거 |
+| `docs/LEGACY-INVENTORY.md` | `LegacyServer/` 자산 판정. 미판정 항목은 해당 Phase에서 정독해 채운다 |
 | `git log` | 사실 관계의 최종 근거 |
 
 ### 커밋 규칙

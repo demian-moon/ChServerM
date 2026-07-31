@@ -83,7 +83,7 @@ raw TCP 서버의 소켓 계층을 직접 만들 것인지, 검증된 엔진을 
 `NetworkStream.ReadAsync` 노선이다. Kestrel Socket Transport에는 이 `NetworkStream` 계층이 없다.
 즉 **레거시 노선은 성능 상한이 더 낮다.** 이것이 Kestrel 재사용 쪽으로 기운 이유다.
 
-다만 레거시 자산 승계 비용이 있으므로, Phase 4 진입 전 양쪽 프로토타입 벤치마크로 확정한다.
+다만 레거시 자산 승계 비용이 있으므로, Phase 5 진입 전 양쪽 프로토타입 벤치마크로 확정한다.
 참고: Bedrock Framework(Kestrel 전송을 비HTTP 프로토콜에 쓰는 실험적 구현).
 
 ---
@@ -130,7 +130,7 @@ sentinel 값으로 우회하고 있어 값 공간이 오염되고 새 필드를 
 
 ### 남은 미결
 **페이로드 직렬화 기본값은 확정하지 않았다.** MemoryPack / FlatSharp /
-Google.Protobuf·protobuf-net / MessagePack-CSharp 4자 벤치마크(Phase 5)로 결정한다.
+Google.Protobuf·protobuf-net / MessagePack-CSharp 4자 벤치마크(Phase 6)로 결정한다.
 레거시가 FlatBuffers 스키마와 생성 코드를 이미 운영 중이므로 승계 비용이 변수다.
 크로스 언어 클라이언트가 요구사항에 들어오면 결론이 바뀐다.
 
@@ -156,9 +156,9 @@ Google.Protobuf·protobuf-net / MessagePack-CSharp 4자 벤치마크(Phase 5)로
 | `UserM.MemPkActionBlock` | 유저별 순서 보장 |
 
 ### 제안하는 결정
-목표 워크로드를 **실시간 게임 서버 + 매치메이킹**으로 확정하고, TCP 상시 연결(Phase 4)을
-HTTP 무상태(Phase 8)보다 우선한다.
+목표 워크로드를 **실시간 게임 서버 + 매치메이킹**으로 확정하고, TCP 상시 연결(Phase 5)을
+HTTP 무상태(Phase 16)보다 우선한다.
 
 ### 확인 필요
-사용자 승인 전까지 ROADMAP Phase 순서는 변경하지 않았다. 승인되면 Phase 4/8 우선순위를
+사용자 승인 전까지 ROADMAP Phase 순서는 변경하지 않았다. 승인되면 Phase 5/16 우선순위를
 교체하고 이 ADR을 `채택`으로 올린다.

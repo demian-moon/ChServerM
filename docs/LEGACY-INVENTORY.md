@@ -23,7 +23,7 @@
 - `NetWorkDelayM.cs` — 네트워크 지연 보정
 - `DBManager/MongoDBManagerM.cs` — MongoDB 영속화
 
-→ ROADMAP 우선순위에 반영: TCP 상시 연결(Phase 4)이 HTTP 무상태(Phase 8)보다 우선. 사용자 확인 필요.
+→ ROADMAP 우선순위에 반영: TCP 상시 연결(Phase 5)이 HTTP 무상태(Phase 16)보다 우선. 사용자 확인 필요.
 
 ---
 
@@ -51,7 +51,7 @@
 | 3 | 체크섬 실패를 `throw new Exception()`으로 처리 | 310행 | 핫패스에 예외 금지. `TryXxx` 패턴 |
 | 4 | 파싱 예외를 잡고 루프 계속 — 상태 머신이 어긋난 채 스트림 계속 파싱 (프레이밍 desync) | 379~390행 | 프레임 오류는 커넥션 종료가 정답 |
 | 5 | `Debug.WriteLine` 로깅 — Release 빌드에서 전부 소멸 | 전역 | `IServerLogger` |
-| 6 | 백프레셔 미설정. `PipeOptions(...,-1,-1,-1,false)`, `minBufferSize = 512` | 99, 114행 | pause/resume 임계값 명시 (Phase 4) |
+| 6 | 백프레셔 미설정. `PipeOptions(...,-1,-1,-1,false)`, `minBufferSize = 512` | 99, 114행 | pause/resume 임계값 명시 (Phase 5) |
 
 ### `FlatbufferM/PacketM.fbs` (3.2K) — **핵심 발견: 헤더에 FlatBuffers를 쓴 것이 설계 오류**
 
@@ -75,7 +75,7 @@ gage : ushort = 65535;      // 65535는 변경이 없다는 의미
 
 ### `ADR-0001` 관련 — Kestrel 재사용 쪽으로 기울었다
 
-레거시는 `TcpClient.GetStream()` → `NetworkStream.ReadAsync` 노선이다. Kestrel Socket Transport는 `SocketAsyncEventArgs` 풀링 + 전용 IO 스케줄러를 쓰므로 `NetworkStream` 계층이 없다. 즉 레거시 노선은 **성능 상한이 더 낮다**. 다만 마이그레이션 비용이 있으니 Phase 4에서 양쪽 프로토타입 벤치마크로 확정한다.
+레거시는 `TcpClient.GetStream()` → `NetworkStream.ReadAsync` 노선이다. Kestrel Socket Transport는 `SocketAsyncEventArgs` 풀링 + 전용 IO 스케줄러를 쓰므로 `NetworkStream` 계층이 없다. 즉 레거시 노선은 **성능 상한이 더 낮다**. 다만 마이그레이션 비용이 있으니 Phase 5에서 양쪽 프로토타입 벤치마크로 확정한다.
 
 ### 기타 프레이밍 자산 — **미판정**
 
@@ -106,9 +106,9 @@ ServerM (abstract) ─ ServerStart() / AppStart()  ← 상속해서 비즈니스
 | 자산 | 판정 | 사유 |
 |---|---|---|
 | `ServerM` abstract + `AppStart()` 상속 모델 | **개작** | Template Method는 옳지만, 우리는 상속 대신 `ServerBuilder` 조립(Phase 2)으로 간다. 상속 강제는 확장성을 제약 |
-| `MemPkDispatcher` `Dictionary<E_PACKET_TYPE, ...>` | **개작** | 딕셔너리 조회 → 소스 생성 스위치 테이블(Phase 6). 중복/누락 패킷 ID를 컴파일 타임에 검출 |
+| `MemPkDispatcher` `Dictionary<E_PACKET_TYPE, ...>` | **개작** | 딕셔너리 조회 → 소스 생성 스위치 테이블(Phase 7). 중복/누락 패킷 ID를 컴파일 타임에 검출 |
 | `AbMemPkAction` 패킷별 핸들러 (Command) | **승계** | `IMessageHandler<T>`로 직결 |
-| **`UserM.MemPkActionBlock` — 유저별 ActionBlock** | **승계 (중요)** | TPL Dataflow. **한 유저의 패킷을 순서대로 처리하는 보장**. 게임 서버 필수 요건이며 `IExecutionModel`(Phase 7) 설계에 반드시 반영해야 한다 |
+| **`UserM.MemPkActionBlock` — 유저별 ActionBlock** | **승계 (중요)** | TPL Dataflow. **한 유저의 패킷을 순서대로 처리하는 보장**. 게임 서버 필수 요건이며 `IExecutionModel`(Phase 1 계약 / Phase 8 구현) 설계에 반드시 반영해야 한다 |
 | `NetworkM.gMemPkActionBlock` 글로벌 처리 | **승계** | 글로벌/유저별 처리 분리는 옳은 축 |
 | `UserM : IObservable` | **미판정** | Observer. 우리 이벤트 버스와 겹치는지 확인 필요 |
 | `IniOptionM` / `IniSrvOptionM` / `IniClntOptionM` (INI 설정) | **폐기** | Options 패턴 + `IValidateOptions<T>`로 대체 |
@@ -122,10 +122,10 @@ ServerM (abstract) ─ ServerStart() / AppStart()  ← 상속해서 비즈니스
 | ROADMAP | 후보 파일 |
 |---|---|
 | Phase 3 버퍼 | `BasicLibM/Pool/MemoryPoolM.cs`, `ObjectPoolM.cs`, `StackMemAllocM.cs`, `Memory/UnsafeCopyBlock.cs` |
-| Phase 7 동시성 | `BasicLibM/Concurrent/ConcurrentQueueExecutorM.cs`, `ExecutableTaskDispatcherM.cs`, `Scheduler/`(3종), `MultiThreadM.cs`, `PublicLib/ConcurSeqTaskExecM.cs`, `Signal/AsyncManualResetEventM.cs` |
+| Phase 8 동시성 | `BasicLibM/Concurrent/ConcurrentQueueExecutorM.cs`, `ExecutableTaskDispatcherM.cs`, `Scheduler/`(3종), `MultiThreadM.cs`, `PublicLib/ConcurSeqTaskExecM.cs`, `Signal/AsyncManualResetEventM.cs` |
 | 압축/보안 | `PublicLib/CompressAndEncryptM.cs` — 스키마 주석 기준: 1024B 미만 무압축, LZ4 압축, 서버→클라 XOR / 클라→서버 AES256 |
-| Phase 9 관측 | `PublicLib/Logger/LogM.cs`, `BasicLibM/Log4Net/TcpLogRecieverM.cs`, `PublicUtil/StatisticsM.cs` |
-| Phase 10 상태 | `DBManager/DBManagerM.cs`, `MongoDBManagerM.cs`, `Table/SrvTableM.cs`, `AbSrvTableM.cs` |
+| Phase 11 관측 | `PublicLib/Logger/LogM.cs`, `BasicLibM/Log4Net/TcpLogRecieverM.cs`, `PublicUtil/StatisticsM.cs` |
+| Phase 13 세션 / Phase 14 데이터 테이블 | `DBManager/DBManagerM.cs`, `MongoDBManagerM.cs`, `Table/SrvTableM.cs`, `AbSrvTableM.cs` |
 | 게임 도메인 | `QuadTreeM.cs`, `BoxColliderM.cs`, `RatingSystem/`(2종), `MathM.cs` — 프레임워크가 아닌 애플리케이션 계층. `Samples/`로 갈 후보 |
 | 유틸 | `BasicLibM/HangulM/`, `ExcelLibM/`, `JiraLibM/`, `CsvParser.cs`, `BigIntM.cs` — 프레임워크 범위 밖 |
 

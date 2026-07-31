@@ -66,7 +66,7 @@ Samples / Tests / Bench
 
 - **스케일업**: 스레드-퍼-코어 + CPU 어피니티, 공유 상태 최소화, false sharing 회피. 검증 기준은 코어 수 대비 처리량 선형성.
 - **스케일아웃(무상태)**: 세션을 `ISessionStore`로 외부화 → 노드를 자유롭게 추가/제거.
-- **스케일아웃(상태 유지)**: `IClusterMembership` + 파티셔닝 키 라우팅. Phase 10.
+- **스케일아웃(상태 유지)**: `IClusterMembership` + 파티셔닝 키 라우팅. Phase 15.
 
 ## 확정된 것
 
@@ -79,4 +79,4 @@ Samples / Tests / Bench
 - **ADR-0003** — 목표 워크로드 (실시간 게임 서버 + 매치메이킹으로 제안, 사용자 확인 대기).
   전송·동시성 모델의 우선순위를 결정한다
 - **ADR-0001** — raw TCP 구현 방식 (Kestrel Socket Transport 재사용 vs 순수 `Socket`)
-- **ADR-0002 남은 부분** — 페이로드 직렬화 기본값 (Phase 5 벤치마크)
+- **ADR-0002 남은 부분** — 페이로드 직렬화 기본값 (Phase 6 벤치마크)

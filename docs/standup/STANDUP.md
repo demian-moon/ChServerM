@@ -1,7 +1,8 @@
 # ChServerM — 현재 상태
 
 **최종 갱신**: 2026-07-30
-**현재 단계**: Phase 0 — 기반 (4/7)
+**현재 단계**: Phase 0 — 빌드 기반 & 품질 게이트 (5/13)
+**로드맵 규모**: Phase 0~22 (Part I~VI). 2026-07-31 상업용 기준으로 전면 재구성 — 번호 대응은 `docs/ROADMAP.md` 상단 참조
 
 ## 완료된 것
 - 규약 수립 — `CLAUDE.md`(하드 룰, 축 12개, 디자인 패턴, 성능 스택) + `docs/` 5종 + `standup` 스킬 (`b3a6f07`)
@@ -12,7 +13,7 @@
 - 환경 — `engineering` 플러그인 설치(스킬 10개), MCP 25개 폴더 한정 차단
 
 ## 진행 중
-- Phase 0 부분 완료 2건 — 솔루션 폴더(`Client`/`Bench`/`Samples` 미생성), AOT 컴파일 검증(실행 프로젝트 부재로 Phase 2+ 활성화)
+- Phase 0 부분 완료 2건 — 솔루션 폴더(`Client`/`Bench`/`Samples` 미생성), AOT 컴파일 검증(실행 프로젝트 부재로 Phase 2 활성화). 신규 품질 게이트 5건 미착수 — Bench 골격, 커버리지, public API 게이트, 취약점 감사, 의존성 자동화
 - `LegacyServer/` 미판정 자산 — `PacketM.cs`(26K) 등 프레이밍 계열, Pool/Concurrent/Scheduler 계열
 
 ## 다음 (우선순위 순)
@@ -22,9 +23,9 @@
 4. `LegacyServer/` 프레이밍 계열 정독 → 인벤토리 판정 채우기
 
 ## 블로커 / 열린 결정
-- **ADR-0003 확인 대기** — 목표 워크로드를 실시간 게임 서버 + 매치메이킹으로 확정할지. 승인 전이라 ROADMAP Phase 순서(4 vs 8)는 손대지 않았다
-- **ADR-0001 미결** — raw TCP를 Kestrel Socket Transport 재사용으로 갈지. 레거시가 `TcpClient`+`NetworkStream`이라 Kestrel 쪽으로 기울었으나 Phase 4 벤치마크로 확정
-- **ADR-0002 남은 부분** — 페이로드 직렬화 기본값. Phase 5에서 4자 벤치마크. 크로스 언어 클라이언트 요구가 생기면 결론이 바뀐다
+- **ADR-0003 확인 대기** — 목표 워크로드를 실시간 게임 서버 + 매치메이킹으로 확정할지. 승인 전이라 ROADMAP Phase 순서(5 TCP vs 16 대체 전송)는 손대지 않았다. Part V(게임 프리미티브 Phase 17~19)의 존재 근거도 이 ADR이다
+- **ADR-0001 미결** — raw TCP를 Kestrel Socket Transport 재사용으로 갈지. 레거시가 `TcpClient`+`NetworkStream`이라 Kestrel 쪽으로 기울었으나 Phase 5 벤치마크로 확정
+- **ADR-0002 남은 부분** — 페이로드 직렬화 기본값. Phase 6에서 4자 벤치마크. 크로스 언어 클라이언트 요구가 생기면 결론이 바뀐다
 - 벤치마크 기준선 없음 — 성능 주장을 아직 아무것도 검증할 수 없는 상태
 
 ## 작업 방식
