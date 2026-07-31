@@ -89,7 +89,8 @@ ChServerM/
 │  ├─ ROADMAP.md                    # Phase 0~22 계획 (체크박스 = 진행 상황의 근원)
 │  ├─ DECISIONS.md                  # ADR 로그 (라이브러리/설계 선택 근거)
 │  ├─ BENCHMARKS.md                 # 측정 결과 기록
-│  ├─ LEGACY-INVENTORY.md           # LegacyServer 자산 판정 (승계/개작/폐기/미판정)
+│  ├─ LEGACY-INVENTORY.md           # (구) 초판 인벤토리 → docs/legacy/ 로 이전, 포인터만 유지
+│  ├─ legacy/                       # 레거시 정밀 분석 14종. 인덱스: legacy/00-overview.md
 │  ├─ THREAT-MODEL.md               # 위협 모델 (Phase 9에서 작성)
 │  └─ standup/
 │     ├─ STANDUP.md                 # 최신 스탠드업 (항상 이 파일 하나만 최신)
@@ -172,7 +173,7 @@ ChServerM/
 | `docs/standup/history/` | 일별 기록. 추가만 하고 수정하지 않는다 |
 | `docs/DECISIONS.md` | 왜 그렇게 정했는가. ADR 추가만, 뒤집을 때는 새 ADR로 supersede |
 | `docs/BENCHMARKS.md` | 성능 주장의 근거 |
-| `docs/LEGACY-INVENTORY.md` | `LegacyServer/` 자산 판정. 미판정 항목은 해당 Phase에서 정독해 채운다 |
+| `docs/legacy/` | 레거시 정밀 분석(14종). 승계 대상 구현 전에 해당 문서를 읽는다. 각 문서의 "새 코드에 절대 옮기면 안 되는 것"이 회귀 방지 체크리스트 |
 | `git log` | 사실 관계의 최종 근거 |
 
 ### 커밋 규칙

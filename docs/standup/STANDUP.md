@@ -1,7 +1,7 @@
 # ChServerM — 현재 상태
 
 **최종 갱신**: 2026-07-30
-**현재 단계**: Phase 0 — 빌드 기반 & 품질 게이트 (5/13)
+**현재 단계**: Phase 0 — 빌드 기반 & 품질 게이트 (6/13)
 **로드맵 규모**: Phase 0~22 (Part I~VI). 2026-07-31 상업용 기준으로 전면 재구성 — 번호 대응은 `docs/ROADMAP.md` 상단 참조
 
 ## 완료된 것
@@ -9,18 +9,18 @@
 - Phase 0 빌드 골격 — `net10.0`/C# 14 props, 중앙 패키지 관리, Performance·Reliability를 error로 올린 `.editorconfig`, `ChServerM.slnx`, `Core` + `Core.Tests`, `eng/build.ps1` + GitHub Actions (`4413e01`)
 - **Core 무의존 2중 가드 검증 완료** — `CHSM0001`(MSBuild, 선언 시점) + `CoreDependencyTests`(런타임). 참/거짓 양성 모두 실측
 - 최종 파이프라인 통과 — build 0 errors / 0 warnings(`/warnaserror`), test 2/2
-- 레거시 분석 — `docs/LEGACY-INVENTORY.md`. `LegacyServer/`는 로컬 참조 전용(gitignore). UML·`.fbs`·`IoPipelineSrvM.cs` 정독, 실제 버그 2건 + 하드 룰 위반 4건 식별
+- **레거시 전수 정밀 분석 완료** — `LegacyServer` 26,000줄 + `LagacyClient` 1,298줄. `docs/legacy/` 14종 / 272KB. 승계 자산 22종 확정, 치명 버그 40건+ 식별, 초기 판정 14건 정정 (`f3eacfc`·`dd44d24`·`fcf5059`)
 - 환경 — `engineering` 플러그인 설치(스킬 10개), MCP 25개 폴더 한정 차단
 
 ## 진행 중
 - Phase 0 부분 완료 2건 — 솔루션 폴더(`Client`/`Bench`/`Samples` 미생성), AOT 컴파일 검증(실행 프로젝트 부재로 Phase 2 활성화). 신규 품질 게이트 5건 미착수 — Bench 골격, 커버리지, public API 게이트, 취약점 감사, 의존성 자동화
-- `LegacyServer/` 미판정 자산 — `PacketM.cs`(26K) 등 프레이밍 계열, Pool/Concurrent/Scheduler 계열
+- (해소) 레거시 미판정 자산 → 전수 정독 완료
 
 ## 다음 (우선순위 순)
 1. **Phase 1 — Core 추상화.** `IMessageSerializer`부터. 코드는 사용자 지시 후 작성
 2. `IFrameDecoder`/`IFrameEncoder` ↔ `IMessageSerializer` 경계 확정 — ADR-0002를 코드로 굳히는 지점
 3. `IExecutionModel` — 유저별 순서 보장 계약 반영
-4. `LegacyServer/` 프레이밍 계열 정독 → 인벤토리 판정 채우기
+4. (해소) 레거시 정독 완료 — 이제 Phase 1 설계 시 `docs/legacy/`를 참조한다
 
 ## 블로커 / 열린 결정
 - ~~ADR-0003 (목표 워크로드)~~ → **ADR-0004로 폐기·대체 (2026-07-31).** 프레임워크에 목표 워크로드는 없다. 검증용 참조 프로필 2개(`realtime-stateful`, `stateless-web`)를 두고 "두 프로필이 같은 핸들러로 동작"을 합격 기준으로 삼는다. 블로커 해소
@@ -33,7 +33,8 @@
 - 커밋: 코드와 문서를 분리한다. 문서는 `/standup wrap`에서 `chore(standup)`으로
 
 ## 참조
+- 레거시 분석: `docs/legacy/00-overview.md`
 - 상세 이력: `docs/standup/history/`
 - 계획: `docs/ROADMAP.md`
 - 설계 결정: `docs/DECISIONS.md`
-- 레거시 판정: `docs/LEGACY-INVENTORY.md`
+

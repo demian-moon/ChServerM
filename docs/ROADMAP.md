@@ -80,7 +80,7 @@ Phase 순서는 워크로드가 아니라 **"무엇이 추상화를 먼저 증�
 - [ ] ⚠ **public API 승인 파일 게이트** — `Microsoft.CodeAnalysis.PublicApiAnalyzers`. `PublicAPI.Shipped.txt`/`Unshipped.txt`로 공개 표면 변경을 리뷰에 노출시킨다. 상업용 라이브러리에서 이걸 나중에 켜면 이미 굳은 API를 되돌릴 수 없다
 - [ ] NuGet 취약점 감사 — `dotnet list package --vulnerable --include-transitive`를 CI에서 실패 조건으로
 - [ ] 의존성 업데이트 자동화 — Dependabot 또는 Renovate
-- [ ] `LegacyServer/` 미판정 자산 정독 — `PacketM.cs`(26K), `MemPacketM.cs`, `AllowedPacketM.cs`, `SendPacketGroupM.cs`, Pool/Concurrent/Scheduler 계열. `docs/LEGACY-INVENTORY.md` 4절 참조
+- [x] `LegacyServer/` + `LagacyClient/` 전수 정독 — 27,300줄 / 문서 14종. 결과: `docs/legacy/`(인덱스: [00-overview](legacy/00-overview.md))
 
 **게이트**: CI가 build + test + 취약점 감사를 통과하고, public API 게이트가 켜져 있을 때.
 
@@ -93,7 +93,10 @@ Core에 들어간 인터페이스는 되돌리기 비용이 가장 크다 — �
 
 - [ ] ⚠ **에러 모델** — 핫패스는 예외를 쓰지 않는다. `TryXxx` + 결과 구조체(`OperationResult`/`FrameReadResult` 등) 규약과 에러 코드 체계를 먼저 확정한다. 이걸 나중에 바꾸면 전 축의 시그니처가 흔들린다
 - [ ] ⚠ **생명주기·취소 계약** — `CancellationToken` 전파 규칙, `IAsyncDisposable` 규약, graceful vs abortive 종료 구분
-- [ ] ⚠ **ID 타입** — `ConnectionId`, `SessionId`, `MessageId`, `NodeId`. `readonly struct` + 강타입. `long`/`int` 원시 타입을 API에 노출하지 않는다
+- [ ] ⚠ **ID 타입** — `ConnectionId`, `SessionId`, `MessageId`, `NodeId`, `ObjectId`, `JobId`. `readonly struct` + 강타입. `long`/`int` 원시 타입을 API에 노출하지 않는다
+  - ⚠ **`ObjectId`에 노드 성분을 반드시 포함한다.** 레거시 `GlobalM.MakeGameOid()`는 프로세스 전역 단조 카운터라 다중 노드에서 충돌하고 재시작 시 재사용된다 — **Phase 15의 선결 조건이며, 지금 `long` 증분으로 굳히면 되돌릴 수 없다.** Snowflake 계열 또는 노드별 블록 할당 ([06-session-user](legacy/06-session-user.md#globalm--compressandencryptmanm))
+  - **`SessionHandle`은 세대(generation) 카운터를 포함**해 삭제된 세션 접근을 할당 없이 O(1)로 판별한다 (레거시 `UserM` 래퍼가 매 조회 힙 할당 + null 분기 버그)
+  - **존재하지 않는 세션의 기본값은 가장 제한적인 값**으로. 레거시는 `AllowedPkState` 기본값이 `A_SC_ANY_STATE`(전부 허용)였다
 - [ ] **시간 추상화** — `IClock` / `ITimeProvider`(.NET `TimeProvider` 채택 검토). 틱·타임아웃·재시도 테스트가 실제 시간에 의존하면 테스트가 불안정해진다
 - [ ] **진단 계약** — `ActivitySource`/`Meter` 이름 규약, 이벤트 ID 체계. 관측 축(Phase 11)이 이것에 붙는다
 
@@ -104,7 +107,7 @@ Core에 들어간 인터페이스는 되돌리기 비용이 가장 크다 — �
 - [ ] `IServerTransport` / `IClientTransport` / `IConnection` — 전송 중립 커넥션 추상화
 - [ ] `IMessageDispatcher` / `IMessageHandler<T>` — 디스패치 계약
 - [ ] `IServerMiddleware` + 파이프라인 델리게이트 타입 — Chain of Responsibility 계약
-- [ ] ⚠ **`IExecutionModel` — 유저별 순서 보장을 *표현할 수 있어야* 한다**. 계약이 이 전략을 강제하는 것이 아니라, 필요한 프로필이 선택할 수 있어야 한다는 뜻이다. `realtime-stateful`은 이 전략을 쓰고 `stateless-web`은 병렬 실행을 쓴다 — **하나의 계약이 양쪽을 수용해야 한다.** 근거: 레거시 `UserM.MemPkActionBlock`(TPL Dataflow, 유저 단위 직렬) vs `NetworkM.gMemPkActionBlock`(글로벌). `docs/LEGACY-INVENTORY.md` 3절
+- [ ] ⚠ **`IExecutionModel` — 유저별 순서 보장을 *표현할 수 있어야* 한다**. 계약이 이 전략을 강제하는 것이 아니라, 필요한 프로필이 선택할 수 있어야 한다는 뜻이다. `realtime-stateful`은 이 전략을 쓰고 `stateless-web`은 병렬 실행을 쓴다 — **하나의 계약이 양쪽을 수용해야 한다.** 근거: 레거시 `UserM.MemPkActionBlock`(TPL Dataflow, 유저 단위 직렬) vs `NetworkM.gMemPkActionBlock`(글로벌) ([01-network-transport](legacy/01-network-transport.md#sendpacketgroupm))
 - [ ] `ISessionStore` / `ISession` — 상태 저장 추상화
 - [ ] `IServerLogger` / `IMetricsSink` — 관측 추상화
 - [ ] `IPayloadCodec` — 압축 계약
@@ -130,7 +133,7 @@ Core에 들어간 인터페이스는 되돌리기 비용이 가장 크다 — �
 - [ ] 미들웨어 파이프라인 컴파일 — 델리게이트 체인. **조립 비용은 시작 시점에 지불하고 핫패스에 동적 결정을 남기지 않는다**
 - [ ] 서버 생명주기 — 시작 / graceful shutdown / 커넥션 드레인 / 강제 종료 타임아웃
 - [ ] 옵션 검증 — 잘못된 축 조합을 **시작 시점에** 실패시킨다 (런타임에 발견되면 프로덕션 장애)
-- [ ] 설정 소스 — `IConfiguration` 통합, 환경별 오버레이. 레거시 INI 방식은 폐기 (`docs/LEGACY-INVENTORY.md` 3절)
+- [ ] 설정 소스 — `IConfiguration` 통합, 환경별 오버레이. 레거시 INI 방식은 폐기 — 1073줄 파서로 IP·포트 2개를 읽고 있었다 ([11-data-table](legacy/11-data-table.md#inifilem--inioptionm))
 - [ ] `ClientBuilder` 대칭 구성
 - [ ] ⚠ **인메모리 루프백 전송** — `ChServerM.Transport.InMemory`. 소켓 없이 파이프라인을 끝까지 도는 전송. **전송 축의 두 번째 구현체 역할**을 싸게 수행해 추상화가 진짜 전송 중립인지 조기에 증명한다. 통합 테스트의 기본 전송이 되어 테스트 속도도 올라간다 (Kestrel의 인메모리 전송과 같은 발상)
 - [ ] 조립 테스트 — 축을 교체해도 컴파일·동작이 유지되는지 검증
@@ -146,6 +149,8 @@ Core에 들어간 인터페이스는 되돌리기 비용이 가장 크다 — �
 핫패스. 여기서의 모든 결정은 벤치마크 수치로 방어해야 한다.
 
 ## Phase 3 — 메모리 & 버퍼
+
+> **레거시에서 승계할 구현이 없다.** `MemoryPoolM`·`StackMemAllocM`·`UnsafeCopyBlock`은 전부 **참조 0 또는 전체 주석**이고, 실사용 풀은 `ObjectPoolM<T>`(32줄, 상한·중복반납 검사 없음) 하나뿐이다. 실제 풀링은 `ArrayPool<byte>.Shared` 직접 호출이며 그것이 반납 누수의 근원이다 ([12-domain-util-discarded](legacy/12-domain-util-discarded.md#-이전-판정-정정--버퍼-풀링은-승계할-구현이-없다)). **처음부터 설계한다.**
 
 - [ ] `ChServerM.Buffers` — 슬랩 할당기, 커넥션당 버퍼 대여
 - [ ] ⚠ `ArrayPool` / `MemoryPool` 래핑 정책 결정 (ADR) — 대여 단위, 반납 책임 소유자, 초과 크기 처리
@@ -234,7 +239,8 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 
 ## Phase 9 — 보안
 
-- [ ] ⚠ **위협 모델 문서화** — `docs/THREAT-MODEL.md`. 신뢰 경계, 공격 표면, 각 위협에 대한 완화책. 이것 없이 개별 대책을 만들면 구멍이 남는다
+- [ ] ⚠ **위협 모델 문서화** — `docs/THREAT-MODEL.md`. 신뢰 경계, 공격 표면, 각 위협에 대한 완화책. 이것 없이 개별 대책을 만들면 구멍이 남는다.
+  **출발점**: [07-security](legacy/07-security.md#새-코드에-절대-옮기면-안-되는-것)의 결함 목록을 위협 → 완화책으로 매핑한다 (미인증 키 교환, XOR '암호화', AES-128 + 고정 IV, 인증 없는 CBC, PKCS#1 v1.5, 커넥션당 RSA 생성, 와이어 값 기반 할당, 최대 프레임 크기 부재)
 - [ ] `ChServerM.Security.Tls` — `SslStream` 기반 전송 보안. 인증서 로딩·검증·회전
 - [ ] ⚠ **핸드셰이크·키 교환 설계** — 레거시는 `FbsEncryptKey`(key/iv)로 교환하고 서버→클라 XOR, 클라→서버 AES256을 썼다. **XOR은 암호화가 아니다.** 양방향 AEAD(AES-GCM / ChaCha20-Poly1305)로 재설계한다
 - [ ] `IPayloadCodec` 구현 — 압축(LZ4/Zstd). 레거시 정책(1024B 미만 무압축) 참고. **압축 후 암호화 순서 고정** (역순은 CRIME류 취약점)
@@ -265,6 +271,15 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 **게이트**: 과부하에서 거부하며 살아남고, 24시간 soak에서 메모리가 평탄할 때.
 
 ## Phase 11 — 관측 & 진단
+
+> **설계 목표: "실패가 관측되는가".**
+> 레거시에서 체크섬 검증·LZ4 압축·MongoDB 재시도·`HashM` 만료·백프레셔·콜라이더
+> 비활성화가 **전부 무동작이었는데 아무도 몰랐다.** 원인은 로그 레벨 부재, 설정 파일이
+> 없으면 로깅이 통째로 사라지는 구조, `Debug.WriteLine`의 Release 소멸, 그리고
+> **메트릭 전무**다 ([09-observability](legacy/09-observability.md#phase-11-설계에-반영할-것)).
+> → **조용한 실패가 가능한 지점마다 카운터를 두고 0이 아니면 경보한다.**
+> 드롭된 패킷, 미반납 풀 대여, 실패한 재시도, 만료되지 않은 잡, 포화된 큐.
+
 
 - [ ] `ChServerM.Observability` — OpenTelemetry 트레이스·메트릭
 - [ ] ZLogger 어댑터 (무할당 구조적 로깅)
@@ -315,9 +330,9 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 룰 엔진 설정, 피처 플래그. `ChServerM.DataTable.*`로 분리한다. 레거시가 상당한 자산을 갖고 있다.
 
 - [ ] 정적 데이터 테이블 로딩 — 레거시 `Table/SrvTableM.cs`, `AbSrvTableM.cs`, `PublicLib/FileM/MetaDataM.cs`, `LoadableDataInStructM.cs` 판정 필요
-- [ ] CSV/Excel 임포트 검토 — 레거시 `CsvParser.cs`, `ExcelLibM/`. 빌드 타임 변환 vs 런타임 파싱
+- [ ] CSV/Excel 임포트 — **빌드 타임 변환 도구로 확정한다.** 런타임 어셈블리에 Excel 파서를 넣지 않는다. 레거시 `ExcelLibM`(2166) + `ExcelODBCM`(927) + `CsvParser`(182)는 **전부 참조 0**이며 `ExcelODBCM`은 Windows 전용 ODBC다 ([11-data-table](legacy/11-data-table.md#-미사용-코드-3359줄))
 - [ ] 테이블 검증 — 참조 무결성, 범위 검사를 로딩 시점에
-- [ ] ⚠ 핫 리로드 — 무중단 데이터 갱신. 레거시 `FileWatcherSystemM.cs` 참고. 읽는 중 교체 시 일관성 보장이 어려운 지점
+- [ ] ⚠ 핫 리로드 — 무중단 데이터 갱신. **승계할 구현이 없다** (`FileWatcherSystemM.cs`는 참조 0). 읽는 중 교체 시 일관성 보장이 어려운 지점이므로 처음부터 설계한다
 - [ ] 클라이언트-서버 테이블 버전 검증 — 불일치 시 접속 거부
 
 ## Phase 15 — 클러스터 & 분산
@@ -367,9 +382,15 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 
 ## Phase 18 — 룸/존 & 관심 영역
 
+> ⚠ **충돌 판정은 단위 테스트를 먼저 쓴다.** 레거시 충돌 계층에는 미수정 버그 8건이
+> 있고 — 회전 미적용, 위치 영구 고정, 축정렬 quad 충돌 항상 false, 접촉점 무의미 —
+> **실제로 검증된 적이 없다고 보아야 한다** ([03-ecs-object-model](legacy/03-ecs-object-model.md#새-코드에-절대-옮기면-안-되는-것--미수정-버그)).
+> 승계하는 것은 알고리즘 구조(SAT, 집합 차분, Stay 스로틀, 모튼 코드)이지 코드가 아니다.
+
+
 - [ ] 룸/채널 추상화 — 생성·참가·퇴장·해산 생명주기
 - [ ] 브로드캐스트 최적화 — 같은 페이로드를 N명에게 보낼 때 직렬화 1회
-- [ ] 관심 영역(AOI) — 레거시 `QuadTreeM.cs` 판정 필요. 공간 분할로 브로드캐스트 대상 축소. 공간이 없는 워크로드는 이 축을 쓰지 않는다
+- [ ] ⚠ 관심 영역(AOI) — **승계할 구현이 없다.** `QuadTreeM.cs`는 빈 파일이고 `QuadGrid`/`LQuadTree` 타입은 코드베이스에 존재하지 않는다. 유일한 생존 자산은 `MortonCodeM`(Z-order curve)이며 이것을 출발점으로 삼는다 ([03-ecs-object-model](legacy/03-ecs-object-model.md#공간-분할quadgrid은-구현되어-있지-않다)). 공간이 없는 워크로드는 이 축을 쓰지 않는다
 - [ ] 충돌·공간 질의 — 레거시 `BoxColliderM.cs`, `MathM.cs`, `HierachyM.cs` 판정 필요
 - [ ] 스냅샷 / 델타 압축 — 변경분만 전송
 - [ ] 벤치마크: 룸 인원 대비 브로드캐스트 비용
@@ -379,7 +400,7 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 대기열에서 조건에 맞는 참가자를 묶는 문제는 게임 밖에서도 나타난다 —
 대전 매칭, 배차, 상담 배정. 레이팅 공식 자체는 도메인이므로 `Samples/`에 둘 수도 있다.
 
-- [ ] 레이팅 시스템 — 레거시 `RatingSystem/GlickoM.cs`, `WengLinM.cs` 판정 필요
+- [ ] 레이팅 시스템 — 레거시 `GlickoM.cs`(301) / `WengLinM.cs`(626)는 **참조 0인 준비 코드**다. 알고리즘 구현은 참고하되 **프레임워크가 아니라 `Samples/`에 둔다** (ADR-0004: 도메인 로직은 프레임워크가 아니다)
 - [ ] 매치메이킹 큐 — 대기 시간 vs 매칭 품질 트레이드오프
 - [ ] 파티/그룹 매칭
 - [ ] 매치 결과 반영 / 레이팅 갱신
@@ -435,7 +456,7 @@ Phase에 속하지 않지만 계속 지켜야 하는 것.
 - **ADR 규율** — 라이브러리·아키텍처 선택 시 `docs/DECISIONS.md`에 대안·탈락 이유 기록
 - **벤치마크 규율** — 성능 주장은 항상 수치. `perf(...)` 커밋은 before/after 필수
 - **Core 무의존** — `CHSM0001` + `CoreDependencyTests`가 자동 강제
-- **레거시 판정** — `docs/LEGACY-INVENTORY.md`의 미판정 항목을 해당 Phase에서 정독하고 판정 채우기
+- **레거시 참조** — 승계 대상 구현 전에 `docs/legacy/`의 해당 문서를 읽는다. 각 문서의 "새 코드에 절대 옮기면 안 되는 것" 목록이 회귀 방지 체크리스트다
 - **스탠드업** — 세션 시작 `/standup`, 종료 `/standup wrap`
 - **코드 작성 전 승인** — 대상 파일·타입·시그니처·근거를 먼저 제시
 
