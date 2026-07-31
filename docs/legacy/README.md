@@ -1,6 +1,9 @@
 # 레거시 코드 정밀 분석 — 인덱스
 
-`LegacyServer/`(111개 `.cs` / 약 26,000줄, `Unused/` 제외)의 **클래스 단위 정밀 분석**.
+`LegacyServer/`(111개 `.cs` / 약 26,000줄) + `LagacyClient/`(6개 / 1,298줄)의 **클래스 단위 정밀 분석**.
+
+> **📌 처음 읽는다면 [00-overview.md](00-overview.md)부터.** 전체 그림·승계 자산 22종·결함 유형 7종·정량 근거·정정 목록이 거기 있다.
+> 개별 클래스를 찾을 때만 아래 파일 인덱스를 쓴다.
 
 ## 이 문서의 목적
 
@@ -25,7 +28,7 @@
 
 | 문서 | 범위 | 상태 |
 |---|---|---|
-| [00-overview.md](00-overview.md) | 전체 구조, 데이터 흐름, 의존 관계, 발견 요약 | 작성 중 |
+| **[00-overview.md](00-overview.md)** | **전체 구조, 데이터 흐름, 승계 자산 22종, 결함 유형 7종, 정량 근거, 정정 목록** | ✅ **여기부터 읽는다** |
 | [01-network-transport.md](01-network-transport.md) | 서버 부트스트랩, 소켓 수락, Pipelines, 전송 샤딩 | ✅ |
 | [02-packet-framing.md](02-packet-framing.md) | 패킷 구조, 프레이밍, FlatBuffers 래퍼, 화이트리스트 | ✅ |
 | [03-ecs-object-model.md](03-ecs-object-model.md) | ECS 컴포넌트, 공간·충돌, 모튼 코드 | ✅ |
@@ -36,9 +39,9 @@
 | [07-security.md](07-security.md) | 압축·암호화, 인증, 만료 KV | ✅ |
 | [08-persistence.md](08-persistence.md) | MongoDB 파사드, 재시도, 스키마 | ✅ |
 | [09-observability.md](09-observability.md) | 로깅(log4net), 로그 수집기, IQR 통계 | ✅ |
-| [10-time.md](10-time.md) | 틱, 타이머, 시간 유틸 | 예정 |
-| [11-domain-util.md](11-domain-util.md) | 계층 구조, 충돌, 수학, 레이팅, 유틸 | 예정 |
-| [12-discarded.md](12-discarded.md) | 폐기 확정 + 빈 파일 | 예정 |
+| [10-time.md](10-time.md) | 틱, 타이머, 시간 표현 3종 | ✅ |
+| [11-data-table.md](11-data-table.md) | 메타 테이블, INI, 파일, Excel(미사용) | ✅ |
+| [12-domain-util-discarded.md](12-domain-util-discarded.md) | 도메인, 유틸, 미참조 9,000줄 | ✅ |
 
 ---
 
