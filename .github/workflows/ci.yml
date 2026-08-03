@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   build:
-    name: build · test · aot (${{ matrix.os }})
+    name: build · test · audit · aot (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -42,6 +42,20 @@ jobs:
           restore-keys: nuget-${{ matrix.os }}-
 
       # 로컬과 동일한 스크립트를 쓴다. CI 에서만 깨지는 상황을 막는다.
-      - name: Build · Test · AOT
+      #
+      # -Coverage 는 CI 에서만 켠다 — 테스트를 느리게 만들므로 로컬 반복에는 부담이다.
+      # 취약점 감사는 기본으로 켜져 있다(Phase 0 게이트 조건).
+      - name: Build · Test · Audit · AOT
         shell: pwsh
-        run: ./eng/build.ps1 -Configuration Release -WarnAsError
+        run: ./eng/build.ps1 -Configuration Release -WarnAsError -Coverage
+
+      # 커버리지는 실패하지 않아도 남긴다. 임계값이 없는 지금은
+      # "추세를 볼 수 있게 하는 것"이 목적이다.
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.os }}
+          path: artifacts/coverage/**/coverage.cobertura.xml
+          if-no-files-found: error
+          retention-days: 14

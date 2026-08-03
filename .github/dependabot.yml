@@ -1,0 +1,59 @@
+version: 2
+
+# ─────────────────────────────────────────────────────────────────
+# 의존성 업데이트 자동화 (ROADMAP Phase 0)
+#
+# 이 프로젝트는 서드파티 의존을 의도적으로 최소화한다(Core 는 0개).
+# 그래서 PR 이 자주 오지는 않는다 — 대신 오면 반드시 봐야 한다.
+#
+# 취약점 감사(eng/build.ps1 의 audit 단계)는 "지금 취약한가"를 막고,
+# 이쪽은 "취약해지기 전에 올린다"를 담당한다. 둘은 대체가 아니라 보완이다.
+# ─────────────────────────────────────────────────────────────────
+updates:
+  # ── NuGet ──────────────────────────────────────────────────────
+  - package-ecosystem: nuget
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      # Conventional Commits. 스코프는 어셈블리 축 이름을 쓰는 것이 규약이지만
+      # 의존성 업데이트는 축에 속하지 않으므로 deps 를 쓴다.
+      prefix: "chore(deps)"
+    labels:
+      - dependencies
+    groups:
+      # 테스트 도구는 함께 올린다. xunit 과 러너 버전이 어긋나면
+      # "테스트가 발견되지 않는" 형태로 실패하고, 원인 찾기가 번거롭다.
+      - group-name: testing
+        patterns:
+          - "xunit*"
+          - "Microsoft.NET.Test.Sdk"
+          - "coverlet.*"
+      # 분석기는 함께 올린다. 규칙이 추가되면 여러 프로젝트가 동시에 걸리므로
+      # PR 하나에서 한꺼번에 대응하는 편이 낫다.
+      - group-name: analyzers
+        patterns:
+          - "Microsoft.CodeAnalysis.*"
+    ignore:
+      # 메이저 업그레이드는 자동으로 받지 않는다. 파괴적 변경이 섞여 있고,
+      # 이 프로젝트에서는 ADR 을 남겨야 하는 결정이다(CLAUDE.md 10절).
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
+
+  # ── GitHub Actions ─────────────────────────────────────────────
+  #
+  # 액션 버전을 방치하면 러너 이미지 변경과 함께 조용히 깨진다.
+  # 여기는 메이저도 받는다 — 액션 메이저 업그레이드는 대개 노드 런타임 교체 수준이고,
+  # CI 가 바로 알려주기 때문이다.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "chore(ci)"
+    labels:
+      - dependencies
+      - ci

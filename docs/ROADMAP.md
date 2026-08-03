@@ -68,7 +68,7 @@ Phase 순서는 워크로드가 아니라 **"무엇이 추상화를 먼저 증�
 빌드 규약과 자동 검증 장치. 여기서 정한 컴파일 옵션과 게이트가 이후 모든 작업의 전제가 된다.
 품질 게이트는 **초기에 켜야** 축적된다. 나중에 켜면 위반이 쌓여 못 켠다.
 
-- [ ] `ChServerM.sln` 생성, `Server/` `Client/` `Tests/` `Bench/` `Samples/` 솔루션 폴더 구성 (진행 중: `Server/`·`Tests/`·`Samples/`·`Bench/` 존재. **`Client/` 만 남았다** — 클라이언트 전용 어셈블리를 만들 때 추가)
+- [ ] `ChServerM.sln` 생성, `Server/` `Client/` `Tests/` `Bench/` `Samples/` 솔루션 폴더 구성 (진행 중: `Server/`·`Tests/`·`Samples/`·`Bench/` 존재. **`Client/` 만 남았다.** `dotnet sln add` 가 프로젝트 없이 폴더를 만들지 못하므로 `ChServerM.Client.*` 어셈블리를 만들 때 함께 추가한다 — 현재 클라이언트는 `ChServerM.Hosting` 의 `ClientBuilder` 와 전송 어셈블리를 그대로 쓴다)
 - [x] `Directory.Build.props` — `net10.0`, C# 14, nullable, `AllowUnsafeBlocks`, `IsAotCompatible`, ServerGC, TieredPGO
 - [x] `Directory.Packages.props` — 중앙 패키지 버전 관리 활성화
 - [x] `.editorconfig` — 코드 스타일 + 분석기 심각도 (Performance·Reliability 카테고리를 error로 승격)
@@ -77,13 +77,21 @@ Phase 순서는 워크로드가 아니라 **"무엇이 추상화를 먼저 증�
 - [x] CI 스크립트 (build + test + AOT 컴파일 검증) — `eng/build.ps1` 4단계 전부 통과. **AOT 검증이 실제로 동작한다** (Echo 샘플 대상, Native AOT 1.9MB 바이너리 정상 실행). 개발자 셸이 아닌 환경에서 링크가 실패하지 않도록 `vswhere` 경로를 스크립트가 보강한다
 - [ ] 원격 CI 첫 실행 (진행 중: 2026-08-03 푸시 완료. **결과 미확인** — 작업 환경에서 GitHub 에 접근할 수 없다. Linux 잡의 Native AOT 는 ubuntu 러너의 clang·zlib1g-dev 에 의존한다)
 - [x] `Bench/` 골격 — `Bench/ChServerM.Bench` (BenchmarkDotNet 0.15.8). `BenchConfig`가 ServerGC·할당량 진단·첫 실패 시 중단을 고정한다. ENV-A 프로필 기록(Ryzen 9 9900X, 물리 12 / 논리 24)
-- [ ] 코드 커버리지 수집 (coverlet) + CI 리포트. 임계값은 Core 추상화 확정 후 설정
+- [x] 코드 커버리지 수집 (coverlet) + CI 리포트 — `eng/build.ps1 -Coverage`. **어셈블리별로 집계한다** (cobertura 파일명이 GUID 라 그대로 찍으면 관리에 쓸 수 없다). CI 가 cobertura 를 아티팩트로 올린다. 현재: Framing 95.0% / InMemory 83.4% / Concurrency 76.5% / Tcp 70.2% / Hosting 66.2% / Core 60.8%
+  - [ ] 임계값 설정 — Core 추상화 확정 후. 지금은 수치를 보이게 만드는 단계다
+  - [ ] ReportGenerator 도입 — 현재 집계는 어셈블리별 **최대값**이고 여러 테스트 프로젝트의 합집합이 아니다
 - [x] ⚠ **public API 승인 파일 게이트** — `Microsoft.CodeAnalysis.PublicApiAnalyzers` 5.6.0. `Server/Directory.Build.props`가 Server 어셈블리 6개에 적용한다(Tests/Bench/Samples 제외). 기준선 629줄. **켠 첫날 RS0026 으로 실제 API 결함을 잡았다** — `FrameWriter.WriteFrameAsync` 의 옵션 매개변수 기본값 세 개가 레거시 실패 패턴과 겹쳤고, 전부 필수로 바꿨다. 작업 절차는 CLAUDE.md 8.1
-- [ ] NuGet 취약점 감사 — `dotnet list package --vulnerable --include-transitive`를 CI에서 실패 조건으로
-- [ ] 의존성 업데이트 자동화 — Dependabot 또는 Renovate
+- [x] NuGet 취약점 감사 — `eng/build.ps1` audit 단계. **이 명령의 함정 둘을 모두 막았다**: (1) 취약점이 발견돼도 exit code 가 0 이라 naive 호출은 감사를 안 한 것과 같다, (2) 사람이 읽는 출력이 로케일에 따라 달라져 grep 이 CI 에서 깨진다 → `--format json` 파싱. **오프라인에서 빈 결과를 "안전함"으로 읽지 않도록** 원격 소스 존재까지 확인한다. 실제 취약 패키지(`System.Net.Http` 4.3.0)를 임시로 넣어 exit 1 을 확인했다
+- [x] 의존성 업데이트 자동화 — `.github/dependabot.yml`. NuGet 주간 / GitHub Actions 월간. 테스트 도구와 분석기는 그룹으로 묶는다(버전이 어긋나면 "테스트가 발견되지 않는" 형태로 실패한다). **NuGet 메이저는 자동으로 받지 않는다** — ADR 이 필요한 결정이다
 - [x] `LegacyServer/` + `LagacyClient/` 전수 정독 — 27,300줄 / 문서 14종. 결과: `docs/legacy/`(인덱스: [00-overview](legacy/00-overview.md))
 
 **게이트**: CI가 build + test + 취약점 감사를 통과하고, public API 게이트가 켜져 있을 때.
+
+> **2026-08-03 — 로컬에서 충족.** `eng/build.ps1` 6단계(restore·build·test·coverage·audit·aot)가
+> Release + `-WarnAsError` 로 전부 통과하고 public API 게이트가 켜져 있다.
+> **남은 것은 원격 확인 하나다** — 작업 환경에서 GitHub 에 접근할 수 없어 ubuntu 잡의
+> 결과를 보지 못했다. Linux 에서 처음 도는 것이므로 Native AOT(clang·zlib1g-dev 의존)와
+> 소켓 동작 차이가 실제로 통과하는지는 미확인이다.
 
 ## Phase 1 — Core 추상화
 
