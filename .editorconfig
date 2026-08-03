@@ -152,6 +152,24 @@ dotnet_diagnostic.CA5394.severity = none
 dotnet_diagnostic.CA1707.severity = none
 
 # ──────────────────────────────────────────────────────────────
+# 샘플 — 사용자가 읽는 참조 코드다. 성능·신뢰성 규칙은 그대로 두고,
+# 콘솔 애플리케이션에 맞지 않는 세 가지만 푼다.
+[Samples/**/*.cs]
+
+# CA2007 — ConfigureAwait(false) 는 라이브러리 규약이다(CLAUDE.md 8절).
+# 애플리케이션 코드에는 적용되지 않고, 샘플에 붙어 있으면 읽는 사람이
+# "앱에서도 필요하다"고 오해한다.
+dotnet_diagnostic.CA2007.severity = none
+
+# CA2000 — 전송과 실행 모델의 소유권은 ChServerMServer 로 넘어가고
+# 그쪽 DisposeAsync 가 정리한다. 분석기가 비동기 소유권 이전을 추적하지 못한다.
+dotnet_diagnostic.CA2000.severity = none
+
+# CA1849 — 콘솔 출력에 WriteLineAsync 를 쓰라는 규칙.
+# 샘플의 진행 상황 출력은 핫패스가 아니고, async 를 붙이면 예제가 읽기 어려워진다.
+dotnet_diagnostic.CA1849.severity = none
+
+# ──────────────────────────────────────────────────────────────
 # 벤치마크 — BenchmarkDotNet 은 public 메서드/비봉인 클래스를 요구한다.
 [Bench/**/*.cs]
 dotnet_analyzer_diagnostic.category-Design.severity = suggestion

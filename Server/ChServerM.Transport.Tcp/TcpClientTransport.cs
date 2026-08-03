@@ -26,7 +26,7 @@ namespace ChServerM.Transport.Tcp;
 /// </para>
 /// <para><b>스레드 규약.</b> 스레드 안전하다.</para>
 /// </remarks>
-public sealed class TcpClientTransport : IClientTransport
+public sealed class TcpClientTransport : IClientTransport, ITransportBufferLimits
 {
     private readonly TcpTransportOptions _options;
     private readonly IServerLogger _logger;
@@ -47,6 +47,9 @@ public sealed class TcpClientTransport : IClientTransport
         _options = options;
         _logger = logger ?? NullServerLogger.Instance;
     }
+
+    /// <inheritdoc />
+    public long MaxBufferedBytesPerConnection => _options.PauseWriterThreshold;
 
     /// <inheritdoc />
     /// <exception cref="SocketException">연결에 실패했을 때.</exception>

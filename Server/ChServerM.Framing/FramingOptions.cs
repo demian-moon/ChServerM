@@ -43,8 +43,22 @@ public sealed class FramingOptions
 
     /// <summary>받아들일 최대 페이로드 크기(바이트).</summary>
     /// <remarks>
+    /// <para>
     /// 이 값을 넘는 길이 필드를 보면 <see cref="FrameDecodeStatus.TooLarge"/>로 커넥션을 닫는다.
     /// <b>버퍼를 잡기 전에</b> 판정하므로, 4바이트짜리 거짓말로 메모리를 고갈시킬 수 없다.
+    /// </para>
+    /// <para>
+    /// <b>전송의 버퍼 한계와 짝이 맞아야 한다.</b>
+    /// <c>MaxPayloadLength + 헤더 크기</c>가 전송의 커넥션당 버퍼 한계
+    /// (<c>PauseWriterThreshold</c>)를 넘으면, 그 크기의 프레임에서 커넥션이
+    /// <b>조용히 교착한다</b> — 디코더는 부분 프레임을 소비할 수 없고, 버퍼가 차면
+    /// 쓰기가 멈추기 때문이다.
+    /// </para>
+    /// <para>
+    /// 기본값(1 MiB)은 전송의 기본 임계값(64 KiB)보다 크다. <b>의도적이다</b> —
+    /// 워크로드마다 정답이 다르므로 한쪽에 맞춰 낮추지 않고, 조합이 어긋나면
+    /// 서버 조립 시점에 예외로 알린다(<c>ChServerM.Hosting</c> 의 조립 검사).
+    /// </para>
     /// </remarks>
     public int MaxPayloadLength { get; set; } = DefaultMaxPayloadLength;
 

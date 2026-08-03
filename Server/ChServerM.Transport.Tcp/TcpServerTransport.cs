@@ -33,7 +33,7 @@ namespace ChServerM.Transport.Tcp;
 /// </para>
 /// <para><b>스레드 규약.</b> 스레드 안전하다.</para>
 /// </remarks>
-public sealed class TcpServerTransport : IServerTransport
+public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimits
 {
     private static readonly EventId AcceptFaultedEvent = new(1020, "AcceptFaulted");
     private static readonly EventId ConnectionRejectedEvent = new(1004, "ConnectionRejected");
@@ -87,6 +87,9 @@ public sealed class TcpServerTransport : IServerTransport
 
     /// <summary>현재 열려 있는 커넥션 수.</summary>
     public int ConnectionCount => _connections.Count;
+
+    /// <inheritdoc />
+    public long MaxBufferedBytesPerConnection => _options.PauseWriterThreshold;
 
     /// <inheritdoc />
     public ValueTask BindAsync(IConnectionHandler handler, CancellationToken cancellationToken = default)

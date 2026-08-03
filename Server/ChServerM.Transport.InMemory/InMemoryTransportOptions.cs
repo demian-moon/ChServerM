@@ -26,6 +26,11 @@ public sealed class InMemoryTransportOptions
     public const long DefaultResumeWriterThreshold = 32 * 1024;
 
     /// <summary>버퍼가 이 크기를 넘으면 <c>FlushAsync</c>가 대기한다.</summary>
+    /// <remarks>
+    /// <b>최대 프레임 크기보다 커야 한다.</b> 프레임 디코더는 완전한 프레임이 오기 전에
+    /// 아무것도 소비할 수 없으므로, 프레임이 이 값보다 크면 버퍼가 찬 채로 영원히
+    /// 벗어나지 못한다. 서버 조립 시점에 검사한다.
+    /// </remarks>
     public long PauseWriterThreshold { get; set; } = DefaultPauseWriterThreshold;
 
     /// <summary>버퍼가 이 크기 아래로 내려가면 <c>FlushAsync</c>가 재개된다.</summary>

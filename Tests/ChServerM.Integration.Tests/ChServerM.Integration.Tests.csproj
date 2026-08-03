@@ -23,6 +23,7 @@
     같은 핸들러가 서로 다른 축 조합에서 도는지 검증하는 것이 이 프로젝트의 목적이다(ADR-0004).
   -->
   <ItemGroup>
+    <ProjectReference Include="..\..\Server\ChServerM.Concurrency\ChServerM.Concurrency.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Framing\ChServerM.Framing.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Hosting\ChServerM.Hosting.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Transport.InMemory\ChServerM.Transport.InMemory.csproj" />

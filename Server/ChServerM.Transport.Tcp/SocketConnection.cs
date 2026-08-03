@@ -141,9 +141,15 @@ public sealed class SocketConnection : IConnection, IConnectionEndPointFeature
 
         CloseInfo = info;
 
-        // 소켓을 버리면 대기 중인 수신·송신이 즉시 예외로 깨어난다.
+        // 소켓을 버리면 대기 중인 수신이 즉시 예외로 깨어난다.
         // 대기 중인 송신 데이터는 보장하지 않는다 — 그것이 Abort 와 DisposeAsync 의 차이다.
         CloseSocket();
+
+        // 소켓만 닫아서는 부족하다. 송신 펌프는 소켓이 아니라 파이프에서 대기 중이고,
+        // 애플리케이션의 읽기 루프도 마찬가지다. 이 둘을 깨우지 않으면 영원히 매달린다 —
+        // 실제로 이것을 빠뜨려 Abort 된 커넥션의 DisposeAsync 가 교착했다.
+        CancelPendingPipeReads();
+
         SignalClosed();
     }
 
@@ -156,7 +162,12 @@ public sealed class SocketConnection : IConnection, IConnectionEndPointFeature
     {
         if (Interlocked.Exchange(ref _closedFlag, 1) != 0)
         {
-            // 이미 Abort 되었거나 해제 중이다. 펌프가 끝나기만 기다린다.
+            // 이미 Abort 되었거나 해제 중이다. 펌프를 깨우고 끝나기만 기다린다.
+            // 깨우기를 다시 하는 이유: 두 번째 DisposeAsync 가 첫 번째보다 먼저
+            // 여기 도달할 수 있고, 두 호출 모두 멱등이다.
+            CloseSocket();
+            CancelPendingPipeReads();
+
             await WaitForPumpsAsync().ConfigureAwait(false);
             _closed.Dispose();
             return;
@@ -187,11 +198,51 @@ public sealed class SocketConnection : IConnection, IConnectionEndPointFeature
         }
 #pragma warning restore CA1031
 
+        // 정상 경로가 성공했든 시간이 다 됐든, 여기서 반드시 정리한다.
+        // 소켓만 닫으면 파이프에서 대기 중인 송신 펌프가 깨어나지 않는다.
         CloseSocket();
+        CancelPendingPipeReads();
         SignalClosed();
 
         await WaitForPumpsAsync().ConfigureAwait(false);
         _closed.Dispose();
+    }
+
+    /// <summary>파이프에서 대기 중인 읽기를 깨운다.</summary>
+    /// <remarks>
+    /// <para>두 곳이 파이프에서 대기한다.</para>
+    /// <list type="bullet">
+    ///   <item><description>
+    ///     <b>송신 펌프</b>가 <c>_sendPipe.Reader</c> 에서 — 소켓을 닫아도 깨어나지 않는다
+    ///   </description></item>
+    ///   <item><description>
+    ///     <b>애플리케이션 읽기 루프</b>가 <c>_receivePipe.Reader</c> 에서 —
+    ///     수신 펌프가 라이터를 완료하면 깨어나지만, 그 전에 즉시 깨워야 종료가 빠르다
+    ///   </description></item>
+    /// </list>
+    /// <para>여러 번 불러도 안전하다.</para>
+    /// </remarks>
+    private void CancelPendingPipeReads()
+    {
+#pragma warning disable CA1031 // 종료 경로. 어느 한쪽의 실패로 나머지를 건너뛰면 안 된다.
+        try
+        {
+            _sendPipe.Reader.CancelPendingRead();
+        }
+        catch (Exception)
+        {
+            // 이미 완료된 파이프다.
+        }
+
+        try
+        {
+            _receivePipe.Reader.CancelPendingRead();
+        }
+        catch (Exception)
+        {
+            // 이미 완료된 파이프다.
+        }
+#pragma warning restore CA1031
     }
 
     /// <summary>소켓에서 읽어 수신 파이프에 넣는다.</summary>
@@ -334,16 +385,23 @@ public sealed class SocketConnection : IConnection, IConnectionEndPointFeature
         }
     }
 
+    /// <summary>두 펌프가 끝나기를 기다린다. 상한이 있다.</summary>
+    /// <remarks>
+    /// <b>제한 시간은 방어선이다.</b> 여기까지 오면 소켓은 이미 닫혔고 파이프의 대기도
+    /// 취소됐으므로 펌프는 즉시 끝나야 한다. 그런데도 끝나지 않는다면 펌프에 버그가 있다는
+    /// 뜻이고, 그때 무한정 기다리면 <b>서버 종료가 영원히 막힌다.</b>
+    /// 실제로 <c>Abort</c> 가 송신 펌프를 깨우지 않아 여기서 교착한 적이 있다.
+    /// </remarks>
     private async Task WaitForPumpsAsync()
     {
 #pragma warning disable CA1031 // 정리 경로. 펌프의 예외는 이미 기록됐다.
         try
         {
-            await Task.WhenAll(_receivePump, _sendPump).ConfigureAwait(false);
+            await Task.WhenAll(_receivePump, _sendPump).WaitAsync(_shutdownTimeout).ConfigureAwait(false);
         }
         catch (Exception)
         {
-            // 흡수한다.
+            // 펌프 예외이거나 제한 시간 초과다. 어느 쪽이든 종료를 막지 않는다.
         }
 #pragma warning restore CA1031
     }

@@ -64,9 +64,17 @@ public sealed class TcpTransportOptions
 
     /// <summary>수신 버퍼가 이 크기를 넘으면 소켓에서 더 읽지 않는다.</summary>
     /// <remarks>
+    /// <para>
     /// 이것이 <b>진짜 백프레셔</b>다. 애플리케이션이 느리면 커널 수신 버퍼가 차고,
     /// 결국 TCP 윈도가 0이 되어 상대가 보내지 못한다. 무제한이면 그 신호가 사라지고
     /// 메모리로 대신 갚게 된다.
+    /// </para>
+    /// <para>
+    /// <b>최대 프레임 크기보다 커야 한다.</b> 프레임 디코더는 완전한 프레임이 오기 전에
+    /// 아무것도 소비할 수 없으므로, 프레임이 이 값보다 크면 버퍼가 찬 채로 영원히
+    /// 벗어나지 못한다. TCP 는 커널 소켓 버퍼가 여유분을 흡수해 <b>우연히 통과할 수도</b>
+    /// 있는데, 그것은 운이지 보장이 아니다. 서버 조립 시점에 검사한다.
+    /// </para>
     /// </remarks>
     public long PauseWriterThreshold { get; set; } = DefaultPauseWriterThreshold;
 

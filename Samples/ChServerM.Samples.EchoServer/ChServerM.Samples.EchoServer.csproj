@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>ChServerM.Samples.EchoServer</RootNamespace>
+    <IsPackable>false</IsPackable>
+
+    <!--
+      이 프로젝트가 존재하는 두 번째 이유가 이것이다.
+
+      라이브러리에 IsAotCompatible=true 를 걸면 분석기가 리플렉션 유입을 잡아주지만,
+      실제로 Native AOT 로 링크되는지는 확인해 주지 않는다. 실행 가능 프로젝트를
+      publish 해봐야 트리밍 경고와 링크 실패가 드러난다.
+
+      Phase 0 의 "AOT 검증" 항목이 지금까지 SKIPPED 였던 이유가 대상 프로젝트의 부재였다.
+    -->
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <StackTraceSupport>false</StackTraceSupport>
+
+    <!-- 트리밍/AOT 경고를 오류로 승격한다. 경고로 두면 결국 쌓인다. -->
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+  </PropertyGroup>
+
+  <!--
+    realtime-stateful 참조 프로필의 최소 조합(ADR-0004):
+      TCP + 고정 헤더 프레이밍 + 키 기반 파티션 실행 모델
+    같은 핸들러를 인메모리 전송으로도 돌려 조립 가능성을 실증한다.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\Server\ChServerM.Concurrency\ChServerM.Concurrency.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Framing\ChServerM.Framing.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Hosting\ChServerM.Hosting.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Transport.InMemory\ChServerM.Transport.InMemory.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Transport.Tcp\ChServerM.Transport.Tcp.csproj" />
+  </ItemGroup>
+
+</Project>

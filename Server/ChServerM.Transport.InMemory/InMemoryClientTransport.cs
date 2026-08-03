@@ -30,11 +30,12 @@ namespace ChServerM.Transport.InMemory;
 /// <c>StopAsync</c> 가 끝나지 않는다.
 /// </para>
 /// </remarks>
-public sealed class InMemoryClientTransport : IClientTransport
+public sealed class InMemoryClientTransport : IClientTransport, ITransportBufferLimits
 {
     private readonly InMemoryTransportHub _hub;
     private readonly InMemoryEndPoint _localEndPoint;
     private readonly ConcurrentDictionary<InMemoryConnection, byte> _connections = new();
+    private readonly long _maxBufferedBytes;
 
     private int _disposed;
 
@@ -45,16 +46,30 @@ public sealed class InMemoryClientTransport : IClientTransport
     /// 서버 쪽에서 <c>RemoteEndPoint</c> 로 보인다.
     /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="hub"/>가 <see langword="null"/>일 때.</exception>
-    public InMemoryClientTransport(InMemoryTransportHub hub, InMemoryEndPoint? localEndPoint = null)
+    /// <param name="options">
+    /// 버퍼 한계를 알리기 위한 설정. 실제 파이프는 서버 쪽 전송이 만들므로 여기서는
+    /// <see cref="ITransportBufferLimits"/> 보고에만 쓰인다. 서버와 같은 값을 넘긴다.
+    /// </param>
+    public InMemoryClientTransport(
+        InMemoryTransportHub hub,
+        InMemoryEndPoint? localEndPoint = null,
+        InMemoryTransportOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(hub);
 
+        options ??= new InMemoryTransportOptions();
+        options.Validate();
+
         _hub = hub;
         _localEndPoint = localEndPoint ?? new InMemoryEndPoint($"client-{Guid.NewGuid():N}");
+        _maxBufferedBytes = options.PauseWriterThreshold;
     }
 
     /// <summary>이 클라이언트의 종단.</summary>
     public InMemoryEndPoint LocalEndPoint => _localEndPoint;
+
+    /// <inheritdoc />
+    public long MaxBufferedBytesPerConnection => _maxBufferedBytes;
 
     /// <inheritdoc />
     /// <exception cref="ArgumentException">

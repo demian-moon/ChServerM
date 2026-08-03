@@ -125,9 +125,24 @@ internal sealed class TestHarness : IAsyncDisposable
         FramedConnectionHandler handler = new(decoder, builder.Build(), connectionOptions);
 
         (InMemoryTransportHub? hub, EndPoint endPoint, IServerTransport server, IClientTransport client) =
-            await CreateTransportsAsync(kind, handler, transportOptions, tcpOptions).ConfigureAwait(false);
+            await CreateTransportsAsync(kind, handler, transportOptions, tcpOptions, maxPayloadLength)
+                .ConfigureAwait(false);
 
         return new TestHarness(kind, hub, endPoint, server, client, encoder, decoder);
+    }
+
+    /// <summary>프레임이 들어갈 수 있는 버퍼 임계값을 계산한다.</summary>
+    /// <remarks>
+    /// 전송 버퍼가 최대 프레임보다 작으면 그 크기의 프레임에서 <b>조용히 교착한다</b> —
+    /// 디코더는 부분 프레임을 소비할 수 없고, 버퍼가 차면 쓰기가 멈추기 때문이다.
+    /// 조립 검사가 이것을 예외로 잡아주지만, 테스트는 애초에 성립하는 조합을 써야 한다.
+    /// </remarks>
+    private static (long Pause, long Resume) BufferThresholdsFor(int maxPayloadLength)
+    {
+        long minimum = maxPayloadLength + FrameHeader.Size;
+        long pause = Math.Max(InMemoryTransportOptions.DefaultPauseWriterThreshold, minimum * 2);
+
+        return (pause, pause / 2);
     }
 
     /// <summary>전송 종류에 따라 달라지는 유일한 지점.</summary>
@@ -136,10 +151,17 @@ internal sealed class TestHarness : IAsyncDisposable
             TransportKind kind,
             IConnectionHandler handler,
             InMemoryTransportOptions? transportOptions,
-            TcpTransportOptions? tcpOptions)
+            TcpTransportOptions? tcpOptions,
+            int maxPayloadLength)
     {
+        (long pause, long resume) = BufferThresholdsFor(maxPayloadLength);
+
         if (kind == TransportKind.InMemory)
         {
+            transportOptions ??= new InMemoryTransportOptions();
+            transportOptions.PauseWriterThreshold = Math.Max(transportOptions.PauseWriterThreshold, pause);
+            transportOptions.ResumeWriterThreshold = Math.Max(transportOptions.ResumeWriterThreshold, resume);
+
             // 허브는 하네스마다 새로 만든다 — xUnit 은 클래스 단위 병렬이라
             // 정적이었다면 테스트끼리 종단 이름이 충돌한다.
             InMemoryTransportHub hub = new();
@@ -148,8 +170,12 @@ internal sealed class TestHarness : IAsyncDisposable
 
             await server.BindAsync(handler).ConfigureAwait(false);
 
-            return (hub, endPoint, server, new InMemoryClientTransport(hub));
+            return (hub, endPoint, server, new InMemoryClientTransport(hub, null, transportOptions));
         }
+
+        tcpOptions ??= new TcpTransportOptions();
+        tcpOptions.PauseWriterThreshold = Math.Max(tcpOptions.PauseWriterThreshold, pause);
+        tcpOptions.ResumeWriterThreshold = Math.Max(tcpOptions.ResumeWriterThreshold, resume);
 
         // 포트 0 → OS 가 배정. 바인드 뒤에 실제 포트를 읽는다.
         TcpServerTransport tcpServer = new(new IPEndPoint(IPAddress.Loopback, 0), tcpOptions);

@@ -2,9 +2,13 @@
   <Folder Name="/Server/">
     <Project Path="Server/ChServerM.Core/ChServerM.Core.csproj" />
     <Project Path="Server/ChServerM.Framing/ChServerM.Framing.csproj" />
+    <Project Path="Server/ChServerM.Concurrency/ChServerM.Concurrency.csproj" />
     <Project Path="Server/ChServerM.Hosting/ChServerM.Hosting.csproj" />
     <Project Path="Server/ChServerM.Transport.InMemory/ChServerM.Transport.InMemory.csproj" />
     <Project Path="Server/ChServerM.Transport.Tcp/ChServerM.Transport.Tcp.csproj" />
+  </Folder>
+  <Folder Name="/Samples/">
+    <Project Path="Samples/ChServerM.Samples.EchoServer/ChServerM.Samples.EchoServer.csproj" />
   </Folder>
   <Folder Name="/Tests/">
     <Project Path="Tests/ChServerM.Core.Tests/ChServerM.Core.Tests.csproj" />

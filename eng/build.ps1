@@ -107,6 +107,17 @@ else {
         Write-Host '  실제 AOT 컴파일 검증은 Samples 실행 프로젝트 추가 시(Phase 2+) 활성화된다.'
     }
     else {
+        # ILCompiler 는 네이티브 링크 단계에서 vswhere.exe 로 MSVC 링커를 찾는다.
+        # Visual Studio 개발자 셸이 아닌 환경(일반 PowerShell, Git Bash, 일부 CI 이미지)에서는
+        # vswhere 가 PATH 에 없어 "'vswhere.exe'은(는) 내부 또는 외부 명령이 아닙니다" 로 실패한다.
+        # 컴파일은 이미 성공한 뒤라 원인이 코드처럼 보이는 것이 문제다 — 여기서 미리 막는다.
+        $vsInstaller = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer'
+        if ((Test-Path -LiteralPath (Join-Path $vsInstaller 'vswhere.exe')) -and
+            ($env:PATH -notlike "*$vsInstaller*")) {
+            $env:PATH = "$env:PATH;$vsInstaller"
+            Write-Host "vswhere 경로를 PATH 에 추가: $vsInstaller" -ForegroundColor DarkGray
+        }
+
         foreach ($proj in $exeProjects) {
             Write-Host "AOT publish: $($proj.Name)" -ForegroundColor DarkCyan
             dotnet publish $proj.FullName `

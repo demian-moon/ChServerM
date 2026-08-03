@@ -35,7 +35,7 @@ namespace ChServerM.Transport.InMemory;
 /// <b>스레드 규약.</b> 스레드 안전하다. 여러 클라이언트가 동시에 연결해도 된다.
 /// </para>
 /// </remarks>
-public sealed class InMemoryServerTransport : IServerTransport
+public sealed class InMemoryServerTransport : IServerTransport, ITransportBufferLimits
 {
     private static readonly EventId ConnectionRejectedEvent = new(1004, "ConnectionRejected");
     private static readonly EventId HandlerFaultedEvent = new(1006, "ConnectionHandlerFaulted");
@@ -76,7 +76,11 @@ public sealed class InMemoryServerTransport : IServerTransport
         _pipeOptions = options.CreatePipeOptions();
         _maxConnections = options.MaxConnections;
         _logger = logger ?? NullServerLogger.Instance;
+        MaxBufferedBytesPerConnection = options.PauseWriterThreshold;
     }
+
+    /// <inheritdoc />
+    public long MaxBufferedBytesPerConnection { get; }
 
     /// <inheritdoc />
     /// <remarks>바인드 전에는 <see langword="null"/>이다.</remarks>
