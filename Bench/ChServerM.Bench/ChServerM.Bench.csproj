@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>ChServerM.Bench</RootNamespace>
+    <IsPackable>false</IsPackable>
+
+    <!--
+      벤치마크는 AOT 배포 대상이 아니다. BenchmarkDotNet 이 런타임에 벤치마크
+      실행 프로젝트를 생성·컴파일하므로 AOT 분석기와 맞지 않는다.
+    -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+
+    <!--
+      BenchmarkDotNet 은 최적화가 켜져 있지 않으면 경고하고 결과를 신뢰하지 말라고 알린다.
+      Debug 로 실수로 돌리는 것을 막기 위해 여기서 고정한다.
+    -->
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+
+    <!-- 서버 GC 로 측정한다. 워크로드 GC 특성이 완전히 달라지므로 프로덕션과 맞춘다. -->
+    <ServerGarbageCollector>true</ServerGarbageCollector>
+    <ConcurrentGarbageCollector>true</ConcurrentGarbageCollector>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+  </ItemGroup>
+
+  <!--
+    측정 대상. 벤치마크는 프로덕션 조립과 같은 경로를 써야 의미가 있다 —
+    벤치마크용 지름길을 만들면 그 수치는 프로덕션을 대표하지 않는다.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\Server\ChServerM.Concurrency\ChServerM.Concurrency.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Framing\ChServerM.Framing.csproj" />
+  </ItemGroup>
+
+</Project>

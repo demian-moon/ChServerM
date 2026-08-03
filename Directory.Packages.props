@@ -18,13 +18,22 @@
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
   </ItemGroup>
 
+  <ItemGroup Label="Benchmark">
+    <!--
+      BenchmarkDotNet 은 벤치마크를 별도 프로세스로 격리해 돌린다.
+      그래서 "Release 빌드, 디버거 미연결"(docs/BENCHMARKS.md 규칙)이 자동으로 보장된다.
+      직접 Stopwatch 로 재는 것과 이 점이 다르다.
+    -->
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
+  </ItemGroup>
+
   <!--
     축 어댑터 패키지는 해당 Phase에 진입할 때 추가한다.
     ADR 없이 여기에 항목을 늘리지 않는다 — docs/DECISIONS.md 참조.
       Serialization : MemoryPack / Google.Protobuf / FlatSharp
       Transport     : Microsoft.AspNetCore.Connections.Abstractions
       Observability : ZLogger / OpenTelemetry
-      Benchmark     : BenchmarkDotNet / NBomber
+      Load test     : NBomber
   -->
 
 </Project>

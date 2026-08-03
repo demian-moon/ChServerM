@@ -7,6 +7,9 @@
     <Project Path="Server/ChServerM.Transport.InMemory/ChServerM.Transport.InMemory.csproj" />
     <Project Path="Server/ChServerM.Transport.Tcp/ChServerM.Transport.Tcp.csproj" />
   </Folder>
+  <Folder Name="/Bench/">
+    <Project Path="Bench/ChServerM.Bench/ChServerM.Bench.csproj" />
+  </Folder>
   <Folder Name="/Samples/">
     <Project Path="Samples/ChServerM.Samples.EchoServer/ChServerM.Samples.EchoServer.csproj" />
   </Folder>

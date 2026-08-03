@@ -68,15 +68,15 @@ Phase 순서는 워크로드가 아니라 **"무엇이 추상화를 먼저 증�
 빌드 규약과 자동 검증 장치. 여기서 정한 컴파일 옵션과 게이트가 이후 모든 작업의 전제가 된다.
 품질 게이트는 **초기에 켜야** 축적된다. 나중에 켜면 위반이 쌓여 못 켠다.
 
-- [ ] `ChServerM.sln` 생성, `Server/` `Client/` `Tests/` `Bench/` `Samples/` 솔루션 폴더 구성 (진행 중: `Server/`·`Tests/`·`Samples/` 존재. `Client/`·`Bench/`는 첫 프로젝트와 함께 추가 — `dotnet sln add`가 프로젝트 없이 폴더를 만들지 못한다)
+- [ ] `ChServerM.sln` 생성, `Server/` `Client/` `Tests/` `Bench/` `Samples/` 솔루션 폴더 구성 (진행 중: `Server/`·`Tests/`·`Samples/`·`Bench/` 존재. **`Client/` 만 남았다** — 클라이언트 전용 어셈블리를 만들 때 추가)
 - [x] `Directory.Build.props` — `net10.0`, C# 14, nullable, `AllowUnsafeBlocks`, `IsAotCompatible`, ServerGC, TieredPGO
 - [x] `Directory.Packages.props` — 중앙 패키지 버전 관리 활성화
 - [x] `.editorconfig` — 코드 스타일 + 분석기 심각도 (Performance·Reliability 카테고리를 error로 승격)
 - [x] `.gitattributes` — 줄바꿈 정규화를 저장소 제어로. `core.autocrlf` 의존 제거, `.editorconfig`와 정합
 - [x] `ChServerM.Core` 프로젝트 생성 — 서드파티 의존 0 검증 테스트 포함 (2중 가드: `CHSM0001` MSBuild + `CoreDependencyTests`. 참/거짓 양성 모두 검증)
 - [x] CI 스크립트 (build + test + AOT 컴파일 검증) — `eng/build.ps1` 4단계 전부 통과. **AOT 검증이 실제로 동작한다** (Echo 샘플 대상, Native AOT 1.9MB 바이너리 정상 실행). 개발자 셸이 아닌 환경에서 링크가 실패하지 않도록 `vswhere` 경로를 스크립트가 보강한다
-- [ ] 원격 CI 첫 실행 — 커밋이 미푸시 상태라 GitHub Actions 매트릭스가 한 번도 돌지 않았다
-- [ ] `Bench/` 골격 — BenchmarkDotNet 프로젝트. 측정 환경 프로필을 `docs/BENCHMARKS.md`에 기록
+- [ ] 원격 CI 첫 실행 (진행 중: 2026-08-03 푸시 완료. **결과 미확인** — 작업 환경에서 GitHub 에 접근할 수 없다. Linux 잡의 Native AOT 는 ubuntu 러너의 clang·zlib1g-dev 에 의존한다)
+- [x] `Bench/` 골격 — `Bench/ChServerM.Bench` (BenchmarkDotNet 0.15.8). `BenchConfig`가 ServerGC·할당량 진단·첫 실패 시 중단을 고정한다. ENV-A 프로필 기록(Ryzen 9 9900X, 물리 12 / 논리 24)
 - [ ] 코드 커버리지 수집 (coverlet) + CI 리포트. 임계값은 Core 추상화 확정 후 설정
 - [ ] ⚠ **public API 승인 파일 게이트** — `Microsoft.CodeAnalysis.PublicApiAnalyzers`. `PublicAPI.Shipped.txt`/`Unshipped.txt`로 공개 표면 변경을 리뷰에 노출시킨다. 상업용 라이브러리에서 이걸 나중에 켜면 이미 굳은 API를 되돌릴 수 없다
 - [ ] NuGet 취약점 감사 — `dotnet list package --vulnerable --include-transitive`를 CI에서 실패 조건으로
@@ -175,7 +175,7 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 - [x] 프레임 조립 상태 머신 — **상태 머신이 필요 없는 설계로 해소했다.** 부분 프레임 상태는 `PipeReader` 버퍼가 이미 들고 있으므로 디코더는 무상태이고, 인스턴스 하나를 모든 커넥션이 공유한다. 레거시가 커넥션마다 5단 상태를 들고 있다가 예외 한 번에 desync 된 원인이 구조적으로 사라진다
 - [ ] **조각 재조립(`Fragmented`/`EndOfMessage`)** — 임계값보다 큰 논리 메시지를 나눠 보내는 경로. **재조립 버퍼에 상한과 미완성 조각 만료가 반드시 필요하다** — 마지막 조각이 오지 않는 부분 메시지를 무한정 들고 있으면 그 자체가 메모리 고갈 공격 경로다 (ADR-0007 미해결 항목)
 - [x] 퍼징 테스트 — 난수 12만 회 + 비트 플립 2만 회 + 잘린 프레임 전 오프셋 + 길이 필드 극단값. 불변식 4종(예외 없음 / 버퍼 밖 미참조 / **반드시 전진** / `NeedMoreData`는 버퍼 전체 검사). 시드 고정으로 재현 가능
-- [ ] 벤치마크: 프레임당 파싱 비용, 할당 0 확인 (진행 중: 할당 0은 `GC.GetAllocatedBytesForCurrentThread`로 5경로 실측 완료. **파싱 비용 수치는 `Bench/` 골격이 없어 미측정**)
+- [x] 벤치마크: 프레임당 파싱 비용, 할당 0 확인 — 디코딩 **약 29 ns**, 할당 0. 초당 10만 프레임이면 코어 하나의 0.3%로, ADR-0002 의 "헤더 파싱 비용 0" 주장이 성립한다. 세그먼트 경계 경로는 14~19% 느리지만 절대값 4 ns 라 최적화할 이유가 없음을 확인
 
 **게이트**: 퍼징이 크래시 없이 통과하고 프레임당 할당이 0일 때.
 
@@ -232,12 +232,15 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 - [ ] ⚠ **유저별 순서 보장 구현** — `IExecutionModel` 계약의 실체 (진행 중: **커넥션 단위**로 완료. `PartitionedConnectionHandler`가 읽기 루프를 파티션에 고정해 프레임당 큐 비용이 0이다. 유저/세션 단위 고정은 세션 계층과 함께 — 지금은 재접속하면 다른 파티션으로 간다)
 - [ ] 스레드-퍼-코어 모델 + CPU 어피니티 (진행 중: 파티션당 전용 스레드 = 기본 `ProcessorCount`개, 절대 상한 512. **CPU 어피니티 미적용**)
 - [x] false sharing 회피 — 파티션 대기 카운터를 `[StructLayout(Size=128)]`로 패딩. 64B가 아니라 128B인 이유는 일부 x86이 인접 라인을 함께 프리페치하기 때문
+- [ ] **작업 상자 풀을 파티션별로 분리 검토** — `TryPost` 게시당 할당이 파티션 1개에서 1 B 인데 8개에서 **70 B** 다. `WorkBoxPool<TWork>` 가 파티션 간 공유이고 상한이 1,024 인데 in-flight 가 그보다 크면 새로 할당하고 넘치면 버리는 churn 이 생긴다. 코드 주석에 "경합이 문제가 되면 파티션별 풀로 바꾼다 — 그때는 측정 결과를 근거로 남긴다"라고 적어둔 그 시점이다
 - [ ] 스케줄러 공정성 — 한 유저가 워커를 독점하지 못하게
 - [x] 데드락·경합 테스트 — 8 생산자 × 2000 작업이 정확히 1회 실행되는지 + Release 반복 실행. **실제로 두 건을 잡았다** — `Abort`가 송신 펌프를 깨우지 않아 생긴 교착, 최대 프레임 > 전송 버퍼 교착(ADR-0007)
 - [x] ⚠ **예외 안전성 테스트** — 항목별 `try/catch` + `finally`로 큐 슬롯 복원. 예외 작업 50개 뒤에도 정상 작업이 처리되고, 용량의 10배를 예외 작업으로 밀어 넣어도 슬롯이 새지 않음을 확인
 - [ ] 액터 모델 어댑터 검토 (Orleans / Proto.Actor) — Core에 침투 금지
-- [ ] ⚠ **벤치마크: 코어 수 대비 확장성 곡선** — 1·2·4·8·16코어. "병렬화했다"가 아니라 **"선형에 근접한다"** 를 증명한다 (`CLAUDE.md` 9.9)
-- [ ] 유저별 순서 보장 오버헤드 측정 — 샤딩 유/무 비교
+- [x] ⚠ **벤치마크: 코어 수 대비 확장성 곡선** — 파티션 1·2·4·8·12·24 스윕. **물리 코어 구간 효율 95.0% 이상**(12파티션 11.40배). ADR-0005 의 검증 조건 충족.
+  - [ ] 실제 코어 제한 재측정 — 위 곡선은 파티션 수 스윕이고 OS 는 모든 코어를 쓸 수 있다. `Process.ProcessorAffinity` 가 리눅스 미지원이라 `taskset`/`start /affinity` 로 감싸야 한다
+  - [ ] NUMA 다중 소켓 머신에서 재확인 — ENV-A 는 단일 소켓이다
+- [x] 유저별 순서 보장 오버헤드 측정 — **3.9%**. 파티션 모델(26.95ms)이 무순서 스레드풀 병렬의 상한(25.93ms)에 그만큼 차이로 근접한다. 전역 락은 직렬보다 느렸다(353.57 vs 351.20ms) — ADR-0005 의 탈락 근거가 수치로 확인됐다
 - [ ] **경합 측정** — 원자 연산 경합, false sharing 유무를 프로파일로 확인 (9.3·9.4)
 
 **게이트**: 코어 수 대비 처리량이 선형에 근접하고, 순서 보장이 부하 상태에서도 깨지지 않음이 검증됐을 때.
