@@ -107,15 +107,27 @@ else {
         Write-Host '  실제 AOT 컴파일 검증은 Samples 실행 프로젝트 추가 시(Phase 2+) 활성화된다.'
     }
     else {
-        # ILCompiler 는 네이티브 링크 단계에서 vswhere.exe 로 MSVC 링커를 찾는다.
+        # ILCompiler 는 Windows 에서 네이티브 링크 단계에 vswhere.exe 로 MSVC 링커를 찾는다.
         # Visual Studio 개발자 셸이 아닌 환경(일반 PowerShell, Git Bash, 일부 CI 이미지)에서는
         # vswhere 가 PATH 에 없어 "'vswhere.exe'은(는) 내부 또는 외부 명령이 아닙니다" 로 실패한다.
         # 컴파일은 이미 성공한 뒤라 원인이 코드처럼 보이는 것이 문제다 — 여기서 미리 막는다.
-        $vsInstaller = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer'
-        if ((Test-Path -LiteralPath (Join-Path $vsInstaller 'vswhere.exe')) -and
-            ($env:PATH -notlike "*$vsInstaller*")) {
-            $env:PATH = "$env:PATH;$vsInstaller"
-            Write-Host "vswhere 경로를 PATH 에 추가: $vsInstaller" -ForegroundColor DarkGray
+        #
+        # Windows 에서만 한다. 리눅스·macOS 에는 ProgramFiles(x86) 환경 변수가 없어
+        # Join-Path 가 null 을 받고 던진다 (StrictMode + ErrorActionPreference=Stop).
+        # $IsWindows 를 쓰지 않는 이유: PowerShell 5.1 에는 없는 변수라 StrictMode 에서 터진다.
+        $onWindows = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform(
+            [System.Runtime.InteropServices.OSPlatform]::Windows)
+
+        if ($onWindows) {
+            $programFilesX86 = [Environment]::GetFolderPath('ProgramFilesX86')
+            if ($programFilesX86) {
+                $vsInstaller = Join-Path $programFilesX86 'Microsoft Visual Studio\Installer'
+                if ((Test-Path -LiteralPath (Join-Path $vsInstaller 'vswhere.exe')) -and
+                    ($env:PATH -notlike "*$vsInstaller*")) {
+                    $env:PATH = "$env:PATH;$vsInstaller"
+                    Write-Host "vswhere 경로를 PATH 에 추가: $vsInstaller" -ForegroundColor DarkGray
+                }
+            }
         }
 
         foreach ($proj in $exeProjects) {
