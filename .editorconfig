@@ -52,6 +52,19 @@ dotnet_analyzer_diagnostic.category-Documentation.severity = suggestion
 dotnet_analyzer_diagnostic.category-Globalization.severity = suggestion
 dotnet_analyzer_diagnostic.category-Maintainability.severity = suggestion
 
+# 위의 category- 일괄 설정은 기본 활성 규칙에는 적용되지 않는다(실측 확인).
+# Naming 계열 중 실제로 걸리는 것은 아래처럼 개별로 명시한다.
+
+# CA1711 — 'Collection' 접미사는 ICollection 구현을 요구한다.
+# IFeatureCollection/FeatureCollection 은 ASP.NET Core 가 확립한 표준 명칭이고
+# 타입 키 기반 조회라 ICollection 이 될 수 없다. 접미사만 허용한다.
+dotnet_code_quality.CA1711.allowed_suffixes = Collection
+
+# CA1716 — VB.NET 예약어(Get/Set 등)와의 이름 충돌.
+# 이 프레임워크는 C# 전용이고, 규칙을 따르면 Features.Get<T>() 같은
+# 관용 명칭을 쓸 수 없다. 나머지 Naming 규칙은 그대로 둔다.
+dotnet_diagnostic.CA1716.severity = suggestion
+
 # XML 문서 누락. Phase 1에서 Core 공개 API가 확정되면 warning으로 올린다.
 dotnet_diagnostic.CS1591.severity = suggestion
 
