@@ -132,6 +132,11 @@ dotnet_analyzer_diagnostic.category-Performance.severity = suggestion
 dotnet_analyzer_diagnostic.category-Design.severity = suggestion
 dotnet_diagnostic.CS1591.severity = none
 
+# CA5394 — System.Random 은 암호학적으로 안전하지 않다.
+# 퍼징에서는 그것이 요구사항이다. 시드를 고정할 수 없으면 실패를 재현할 수 없고,
+# 재현 안 되는 퍼징은 디버깅에 쓸모가 없다. 프로덕션 코드에는 계속 적용된다.
+dotnet_diagnostic.CA5394.severity = none
+
 # Method_name_with_underscores 는 테스트 명명 관례다.
 dotnet_diagnostic.CA1707.severity = none
 

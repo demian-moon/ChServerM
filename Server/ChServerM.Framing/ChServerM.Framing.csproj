@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.Framing</RootNamespace>
+    <Description>ChServerM 의 고정 16바이트 헤더 프레이밍 구현 (ADR-0002).</Description>
+  </PropertyGroup>
+
+  <!--
+    이 어셈블리도 서드파티 의존이 없다. Core 는 아니지만 프레이밍은
+    BinaryPrimitives 만으로 충분하고, 의존을 들이면 모든 전송이 그것을 끌고 간다.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\ChServerM.Core\ChServerM.Core.csproj" />
+  </ItemGroup>
+
+</Project>

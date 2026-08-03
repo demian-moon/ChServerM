@@ -35,4 +35,17 @@ public enum FrameDecodeStatus : byte
 
     /// <summary>알 수 없는 프로토콜 버전이다.</summary>
     VersionMismatch = 4,
+
+    /// <summary>정의되지 않은 플래그 비트가 켜져 있다.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>모르는 비트를 무시하지 않는다.</b> 무시하면 압축된 페이로드를 원본으로 착각해
+    /// 핸들러에 넘기게 되고, 그것은 조용한 오동작이다 — 레거시 결함의 대표 유형이다.
+    /// </para>
+    /// <para>
+    /// 플래그를 추가할 때는 <see cref="FrameHeader.Version"/>을 올린다. 버전 필드가
+    /// 있는 이유가 정확히 이것이다.
+    /// </para>
+    /// </remarks>
+    InvalidFlags = 5,
 }

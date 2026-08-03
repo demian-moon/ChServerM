@@ -97,6 +97,7 @@ public readonly struct FrameDecodeResult : IEquatable<FrameDecodeResult>
         FrameDecodeStatus.Malformed => ErrorCode.MalformedFrame,
         FrameDecodeStatus.TooLarge => ErrorCode.FrameTooLarge,
         FrameDecodeStatus.VersionMismatch => ErrorCode.ProtocolVersionMismatch,
+        FrameDecodeStatus.InvalidFlags => ErrorCode.InvalidFrameFlags,
         _ => ErrorCode.None,
     };
 
