@@ -1,0 +1,34 @@
+{
+  "//": [
+    "프로젝트 공용 Claude Code 설정. 저장소에 커밋되므로 다른 작업 환경으로 따라간다.",
+    "",
+    "settings.local.json 은 사용자 전역 gitignore 에 걸려 있어 공유되지 않는다.",
+    "그쪽은 개인 오버라이드 전용이고, 팀/프로젝트 차원의 설정은 이 파일에 둔다.",
+    "적용 순서는 user -> project(이 파일) -> local 이라 local 이 이긴다.",
+    "",
+    "deniedMcpServers: 이 프로젝트에서 쓰지 않는 MCP 서버를 차단한다.",
+    "허용 목록이 아니라 차단 목록인 이유는 mcp__ide__ 진단을 살려두기 위해서다."
+  ],
+  "permissions": {
+    "allow": [
+      "Bash(rtk ls *)",
+      "Bash(rtk find *)"
+    ]
+  },
+  "disableClaudeAiConnectors": true,
+  "deniedMcpServers": [
+    { "serverName": "plugin:engineering:slack" },
+    { "serverName": "plugin:engineering:linear" },
+    { "serverName": "plugin:engineering:asana" },
+    { "serverName": "plugin:engineering:atlassian" },
+    { "serverName": "plugin:engineering:notion" },
+    { "serverName": "plugin:engineering:github" },
+    { "serverName": "plugin:engineering:pagerduty" },
+    { "serverName": "plugin:engineering:datadog" },
+    { "serverName": "plugin:engineering:google calendar" },
+    { "serverName": "plugin:engineering:gmail" },
+    { "serverName": "mch-McpServer" },
+    { "serverName": "codeonboard_lod" },
+    { "serverName": "jira" }
+  ]
+}

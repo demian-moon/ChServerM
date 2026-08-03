@@ -370,7 +370,7 @@ $(ProjectDir)FlatbufferM\flatc.exe --csharp -o $(SolutionDir) $(SolutionDir)AppP
 
 🔴 **폐기** (헤더 3종) / 🔵 **참고** (페이로드 4종).
 헤더 `table` 3개는 ADR-0002로 고정 struct로 대체된다. 페이로드 스키마(`LogInIdPw`, `LoginOk`, `ServerTick`)는 **메시지 정의의 참고**로만 쓴다 — `pw` 필드는 승계하지 않는다(Phase 9).
-`flatc.exe`는 저장소에 넣지 않는다. 필요하면 NuGet 도구 패키지로.
+`flatc.exe`(3.5MB)는 레거시 트리와 함께 저장소에 있다(2026-08-03). **새 코드에서는 쓰지 않는다** — Windows 전용 바이너리이고, 스키마 컴파일이 필요해지면 NuGet 도구 패키지로 받는다. 지금 포함하는 이유는 레거시 재현 환경을 온전히 남기기 위해서다.
 
 → Phase 4 (헤더 대체), Phase 6 (직렬화 어댑터)
 

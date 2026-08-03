@@ -149,7 +149,7 @@
 | ~600 | `FbsClassM/` (9 파일) | 🔴 폐기/🔵 참고 | [02](02-packet-framing.md) |
 | — | `Unused/` (8 파일) | 🔴 폐기 | 12 |
 
-### `LagacyClient/` — 레거시 클라이언트 (로컬 참조 전용)
+### `LagacyClient/` — 레거시 클라이언트 (저장소 포함, 승계 대상 아님)
 
 `.NET Framework 4.8` 타깃. 서버 소스 36개를 **파일 링크로 공유**한다 → [05-client.md](05-client.md)
 

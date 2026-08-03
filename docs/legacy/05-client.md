@@ -2,7 +2,7 @@
 
 **대상**: `ClientM.cs`(749), `IoPipelineClaM.cs`(408), `ClientTimeM.cs`(66), `TimerClaM.cs`(59), `IniOptionClaM.cs`(16) — **전량 정독 완료**
 
-`LegacyServer/`와 동일하게 **로컬 참조 전용**으로 둔다(`.gitignore`에 `/LagacyClient/`, 상속 차단 스토퍼 배치).
+`LegacyServer/`와 동일하게 **저장소에 포함하되 승계 대상은 아니다**(2026-08-03 변경). 솔루션에 넣지 않으므로 빌드·CI 는 이것을 컴파일하지 않는다 — 설계 비교와 자산 판정의 근거로만 읽는다.
 
 ---
 

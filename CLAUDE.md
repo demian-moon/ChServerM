@@ -117,8 +117,14 @@ ChServerM/
 │  └─ ChServerM.Client.Tcp/
 ├─ Samples/                         # 축 조합별 최소 예제
 ├─ Tests/                           # xUnit 단위·통합
-└─ Bench/                           # BenchmarkDotNet(마이크로) + NBomber(부하)
+├─ Bench/                           # BenchmarkDotNet(마이크로) + NBomber(부하)
+├─ LegacyServer/                    # ⚠ 참조 전용. 솔루션에 없고 빌드하지 않는다
+└─ LagacyClient/                    # ⚠ 참조 전용 (디렉터리명 오타는 원본 그대로)
 ```
+
+**레거시 트리는 저장소에 있지만 승계 대상이 아니다.** `ChServerM.slnx` 에 포함하지 않으므로
+빌드·테스트·CI 가 컴파일하지 않는다. 설계 비교와 자산 판정의 근거로만 읽고,
+판정 결과는 `docs/legacy/` 에 있다. 코드는 새로 작성하거나 개선해서 옮긴다.
 
 **의존 방향은 한 방향이다:** `Samples/Tests` → `Hosting` → `어댑터` → `Core`. Core는 아무것도 참조하지 않는다.
 

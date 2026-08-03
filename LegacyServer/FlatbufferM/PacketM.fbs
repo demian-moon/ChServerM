@@ -1,0 +1,103 @@
+﻿
+namespace FbsClassM;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// 빌드 전 이벤트 - 등록 예시
+// $(ProjectDir) EcsServerLibM\FlatbufferM\flatc.exe --csharp -o $(ProjectDir) $(ProjectDir) EcsServerLibM\FlatbufferM\PacketM.fbs
+// $(ProjectDir)FlatbufferM\flatc.exe --csharp -o $(SolutionDir) $(SolutionDir)AppPacketM.fbs      <--- AppPacketM.fbs가 솔루션 폴더에 있고 클래스를 솔루션폴더에 만들 때 namespace의 폴더를 만든후 거기에 클래스 생성함 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+table FbsPkHeadM
+{    
+	pid : uint;   // 패킷 아이디                // 0번을 쓰면 안된다 - 접속후 부터는 패킷 아이디지만 - 최초는 고유 게임 서버별 구분자로 쓴다
+	conHeadLen : uint16; // 콘텐츠 헤더 길이     
+	byteCheckSum : byte = -1;                       // 0을 쓰면 안된다. 헤더 길이 달라짐
+}
+
+table FbsContentHeadM
+{
+	packetType : ushort;        // 디폴트 값은 저장이 안되니까(패킷 사이즈가 달라짐)해서 1부터 쓴다
+	conDataLen : int = -1;          // 0은 저장이 안되니까 -1로 설정 (헤더값 달라짐)    
+}
+
+// 압축한 데이터를 위한 헤더
+table FbsEncryptHeadM
+{   
+	isCompress : byte = -1;      // 0은 저장 안되서 bool 형으로 하지 않고 byte로 했음(헤더 사이즈 달라지면 안됨)
+	encDataLen : int = -1;      // Encrypt한 데이터 길이
+	originDataLen : int = -1;    // 0은 저장이 안되니까 -1로 설정 (헤더값 달라짐), 압축하기전 사이즈 1024바이트 미만이면 압축(LZ4)하지 않는다. 암호화는 : 서버(XOR)-->클라, 클라(Aes256)-->서버    
+}
+
+/* ///////////////////////////////////// 사용하지 않는다 ////
+table FbsPacketM
+{        
+	pkHead : FbsPkHeadM;
+	contentHead : FbsContentHeadM;
+	contentData : [ubyte];
+}
+*//////////////////////////////////////////////////////////////
+
+// 서버 틱 관련 
+table FbsServerTick
+{
+	serverTick : long;
+}
+
+///////////////////////////////////////////////////////////////
+// 클라이언트 
+
+table FbsEncryptKey
+{
+	key : [ubyte];
+	iv  : [ubyte];
+}
+
+table FbsLogInIdPw
+{
+	id : string;
+	pw : string;
+	version : int;
+}
+
+table FbsLoginOk
+{
+	id : string;
+	oid : long; 
+	serverFrequency : long;
+}
+
+table FbsLoginFin
+{
+	pid : uint;   // 패킷 아이디    
+}
+
+///////////////////////////////////////////////////////////////
+// 메타 시스템 
+
+table FbsStrArray
+{
+	arrStr : [string];
+}
+
+table FbsMetaData
+{   
+	strKey : string;
+	header : [string];
+	line : [FbsStrArray];
+}
+
+///////////////////////////////////////////////////////////////
+// 프로그래시브 바
+table FbsProgressBar
+{
+	barType : ubyte;			// 0은 변경 없다는 의미
+	visible : bool = true;
+	title : string;
+	barText : string;
+	gage : ushort = 65535;		// 65535는 변경이 없다는 의미
+	maxGage : ushort = 65535;	// 65535는 변경이 없다는 의미
+	x : ushort = 65535;			// 65535는 변경이 없다는 의미
+	y : ushort = 65535;			// 65535는 변경이 없다는 의미
+}
+

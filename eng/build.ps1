@@ -271,7 +271,9 @@ else {
     # 없거나 단일 객체이면 .Count 접근이 예외를 던진다.
     $aotProjects = @(
         Get-ChildItem -Path $RepoRoot -Recurse -Filter '*.csproj' |
-            Where-Object { $_.FullName -notlike '*LegacyServer*' } |
+            # 레거시 트리는 저장소에 있지만 솔루션에 없고 빌드 대상이 아니다.
+            # 여기서 걸러내지 않으면 AOT 단계가 승계하지 않는 코드를 컴파일하려 든다.
+            Where-Object { $_.FullName -notlike '*LegacyServer*' -and $_.FullName -notlike '*LagacyClient*' } |
             Where-Object { (Get-Content -LiteralPath $_.FullName -Raw) -match '<PublishAot>\s*true\s*</PublishAot>' }
     )
 

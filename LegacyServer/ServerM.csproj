@@ -1,0 +1,98 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>.net9</TargetFrameworks>
+    <OutputType>Library</OutputType>    
+    <LangVersion>latest</LangVersion>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>    
+    <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="BasicLibM\LQuadTreeM\**" />
+    <Compile Remove="packages\**" />
+    <EmbeddedResource Remove="BasicLibM\LQuadTreeM\**" />
+    <EmbeddedResource Remove="packages\**" />
+    <None Remove="BasicLibM\LQuadTreeM\**" />
+    <None Remove="packages\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <WCFMetadata Include="Connected Services\" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Arch" Version="2.1.0" />
+    <PackageReference Include="Google.FlatBuffers" Version="25.2.10" />
+    <PackageReference Include="K4os.Compression.LZ4" Version="1.3.8" />
+    <PackageReference Include="log4net" Version="3.1.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Identity.Core" Version="9.0.8" />
+    <PackageReference Include="MongoDB.Driver" Version="3.4.2" />
+    <PackageReference Include="System.IO.Pipelines" Version="9.0.8" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="BasicLibM\BigIntM.cs" />
+    <Compile Remove="BasicLibM\CsvParser.cs" />
+    <Compile Remove="BasicLibM\DateTimeStartEndM.cs" />
+    <Compile Remove="BasicLibM\etc\unity관련\AbGmaeObjectPool.cs" />
+    <Compile Remove="BasicLibM\etc\unity관련\CatmullRomSpline.cs" />
+    <Compile Remove="BasicLibM\etc\unity관련\MchMementoPattern.cs" />
+    <Compile Remove="BasicLibM\etc\unity관련\MchSingleTone.cs" />
+    <Compile Remove="BasicLibM\etc\unity관련\MchUtil.cs" />
+    <Compile Remove="BasicLibM\etc\unity관련\PlayMakerVariableUtil.cs" />
+    <Compile Remove="BasicLibM\etc\unity관련\TilePicking.cs" />
+    <Compile Remove="BasicLibM\ExcelLibM\ExcelODBCM.cs" />
+    <Compile Remove="BasicLibM\HangulM\HangulM.cs" />
+    <Compile Remove="BasicLibM\JiraLibM\Entities\BaseEntity.cs" />
+    <Compile Remove="BasicLibM\JiraLibM\Entities\Issues\Assignee.cs" />
+    <Compile Remove="BasicLibM\JiraLibM\Entities\Issues\Fields.cs" />
+    <Compile Remove="BasicLibM\JiraLibM\Entities\Issues\Issue.cs" />
+    <Compile Remove="BasicLibM\JiraLibM\Entities\Issues\IssueKey.cs" />
+    <Compile Remove="BasicLibM\JiraLibM\Entities\Issues\Issuetype.cs" />
+    <Compile Remove="BasicLibM\JiraLibM\Entities\Issues\Status.cs" />
+    <Compile Remove="BasicLibM\JiraLibM\Entities\Issues\Worklog.cs" />
+    <Compile Remove="BasicLibM\JiraLibM\Entities\Issues\WorkLogDetails.cs" />
+    <Compile Remove="BasicLibM\JiraLibM\Entities\Misc\AvatarUrls.cs" />
+    <Compile Remove="BasicLibM\JiraLibM\Entities\Projects\ProjectDescription.cs" />
+    <Compile Remove="BasicLibM\JiraLibM\Entities\Searching\SearchRequest.cs" />
+    <Compile Remove="BasicLibM\JiraLibM\Entities\Searching\SearchResponse.cs" />
+    <Compile Remove="BasicLibM\JiraLibM\Entities\Transitions\Solve.cs" />
+    <Compile Remove="BasicLibM\JiraLibM\Entities\Transitions\Transition.cs" />
+    <Compile Remove="BasicLibM\JiraLibM\JiraManager.cs" />
+    <Compile Remove="BasicLibM\JiraLibM\JiraResource.cs" />
+    <Compile Remove="BasicLibM\JiraLibM\obj\Debug\.NETFramework,Version=v4.8.AssemblyAttributes.cs" />
+    <Compile Remove="BasicLibM\JiraLibM\obj\Release\.NETFramework,Version=v4.8.AssemblyAttributes.cs" />
+    <Compile Remove="BasicLibM\JiraLibM\Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove=".gitattributes" />
+    <None Remove=".gitignore" />
+    <None Remove="app.config" />
+    <None Remove="FlatbufferM\FlatBuffers.dll" />
+    <None Remove="FlatbufferM\flatc.exe" />
+    <None Remove="log4net.config" />
+    <None Remove="ServerLib구조uml.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="log4net.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="BasicLibM\Extentions\" />
+    <Folder Include="FbsClassM\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms">
+      <HintPath>..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8\System.Windows.Forms.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <PropertyGroup>
+    <AssemblyName>ServerM</AssemblyName>
+  </PropertyGroup>
+  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+    <Exec Command="flatc.exe --csharp -o $(ProjectDir) $(ProjectDir)FlatbufferM\PacketM.fbs" />
+  </Target>
+</Project>

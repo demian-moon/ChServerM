@@ -1,0 +1,145 @@
+@startuml
+class IniOptionM
+class IniFileM
+class IniSrvOptionM
+class IniClntOptionM
+IniOptionM -right-> IniFileM
+IniOptionM <|-down- IniSrvOptionM
+IniOptionM <|-down- IniClntOptionM
+
+package "Server" #CC0000
+{
+ abstract        ServerM
+ {
+   {abstract} MemPkDispatcher AddmemPkDispatcher
+   + ServerStart()
+   + AppStart()
+ }
+}
+note left of ServerM::AppStart
+ ServerM을 상속받은 비즈니스 로직 서버의 시작 함수
+ end note
+ 
+
+
+class MakeMemPkForServer
+class MakeMemPkForClient
+
+class MemPacketM
+abstract AbMakeMemPkFromPipe
+{
+  {abstract} StoreMemPk(MemPacketM)
+}
+note left of AbMakeMemPkFromPipe::StoreMemPk
+패킷을 만들어서 어디로 보낼지
+end note
+
+
+class MemPkDispatcher
+{
+  +Ready()
+  +Dictionary<E_PACKET_TYPE, AbMemPkAction> gDicMemPakAction
+  - List<AbMemPkAction> memPkActionList
+  + SetMemPkActionDic()
+}
+note top of MemPkDispatcher
+저장된 패킷을 처리 하는 클래스
+end note
+
+
+package FlatBuffer <<frame>> {
+  class FbsClasses
+}
+
+package IoPipelineM <<frame>>
+{
+    class IoPipe
+}
+
+abstract AbMemPkAction
+{
+   E_PACKET_TYPE ePacketType
+}
+
+class DoPkLogIn
+{
+  +AppStart()
+}
+
+class SomePacketActions
+{
+}
+note top of SomePacketActions
+상속받아 구현하는 여러 패킷 Action들
+end note
+
+class NetworkM
+{
+  {static} gMemPkActionBlock
+}
+note top of NetworkM
+서버클라 공용 클래스들
+end note
+note left of NetworkM::gMemPkActionBlock
+만들어진 패킷중 글로벌 memPk를 처리하는 함수
+end note
+
+
+class UserM
+{
+  +{static} MemPkActionBlock
+}
+note left of UserM::MemPkActionBlock
+만들어진 패킷을 각 유저별로 처리하는 ActionBlock
+end note
+
+class SrvUserM
+{
+}
+
+IoPipelineM -down-> AbMakeMemPkFromPipe
+
+AbMakeMemPkFromPipe .. MemPacketM
+AbMakeMemPkFromPipe <|-up- MakeMemPkForServer
+AbMakeMemPkFromPipe <|-up- MakeMemPkForClient
+
+AbMakeMemPkFromPipe -down-> MemPkDispatcher
+AbMakeMemPkFromPipe --> FlatBuffer
+
+
+MemPkDispatcher-- UserM
+MemPkDispatcher-- NetworkM
+MemPkDispatcher--> AbMemPkAction
+
+AbMemPkAction<|-down- SomePacketActions
+AbMemPkAction<|-down- DoPkLogIn
+
+UserM <|-down-SrvUserM
+
+interface IObservable
+UserM --|> IObservable
+
+
+ServerM -up-> IniOptionM
+ServerM --> MemPkDispatcher
+ServerM -down-> IoPipelineM
+
+package Client #FFCC00
+{
+ class ClientM
+ {
+   +TcpClient Tc   
+   +ClientStart()
+   +AppStart()
+   
+  }
+}
+ note left of ClientM::AppStart()
+   ClientM을 상속받은 비즈니스 로직을 구현하는 App클라이언트의 시작
+ end note
+
+
+ClientM-down->MemPkDispatcher
+ClientM-up->IniOptionM
+ClientM-left->IoPipelineM
+@enduml

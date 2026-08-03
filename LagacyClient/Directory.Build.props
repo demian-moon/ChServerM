@@ -1,0 +1,11 @@
+<Project>
+  <!--
+    상속 차단용 스토퍼. LegacyServer/Directory.Build.props 와 같은 이유다.
+
+    이 프로젝트는 .NET Framework 4.8 타깃이므로, 리포지토리 루트의
+    Directory.Build.props(net10.0 / C# 14 / AOT 분석기)를 상속하면
+    즉시 빌드가 깨진다.
+
+    이 디렉터리는 .gitignore 대상이라 커밋되지 않는다.
+  -->
+</Project>

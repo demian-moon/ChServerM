@@ -1,0 +1,14 @@
+<Project>
+  <!--
+    상속 차단용 스토퍼.
+
+    MSBuild 는 프로젝트 디렉터리에서 상위로 올라가며 첫 Directory.Build.props 를 찾는다.
+    이 파일이 없으면 LegacyServer 의 프로젝트들이 리포지토리 루트의
+    Directory.Build.props(net10.0 / C# 14 / AOT 분석기)를 상속받아 빌드가 깨진다.
+
+    레거시는 참조용으로 그대로 빌드 가능해야 하므로, 여기서 탐색을 멈춘다.
+    부모를 Import 하지 않는 것이 의도다.
+
+    이 디렉터리는 .gitignore 대상이라 커밋되지 않는다.
+  -->
+</Project>
