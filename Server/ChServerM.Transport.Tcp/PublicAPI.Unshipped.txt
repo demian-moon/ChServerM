@@ -1,0 +1,51 @@
+#nullable enable
+ChServerM.Transport.Tcp.SocketConnection
+ChServerM.Transport.Tcp.SocketConnection.Abort(in ChServerM.Connections.ConnectionCloseInfo info) -> void
+ChServerM.Transport.Tcp.SocketConnection.CloseInfo.get -> ChServerM.Connections.ConnectionCloseInfo
+ChServerM.Transport.Tcp.SocketConnection.ConnectionClosed.get -> System.Threading.CancellationToken
+ChServerM.Transport.Tcp.SocketConnection.DisposeAsync() -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.Tcp.SocketConnection.Features.get -> ChServerM.Features.IFeatureCollection!
+ChServerM.Transport.Tcp.SocketConnection.Id.get -> ChServerM.Identity.ConnectionId
+ChServerM.Transport.Tcp.SocketConnection.Input.get -> System.IO.Pipelines.PipeReader!
+ChServerM.Transport.Tcp.SocketConnection.LocalEndPoint.get -> System.Net.EndPoint?
+ChServerM.Transport.Tcp.SocketConnection.Output.get -> System.IO.Pipelines.PipeWriter!
+ChServerM.Transport.Tcp.SocketConnection.RemoteEndPoint.get -> System.Net.EndPoint?
+ChServerM.Transport.Tcp.TcpClientTransport
+ChServerM.Transport.Tcp.TcpClientTransport.ConnectAsync(System.Net.EndPoint! endPoint, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Connections.IConnection!>
+ChServerM.Transport.Tcp.TcpClientTransport.DisposeAsync() -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.Tcp.TcpClientTransport.MaxBufferedBytesPerConnection.get -> long
+ChServerM.Transport.Tcp.TcpClientTransport.TcpClientTransport(ChServerM.Transport.Tcp.TcpTransportOptions? options = null, ChServerM.Diagnostics.IServerLogger? logger = null) -> void
+ChServerM.Transport.Tcp.TcpServerTransport
+ChServerM.Transport.Tcp.TcpServerTransport.BindAsync(ChServerM.Connections.IConnectionHandler! handler, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.Tcp.TcpServerTransport.ConnectionCount.get -> int
+ChServerM.Transport.Tcp.TcpServerTransport.DisposeAsync() -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.Tcp.TcpServerTransport.LocalEndPoint.get -> System.Net.EndPoint?
+ChServerM.Transport.Tcp.TcpServerTransport.MaxBufferedBytesPerConnection.get -> long
+ChServerM.Transport.Tcp.TcpServerTransport.StopAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.Tcp.TcpServerTransport.TcpServerTransport(System.Net.EndPoint! endPoint, ChServerM.Transport.Tcp.TcpTransportOptions? options = null, ChServerM.Diagnostics.IServerLogger? logger = null) -> void
+ChServerM.Transport.Tcp.TcpServerTransport.UnbindAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.Tcp.TcpTransportOptions
+ChServerM.Transport.Tcp.TcpTransportOptions.Backlog.get -> int
+ChServerM.Transport.Tcp.TcpTransportOptions.Backlog.set -> void
+ChServerM.Transport.Tcp.TcpTransportOptions.EnableKeepAlive.get -> bool
+ChServerM.Transport.Tcp.TcpTransportOptions.EnableKeepAlive.set -> void
+ChServerM.Transport.Tcp.TcpTransportOptions.MaxConnections.get -> int
+ChServerM.Transport.Tcp.TcpTransportOptions.MaxConnections.set -> void
+ChServerM.Transport.Tcp.TcpTransportOptions.MinReceiveBufferSize.get -> int
+ChServerM.Transport.Tcp.TcpTransportOptions.MinReceiveBufferSize.set -> void
+ChServerM.Transport.Tcp.TcpTransportOptions.NoDelay.get -> bool
+ChServerM.Transport.Tcp.TcpTransportOptions.NoDelay.set -> void
+ChServerM.Transport.Tcp.TcpTransportOptions.PauseWriterThreshold.get -> long
+ChServerM.Transport.Tcp.TcpTransportOptions.PauseWriterThreshold.set -> void
+ChServerM.Transport.Tcp.TcpTransportOptions.ResumeWriterThreshold.get -> long
+ChServerM.Transport.Tcp.TcpTransportOptions.ResumeWriterThreshold.set -> void
+ChServerM.Transport.Tcp.TcpTransportOptions.ShutdownTimeout.get -> System.TimeSpan
+ChServerM.Transport.Tcp.TcpTransportOptions.ShutdownTimeout.set -> void
+ChServerM.Transport.Tcp.TcpTransportOptions.TcpTransportOptions() -> void
+ChServerM.Transport.Tcp.TcpTransportOptions.Validate() -> void
+ChServerM.Transport.Tcp.TcpTransportOptions.WaitForDataBeforeAllocating.get -> bool
+ChServerM.Transport.Tcp.TcpTransportOptions.WaitForDataBeforeAllocating.set -> void
+const ChServerM.Transport.Tcp.TcpTransportOptions.DefaultBacklog = 512 -> int
+const ChServerM.Transport.Tcp.TcpTransportOptions.DefaultMinReceiveBufferSize = 4096 -> int
+const ChServerM.Transport.Tcp.TcpTransportOptions.DefaultPauseWriterThreshold = 65536 -> long
+const ChServerM.Transport.Tcp.TcpTransportOptions.DefaultResumeWriterThreshold = 32768 -> long

@@ -65,8 +65,9 @@ internal sealed class EchoHandler(IFrameEncoder encoder)
             encoder,
             context.Header.MessageId,
             context.Payload,
-            sequence: context.Header.Sequence,
-            cancellationToken: context.CancellationToken).ConfigureAwait(false);
+            FrameFlags.None,
+            context.Header.Sequence,
+            context.CancellationToken).ConfigureAwait(false);
 
         return DispatchStatus.Handled;
     }
@@ -84,7 +85,9 @@ internal sealed class EchoHandler(IFrameEncoder encoder)
             encoder,
             context.Header.MessageId,
             payload,
-            cancellationToken: context.CancellationToken).ConfigureAwait(false);
+            FrameFlags.None,
+            context.Header.Sequence,
+            context.CancellationToken).ConfigureAwait(false);
 
         return DispatchStatus.Handled;
     }

@@ -18,6 +18,17 @@
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
   </ItemGroup>
 
+  <ItemGroup Label="Analyzers">
+    <!--
+      공개 API 승인 파일 게이트.
+
+      public 표면에 무엇이 추가·변경·삭제됐는지를 PublicAPI.*.txt 의 diff 로 드러낸다.
+      상업용 라이브러리에서 이것을 나중에 켜면 이미 굳은 API 를 되돌릴 수 없다 —
+      그래서 표면이 작을 때 켠다 (ROADMAP Phase 0).
+    -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="5.6.0" />
+  </ItemGroup>
+
   <ItemGroup Label="Benchmark">
     <!--
       BenchmarkDotNet 은 벤치마크를 별도 프로세스로 격리해 돌린다.

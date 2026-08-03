@@ -33,7 +33,9 @@ public sealed class TransportLifecycleTests
             encoder,
             context.Header.MessageId,
             context.Payload,
-            cancellationToken: context.CancellationToken).ConfigureAwait(false);
+            FrameFlags.None,
+            context.Header.Sequence,
+            context.CancellationToken).ConfigureAwait(false);
 
         return DispatchStatus.Handled;
     };

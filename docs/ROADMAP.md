@@ -78,7 +78,7 @@ Phase 순서는 워크로드가 아니라 **"무엇이 추상화를 먼저 증�
 - [ ] 원격 CI 첫 실행 (진행 중: 2026-08-03 푸시 완료. **결과 미확인** — 작업 환경에서 GitHub 에 접근할 수 없다. Linux 잡의 Native AOT 는 ubuntu 러너의 clang·zlib1g-dev 에 의존한다)
 - [x] `Bench/` 골격 — `Bench/ChServerM.Bench` (BenchmarkDotNet 0.15.8). `BenchConfig`가 ServerGC·할당량 진단·첫 실패 시 중단을 고정한다. ENV-A 프로필 기록(Ryzen 9 9900X, 물리 12 / 논리 24)
 - [ ] 코드 커버리지 수집 (coverlet) + CI 리포트. 임계값은 Core 추상화 확정 후 설정
-- [ ] ⚠ **public API 승인 파일 게이트** — `Microsoft.CodeAnalysis.PublicApiAnalyzers`. `PublicAPI.Shipped.txt`/`Unshipped.txt`로 공개 표면 변경을 리뷰에 노출시킨다. 상업용 라이브러리에서 이걸 나중에 켜면 이미 굳은 API를 되돌릴 수 없다
+- [x] ⚠ **public API 승인 파일 게이트** — `Microsoft.CodeAnalysis.PublicApiAnalyzers` 5.6.0. `Server/Directory.Build.props`가 Server 어셈블리 6개에 적용한다(Tests/Bench/Samples 제외). 기준선 629줄. **켠 첫날 RS0026 으로 실제 API 결함을 잡았다** — `FrameWriter.WriteFrameAsync` 의 옵션 매개변수 기본값 세 개가 레거시 실패 패턴과 겹쳤고, 전부 필수로 바꿨다. 작업 절차는 CLAUDE.md 8.1
 - [ ] NuGet 취약점 감사 — `dotnet list package --vulnerable --include-transitive`를 CI에서 실패 조건으로
 - [ ] 의존성 업데이트 자동화 — Dependabot 또는 Renovate
 - [x] `LegacyServer/` + `LagacyClient/` 전수 정독 — 27,300줄 / 문서 14종. 결과: `docs/legacy/`(인덱스: [00-overview](legacy/00-overview.md))
@@ -232,6 +232,7 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 - [ ] ⚠ **유저별 순서 보장 구현** — `IExecutionModel` 계약의 실체 (진행 중: **커넥션 단위**로 완료. `PartitionedConnectionHandler`가 읽기 루프를 파티션에 고정해 프레임당 큐 비용이 0이다. 유저/세션 단위 고정은 세션 계층과 함께 — 지금은 재접속하면 다른 파티션으로 간다)
 - [ ] 스레드-퍼-코어 모델 + CPU 어피니티 (진행 중: 파티션당 전용 스레드 = 기본 `ProcessorCount`개, 절대 상한 512. **CPU 어피니티 미적용**)
 - [x] false sharing 회피 — 파티션 대기 카운터를 `[StructLayout(Size=128)]`로 패딩. 64B가 아니라 128B인 이유는 일부 x86이 인접 라인을 함께 프리페치하기 때문
+- [ ] **작업 상자 풀을 파티션별로 분리 검토** — `TryPost` 게시당 할당이 파티션 1개에서 1 B 인데 8개에서 **70 B** 다. `WorkBoxPool<TWork>` 가 파티션 간 공유이고 상한이 1,024 인데 in-flight 가 그보다 크면 새로 할당하고 넘치면 버리는 churn 이 생긴다. 코드 주석에 "경합이 문제가 되면 파티션별 풀로 바꾼다 — 그때는 측정 결과를 근거로 남긴다"라고 적어둔 그 시점이다
 - [ ] **작업 상자 풀을 파티션별로 분리 검토** — `TryPost` 게시당 할당이 파티션 1개에서 1 B 인데 8개에서 **70 B** 다. `WorkBoxPool<TWork>` 가 파티션 간 공유이고 상한이 1,024 인데 in-flight 가 그보다 크면 새로 할당하고 넘치면 버리는 churn 이 생긴다. 코드 주석에 "경합이 문제가 되면 파티션별 풀로 바꾼다 — 그때는 측정 결과를 근거로 남긴다"라고 적어둔 그 시점이다
 - [ ] 스케줄러 공정성 — 한 유저가 워커를 독점하지 못하게
 - [x] 데드락·경합 테스트 — 8 생산자 × 2000 작업이 정확히 1회 실행되는지 + Release 반복 실행. **실제로 두 건을 잡았다** — `Abort`가 송신 펌프를 깨우지 않아 생긴 교착, 최대 프레임 > 전송 버퍼 교착(ADR-0007)

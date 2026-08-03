@@ -302,7 +302,7 @@ internal static class Program
         {
             await FrameWriter.WriteFrameAsync(
                 connection.Output, encoder, EchoProtocol.Echo, payload,
-                sequence: (uint)i).ConfigureAwait(false);
+                FrameFlags.None, (uint)i, connection.ConnectionClosed).ConfigureAwait(false);
 
             (uint sequence, byte[] echoed) = await responses.ReadAsync(connection.ConnectionClosed)
                 .ConfigureAwait(false);
@@ -322,7 +322,8 @@ internal static class Program
         ChannelReader<(uint Sequence, byte[] Payload)> responses)
     {
         await FrameWriter.WriteFrameAsync(
-            connection.Output, encoder, EchoProtocol.Stats, ReadOnlySpan<byte>.Empty).ConfigureAwait(false);
+            connection.Output, encoder, EchoProtocol.Stats, ReadOnlySpan<byte>.Empty,
+            FrameFlags.None, sequence: 0, connection.ConnectionClosed).ConfigureAwait(false);
 
         (_, byte[] payload) = await responses.ReadAsync(connection.ConnectionClosed).ConfigureAwait(false);
 

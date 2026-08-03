@@ -193,7 +193,7 @@ internal sealed class TestHarness : IAsyncDisposable
 
     /// <summary>프레임 하나를 보내고 내보낸다.</summary>
     public ValueTask<FlushResult> SendAsync(IConnection connection, ushort messageId, ReadOnlySpan<byte> payload) =>
-        connection.WriteFrameAsync(Encoder, new MessageId(messageId), payload);
+        connection.WriteFrameAsync(Encoder, new MessageId(messageId), payload, FrameFlags.None, sequence: 0);
 
     /// <summary>프레임 하나가 도착할 때까지 읽는다.</summary>
     /// <returns>헤더와 페이로드 복사본.</returns>

@@ -44,8 +44,9 @@ public sealed class CrossTransportTests
             encoder,
             context.Header.MessageId,
             context.Payload,
-            sequence: context.Header.Sequence,
-            cancellationToken: context.CancellationToken).ConfigureAwait(false);
+            FrameFlags.None,
+            context.Header.Sequence,
+            context.CancellationToken).ConfigureAwait(false);
 
         return DispatchStatus.Handled;
     };
@@ -61,7 +62,9 @@ public sealed class CrossTransportTests
                 encoder,
                 context.Header.MessageId,
                 reply,
-                cancellationToken: context.CancellationToken).ConfigureAwait(false);
+                FrameFlags.None,
+                context.Header.Sequence,
+                context.CancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -361,7 +364,8 @@ public sealed class TcpTransportSpecificTests
     {
         await FrameWriter.WriteFrameAsync(
             context.Connection.Output, encoder, context.Header.MessageId, context.Payload,
-            cancellationToken: context.CancellationToken).ConfigureAwait(false);
+            FrameFlags.None, context.Header.Sequence,
+            context.CancellationToken).ConfigureAwait(false);
 
         return DispatchStatus.Handled;
     };

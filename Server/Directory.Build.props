@@ -1,0 +1,42 @@
+<Project>
+
+  <!--
+    Server/ 아래 모든 프로젝트에만 적용되는 규약.
+    루트 Directory.Build.props 를 먼저 가져와야 TargetFramework 등이 유지된다.
+  -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!--
+    ══════════════════════════════════════════════════════════════
+    공개 API 승인 파일 게이트 (ROADMAP Phase 0)
+
+    public 표면에 무엇이 추가·변경·삭제됐는지를 PublicAPI.*.txt 의 diff 로
+    리뷰에 노출시킨다. 프레임워크가 산출물이므로 공개 표면 변경은
+    "코드 변경"이 아니라 "제품 변경"이다.
+
+    Shipped   : 릴리스된 API. 여기서 줄을 지우면 파괴적 변경이다
+    Unshipped : 아직 릴리스되지 않은 API. 릴리스 때 Shipped 로 옮긴다
+
+    ⚠ Tests/Bench/Samples 에는 적용하지 않는다. 그쪽의 public 은
+      배포되는 API 가 아니라 테스트 러너·BenchmarkDotNet 이 요구하는 형태다.
+    ══════════════════════════════════════════════════════════════
+  -->
+  <ItemGroup>
+    <!--
+      PrivateAssets="all" 이 필수다.
+
+      이것을 빼면 ChServerM.Core 의 CHSM0001 가드가 "서드파티 의존"으로 판정해
+      빌드를 막는다. 그 가드는 소비자에게 전파되는 의존만 문제 삼으므로,
+      분석기처럼 전파되지 않는 것은 PrivateAssets="all" 로 명시해야 한다.
+    -->
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers"
+                      PrivateAssets="all"
+                      IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="PublicAPI.Shipped.txt" Condition="Exists('PublicAPI.Shipped.txt')" />
+    <AdditionalFiles Include="PublicAPI.Unshipped.txt" Condition="Exists('PublicAPI.Unshipped.txt')" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,78 @@
+#nullable enable
+ChServerM.Hosting.ChServerMClient
+ChServerM.Hosting.ChServerMClient.ConnectAsync(System.Net.EndPoint! endPoint, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Hosting.ClientSession>
+ChServerM.Hosting.ChServerMClient.DisposeAsync() -> System.Threading.Tasks.ValueTask
+ChServerM.Hosting.ChServerMClient.Encoder.get -> ChServerM.Framing.IFrameEncoder!
+ChServerM.Hosting.ChServerMServer
+ChServerM.Hosting.ChServerMServer.DisposeAsync() -> System.Threading.Tasks.ValueTask
+ChServerM.Hosting.ChServerMServer.Encoder.get -> ChServerM.Framing.IFrameEncoder!
+ChServerM.Hosting.ChServerMServer.ExecutionModel.get -> ChServerM.Execution.IExecutionModel?
+ChServerM.Hosting.ChServerMServer.LocalEndPoint.get -> System.Net.EndPoint?
+ChServerM.Hosting.ChServerMServer.StartAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ChServerM.Hosting.ChServerMServer.StopAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ChServerM.Hosting.ChServerMServer.UnbindAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ChServerM.Hosting.ClientBuilder
+ChServerM.Hosting.ClientBuilder.Build() -> ChServerM.Hosting.ChServerMClient!
+ChServerM.Hosting.ClientBuilder.ClientBuilder() -> void
+ChServerM.Hosting.ClientBuilder.ConfigureConnection(System.Action<ChServerM.Hosting.FramedConnectionOptions!>! configure) -> ChServerM.Hosting.ClientBuilder!
+ChServerM.Hosting.ClientBuilder.ConfigureDispatcher(System.Action<ChServerM.Hosting.Dispatch.MessageDispatcherBuilder!>! configure) -> ChServerM.Hosting.ClientBuilder!
+ChServerM.Hosting.ClientBuilder.UseFraming(ChServerM.Framing.IFrameDecoder! decoder, ChServerM.Framing.IFrameEncoder! encoder) -> ChServerM.Hosting.ClientBuilder!
+ChServerM.Hosting.ClientBuilder.UseLogger(ChServerM.Diagnostics.IServerLogger! logger) -> ChServerM.Hosting.ClientBuilder!
+ChServerM.Hosting.ClientBuilder.UseTimeProvider(System.TimeProvider! timeProvider) -> ChServerM.Hosting.ClientBuilder!
+ChServerM.Hosting.ClientBuilder.UseTransport(ChServerM.Transports.IClientTransport! transport) -> ChServerM.Hosting.ClientBuilder!
+ChServerM.Hosting.ClientSession
+ChServerM.Hosting.ClientSession.ClientSession() -> void
+ChServerM.Hosting.ClientSession.ClientSession(ChServerM.Connections.IConnection! Connection, System.Threading.Tasks.Task! Completion) -> void
+ChServerM.Hosting.ClientSession.Completion.get -> System.Threading.Tasks.Task!
+ChServerM.Hosting.ClientSession.Completion.init -> void
+ChServerM.Hosting.ClientSession.Connection.get -> ChServerM.Connections.IConnection!
+ChServerM.Hosting.ClientSession.Connection.init -> void
+ChServerM.Hosting.ClientSession.Deconstruct(out ChServerM.Connections.IConnection! Connection, out System.Threading.Tasks.Task! Completion) -> void
+ChServerM.Hosting.ClientSession.Equals(ChServerM.Hosting.ClientSession other) -> bool
+ChServerM.Hosting.Dispatch.MessageDispatcher
+ChServerM.Hosting.Dispatch.MessageDispatcher.DispatchAsync(ChServerM.Dispatch.MessageContext! context) -> System.Threading.Tasks.ValueTask<ChServerM.Dispatch.DispatchStatus>
+ChServerM.Hosting.Dispatch.MessageDispatcher.MessageDispatcher(ChServerM.Dispatch.MessageDelegate! pipeline, ChServerM.Diagnostics.IServerLogger? logger = null) -> void
+ChServerM.Hosting.Dispatch.MessageDispatcherBuilder
+ChServerM.Hosting.Dispatch.MessageDispatcherBuilder.Build() -> ChServerM.Hosting.Dispatch.MessageDispatcher!
+ChServerM.Hosting.Dispatch.MessageDispatcherBuilder.Map<TMessage>(ChServerM.Identity.MessageId messageId, ChServerM.Serialization.IMessageSerializer<TMessage>! serializer, ChServerM.Dispatch.IMessageHandler<TMessage>! handler) -> ChServerM.Hosting.Dispatch.MessageDispatcherBuilder!
+ChServerM.Hosting.Dispatch.MessageDispatcherBuilder.MapRaw(ChServerM.Identity.MessageId messageId, ChServerM.Dispatch.MessageDelegate! handler) -> ChServerM.Hosting.Dispatch.MessageDispatcherBuilder!
+ChServerM.Hosting.Dispatch.MessageDispatcherBuilder.MessageDispatcherBuilder() -> void
+ChServerM.Hosting.Dispatch.MessageDispatcherBuilder.Use(ChServerM.Dispatch.IServerMiddleware! middleware) -> ChServerM.Hosting.Dispatch.MessageDispatcherBuilder!
+ChServerM.Hosting.Dispatch.MessageDispatcherBuilder.Use(System.Func<ChServerM.Dispatch.MessageDelegate!, ChServerM.Dispatch.MessageDelegate!>! middleware) -> ChServerM.Hosting.Dispatch.MessageDispatcherBuilder!
+ChServerM.Hosting.Dispatch.MessageDispatcherBuilder.UseLogger(ChServerM.Diagnostics.IServerLogger! logger) -> ChServerM.Hosting.Dispatch.MessageDispatcherBuilder!
+ChServerM.Hosting.FrameWriter
+ChServerM.Hosting.FramedConnectionHandler
+ChServerM.Hosting.FramedConnectionHandler.FramedConnectionHandler(ChServerM.Framing.IFrameDecoder! decoder, ChServerM.Dispatch.IMessageDispatcher! dispatcher, ChServerM.Hosting.FramedConnectionOptions? options = null, System.TimeProvider? timeProvider = null, ChServerM.Diagnostics.IServerLogger? logger = null) -> void
+ChServerM.Hosting.FramedConnectionHandler.RunAsync(ChServerM.Connections.IConnection! connection) -> System.Threading.Tasks.Task!
+ChServerM.Hosting.FramedConnectionOptions
+ChServerM.Hosting.FramedConnectionOptions.CloseOnDeserializationFailure.get -> bool
+ChServerM.Hosting.FramedConnectionOptions.CloseOnDeserializationFailure.set -> void
+ChServerM.Hosting.FramedConnectionOptions.CloseOnHandlerFault.get -> bool
+ChServerM.Hosting.FramedConnectionOptions.CloseOnHandlerFault.set -> void
+ChServerM.Hosting.FramedConnectionOptions.CloseOnHandlerNotFound.get -> bool
+ChServerM.Hosting.FramedConnectionOptions.CloseOnHandlerNotFound.set -> void
+ChServerM.Hosting.FramedConnectionOptions.CloseOnPolicyRejection.get -> bool
+ChServerM.Hosting.FramedConnectionOptions.CloseOnPolicyRejection.set -> void
+ChServerM.Hosting.FramedConnectionOptions.FramedConnectionOptions() -> void
+ChServerM.Hosting.FramedConnectionOptions.Validate() -> void
+ChServerM.Hosting.PartitionedConnectionHandler
+ChServerM.Hosting.PartitionedConnectionHandler.PartitionedConnectionHandler(ChServerM.Connections.IConnectionHandler! inner, ChServerM.Execution.IExecutionModel! executionModel) -> void
+ChServerM.Hosting.PartitionedConnectionHandler.RunAsync(ChServerM.Connections.IConnection! connection) -> System.Threading.Tasks.Task!
+ChServerM.Hosting.ServerBuilder
+ChServerM.Hosting.ServerBuilder.Build() -> ChServerM.Hosting.ChServerMServer!
+ChServerM.Hosting.ServerBuilder.ConfigureConnection(System.Action<ChServerM.Hosting.FramedConnectionOptions!>! configure) -> ChServerM.Hosting.ServerBuilder!
+ChServerM.Hosting.ServerBuilder.ConfigureDispatcher(System.Action<ChServerM.Hosting.Dispatch.MessageDispatcherBuilder!>! configure) -> ChServerM.Hosting.ServerBuilder!
+ChServerM.Hosting.ServerBuilder.ServerBuilder() -> void
+ChServerM.Hosting.ServerBuilder.UseExecutionModel(ChServerM.Execution.IExecutionModel! executionModel) -> ChServerM.Hosting.ServerBuilder!
+ChServerM.Hosting.ServerBuilder.UseFraming(ChServerM.Framing.IFrameDecoder! decoder, ChServerM.Framing.IFrameEncoder! encoder) -> ChServerM.Hosting.ServerBuilder!
+ChServerM.Hosting.ServerBuilder.UseLogger(ChServerM.Diagnostics.IServerLogger! logger) -> ChServerM.Hosting.ServerBuilder!
+ChServerM.Hosting.ServerBuilder.UseTimeProvider(System.TimeProvider! timeProvider) -> ChServerM.Hosting.ServerBuilder!
+ChServerM.Hosting.ServerBuilder.UseTransport(ChServerM.Transports.IServerTransport! transport) -> ChServerM.Hosting.ServerBuilder!
+override ChServerM.Hosting.ClientSession.GetHashCode() -> int
+static ChServerM.Hosting.ClientSession.operator !=(ChServerM.Hosting.ClientSession left, ChServerM.Hosting.ClientSession right) -> bool
+static ChServerM.Hosting.ClientSession.operator ==(ChServerM.Hosting.ClientSession left, ChServerM.Hosting.ClientSession right) -> bool
+static ChServerM.Hosting.FrameWriter.WriteFrameAsync(System.IO.Pipelines.PipeWriter! writer, ChServerM.Framing.IFrameEncoder! encoder, ChServerM.Identity.MessageId messageId, System.ReadOnlySpan<byte> payload, ChServerM.Framing.FrameFlags flags, uint sequence, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.IO.Pipelines.FlushResult>
+static ChServerM.Hosting.FrameWriter.WriteFrameAsync(System.IO.Pipelines.PipeWriter! writer, ChServerM.Framing.IFrameEncoder! encoder, ChServerM.Identity.MessageId messageId, in System.Buffers.ReadOnlySequence<byte> payload, ChServerM.Framing.FrameFlags flags, uint sequence, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.IO.Pipelines.FlushResult>
+static ChServerM.Hosting.FrameWriter.WriteFrameAsync(this ChServerM.Connections.IConnection! connection, ChServerM.Framing.IFrameEncoder! encoder, ChServerM.Identity.MessageId messageId, System.ReadOnlySpan<byte> payload, ChServerM.Framing.FrameFlags flags, uint sequence) -> System.Threading.Tasks.ValueTask<System.IO.Pipelines.FlushResult>
+~override ChServerM.Hosting.ClientSession.Equals(object obj) -> bool
+~override ChServerM.Hosting.ClientSession.ToString() -> string

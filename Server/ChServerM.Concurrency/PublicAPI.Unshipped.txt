@@ -1,0 +1,33 @@
+#nullable enable
+ChServerM.Concurrency.ExecutionPartition
+ChServerM.Concurrency.ExecutionPartition.Dispose() -> void
+ChServerM.Concurrency.ExecutionPartition.ExecutedCount.get -> long
+ChServerM.Concurrency.ExecutionPartition.Index.get -> int
+ChServerM.Concurrency.ExecutionPartition.PendingExternalWork.get -> int
+ChServerM.Concurrency.ExecutionPartition.RejectedCount.get -> long
+ChServerM.Concurrency.ExecutionPartition.Scheduler.get -> System.Threading.Tasks.TaskScheduler!
+ChServerM.Concurrency.ExecutionPartition.TryPost<TWork>(in TWork work) -> bool
+ChServerM.Concurrency.PartitionedExecutionModel
+ChServerM.Concurrency.PartitionedExecutionModel.DisposeAsync() -> System.Threading.Tasks.ValueTask
+ChServerM.Concurrency.PartitionedExecutionModel.GetPartition(ChServerM.Identity.PartitionKey key) -> ChServerM.Execution.IExecutionPartition!
+ChServerM.Concurrency.PartitionedExecutionModel.GetPartition(int index) -> ChServerM.Execution.IExecutionPartition!
+ChServerM.Concurrency.PartitionedExecutionModel.PartitionCount.get -> int
+ChServerM.Concurrency.PartitionedExecutionModel.PartitionedExecutionModel(ChServerM.Concurrency.PartitionedExecutionOptions? options = null, ChServerM.Diagnostics.IServerLogger? logger = null) -> void
+ChServerM.Concurrency.PartitionedExecutionModel.TotalExecutedCount.get -> long
+ChServerM.Concurrency.PartitionedExecutionModel.TotalRejectedCount.get -> long
+ChServerM.Concurrency.PartitionedExecutionOptions
+ChServerM.Concurrency.PartitionedExecutionOptions.PartitionCount.get -> int
+ChServerM.Concurrency.PartitionedExecutionOptions.PartitionCount.set -> void
+ChServerM.Concurrency.PartitionedExecutionOptions.PartitionedExecutionOptions() -> void
+ChServerM.Concurrency.PartitionedExecutionOptions.QueueCapacity.get -> int
+ChServerM.Concurrency.PartitionedExecutionOptions.QueueCapacity.set -> void
+ChServerM.Concurrency.PartitionedExecutionOptions.ShutdownTimeout.get -> System.TimeSpan
+ChServerM.Concurrency.PartitionedExecutionOptions.ShutdownTimeout.set -> void
+ChServerM.Concurrency.PartitionedExecutionOptions.ThreadNamePrefix.get -> string!
+ChServerM.Concurrency.PartitionedExecutionOptions.ThreadNamePrefix.set -> void
+ChServerM.Concurrency.PartitionedExecutionOptions.ThreadPriority.get -> System.Threading.ThreadPriority
+ChServerM.Concurrency.PartitionedExecutionOptions.ThreadPriority.set -> void
+ChServerM.Concurrency.PartitionedExecutionOptions.Validate() -> void
+const ChServerM.Concurrency.PartitionedExecutionOptions.AbsoluteMaxPartitionCount = 512 -> int
+const ChServerM.Concurrency.PartitionedExecutionOptions.DefaultQueueCapacity = 4096 -> int
+static ChServerM.Concurrency.PartitionedExecutionOptions.DefaultShutdownTimeout.get -> System.TimeSpan

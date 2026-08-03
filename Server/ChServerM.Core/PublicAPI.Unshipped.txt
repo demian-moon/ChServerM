@@ -1,0 +1,387 @@
+#nullable enable
+ChServerM.Connections.CloseReason
+ChServerM.Connections.CloseReason.ApplicationError = 6 -> ChServerM.Connections.CloseReason
+ChServerM.Connections.CloseReason.ClientClosed = 1 -> ChServerM.Connections.CloseReason
+ChServerM.Connections.CloseReason.None = 0 -> ChServerM.Connections.CloseReason
+ChServerM.Connections.CloseReason.ProtocolError = 5 -> ChServerM.Connections.CloseReason
+ChServerM.Connections.CloseReason.ResourceLimit = 7 -> ChServerM.Connections.CloseReason
+ChServerM.Connections.CloseReason.ServerClosed = 2 -> ChServerM.Connections.CloseReason
+ChServerM.Connections.CloseReason.ShuttingDown = 3 -> ChServerM.Connections.CloseReason
+ChServerM.Connections.CloseReason.Timeout = 4 -> ChServerM.Connections.CloseReason
+ChServerM.Connections.CloseReason.TransportError = 8 -> ChServerM.Connections.CloseReason
+ChServerM.Connections.ConnectionCloseInfo
+ChServerM.Connections.ConnectionCloseInfo.ConnectionCloseInfo() -> void
+ChServerM.Connections.ConnectionCloseInfo.ConnectionCloseInfo(ChServerM.Connections.CloseReason reason, ChServerM.Diagnostics.ErrorCode errorCode = ChServerM.Diagnostics.ErrorCode.None, string? description = null) -> void
+ChServerM.Connections.ConnectionCloseInfo.Description.get -> string?
+ChServerM.Connections.ConnectionCloseInfo.Equals(ChServerM.Connections.ConnectionCloseInfo other) -> bool
+ChServerM.Connections.ConnectionCloseInfo.ErrorCode.get -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Connections.ConnectionCloseInfo.IsGraceful.get -> bool
+ChServerM.Connections.ConnectionCloseInfo.Reason.get -> ChServerM.Connections.CloseReason
+ChServerM.Connections.IConnection
+ChServerM.Connections.IConnection.Abort(in ChServerM.Connections.ConnectionCloseInfo info) -> void
+ChServerM.Connections.IConnection.ConnectionClosed.get -> System.Threading.CancellationToken
+ChServerM.Connections.IConnection.Features.get -> ChServerM.Features.IFeatureCollection!
+ChServerM.Connections.IConnection.Id.get -> ChServerM.Identity.ConnectionId
+ChServerM.Connections.IConnection.Input.get -> System.IO.Pipelines.PipeReader!
+ChServerM.Connections.IConnection.Output.get -> System.IO.Pipelines.PipeWriter!
+ChServerM.Connections.IConnectionHandler
+ChServerM.Connections.IConnectionHandler.RunAsync(ChServerM.Connections.IConnection! connection) -> System.Threading.Tasks.Task!
+ChServerM.CoreAssembly
+ChServerM.Diagnostics.ActivityNames
+ChServerM.Diagnostics.DiagnosticNames
+ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.AuthenticationFailed = 6000 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.AuthorizationFailed = 6001 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.ComponentNotRegistered = 9001 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.ConnectAborted = 1002 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.ConnectionClosedByPeer = 1000 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.ConnectionLimitReached = 1004 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.ConnectionReset = 1001 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.DeserializationFailed = 3000 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.FrameTooLarge = 2001 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.HandlerFaulted = 4002 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.HandlerNotFound = 4000 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.IntegrityCheckFailed = 6002 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.Internal = 9999 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.InvalidConfiguration = 9000 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.InvalidFrameFlags = 2003 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.MalformedFrame = 2000 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.MessageNotAllowedInState = 4001 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.None = 0 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.OperationCanceled = 5002 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.ProtocolVersionMismatch = 2002 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.QueueFull = 5000 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.RateLimitExceeded = 6003 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.SendBackpressure = 5001 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.SerializationFailed = 3001 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.SerializerNotRegistered = 3002 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.ServerShuttingDown = 1005 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.TransportTimeout = 1003 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.EventId
+ChServerM.Diagnostics.EventId.Equals(ChServerM.Diagnostics.EventId other) -> bool
+ChServerM.Diagnostics.EventId.EventId() -> void
+ChServerM.Diagnostics.EventId.EventId(int id, string? name = null) -> void
+ChServerM.Diagnostics.EventId.Id.get -> int
+ChServerM.Diagnostics.EventId.Name.get -> string?
+ChServerM.Diagnostics.IServerLogger
+ChServerM.Diagnostics.IServerLogger.IsEnabled(ChServerM.Diagnostics.LogLevel level) -> bool
+ChServerM.Diagnostics.IServerLogger.Log<TState>(ChServerM.Diagnostics.LogLevel level, ChServerM.Diagnostics.EventId eventId, TState state, System.Exception? exception, System.Func<TState, System.Exception?, string!>! formatter) -> void
+ChServerM.Diagnostics.LogLevel
+ChServerM.Diagnostics.LogLevel.Critical = 5 -> ChServerM.Diagnostics.LogLevel
+ChServerM.Diagnostics.LogLevel.Debug = 1 -> ChServerM.Diagnostics.LogLevel
+ChServerM.Diagnostics.LogLevel.Error = 4 -> ChServerM.Diagnostics.LogLevel
+ChServerM.Diagnostics.LogLevel.Information = 2 -> ChServerM.Diagnostics.LogLevel
+ChServerM.Diagnostics.LogLevel.None = 6 -> ChServerM.Diagnostics.LogLevel
+ChServerM.Diagnostics.LogLevel.Trace = 0 -> ChServerM.Diagnostics.LogLevel
+ChServerM.Diagnostics.LogLevel.Warning = 3 -> ChServerM.Diagnostics.LogLevel
+ChServerM.Diagnostics.MetricNames
+ChServerM.Diagnostics.NullServerLogger
+ChServerM.Diagnostics.NullServerLogger.IsEnabled(ChServerM.Diagnostics.LogLevel level) -> bool
+ChServerM.Diagnostics.NullServerLogger.Log<TState>(ChServerM.Diagnostics.LogLevel level, ChServerM.Diagnostics.EventId eventId, TState state, System.Exception? exception, System.Func<TState, System.Exception?, string!>! formatter) -> void
+ChServerM.Diagnostics.TagNames
+ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.DispatchStatus.Canceled = 7 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.DispatchStatus.DeserializationFailed = 4 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.DispatchStatus.Faulted = 6 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.DispatchStatus.Handled = 0 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.DispatchStatus.HandlerNotFound = 1 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.DispatchStatus.RejectedByBackpressure = 5 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.DispatchStatus.RejectedByPolicy = 3 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.DispatchStatus.RejectedByState = 2 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.IMessageDispatcher
+ChServerM.Dispatch.IMessageDispatcher.DispatchAsync(ChServerM.Dispatch.MessageContext! context) -> System.Threading.Tasks.ValueTask<ChServerM.Dispatch.DispatchStatus>
+ChServerM.Dispatch.IMessageHandler<TMessage>
+ChServerM.Dispatch.IMessageHandler<TMessage>.HandleAsync(ChServerM.Dispatch.MessageContext! context, TMessage message) -> System.Threading.Tasks.ValueTask
+ChServerM.Dispatch.IServerMiddleware
+ChServerM.Dispatch.IServerMiddleware.InvokeAsync(ChServerM.Dispatch.MessageContext! context, ChServerM.Dispatch.MessageDelegate! next) -> System.Threading.Tasks.ValueTask<ChServerM.Dispatch.DispatchStatus>
+ChServerM.Dispatch.MessageContext
+ChServerM.Dispatch.MessageContext.BeginFrame(in ChServerM.Framing.FrameHeader header, in System.Buffers.ReadOnlySequence<byte> payload, ChServerM.Time.MonotonicTimestamp receivedAt, System.Threading.CancellationToken cancellationToken) -> void
+ChServerM.Dispatch.MessageContext.CancellationToken.get -> System.Threading.CancellationToken
+ChServerM.Dispatch.MessageContext.Connection.get -> ChServerM.Connections.IConnection!
+ChServerM.Dispatch.MessageContext.EndFrame() -> void
+ChServerM.Dispatch.MessageContext.Features.get -> ChServerM.Features.IFeatureCollection!
+ChServerM.Dispatch.MessageContext.Header.get -> ChServerM.Framing.FrameHeader
+ChServerM.Dispatch.MessageContext.MessageContext(ChServerM.Connections.IConnection! connection) -> void
+ChServerM.Dispatch.MessageContext.Payload.get -> System.Buffers.ReadOnlySequence<byte>
+ChServerM.Dispatch.MessageContext.ReceivedAt.get -> ChServerM.Time.MonotonicTimestamp
+ChServerM.Dispatch.MessageDelegate
+ChServerM.Execution.IExecutionModel
+ChServerM.Execution.IExecutionModel.GetPartition(ChServerM.Identity.PartitionKey key) -> ChServerM.Execution.IExecutionPartition!
+ChServerM.Execution.IExecutionModel.GetPartition(int index) -> ChServerM.Execution.IExecutionPartition!
+ChServerM.Execution.IExecutionModel.PartitionCount.get -> int
+ChServerM.Execution.IExecutionPartition
+ChServerM.Execution.IExecutionPartition.Index.get -> int
+ChServerM.Execution.IExecutionPartition.Scheduler.get -> System.Threading.Tasks.TaskScheduler!
+ChServerM.Execution.IExecutionPartition.TryPost<TWork>(in TWork work) -> bool
+ChServerM.Execution.IPartitionWork
+ChServerM.Execution.IPartitionWork.Execute() -> void
+ChServerM.Features.FeatureCollection
+ChServerM.Features.FeatureCollection.Count.get -> int
+ChServerM.Features.FeatureCollection.FeatureCollection() -> void
+ChServerM.Features.FeatureCollection.FeatureCollection(int capacity) -> void
+ChServerM.Features.FeatureCollection.Get<TFeature>() -> TFeature?
+ChServerM.Features.FeatureCollection.Reset() -> void
+ChServerM.Features.FeatureCollection.Revision.get -> int
+ChServerM.Features.FeatureCollection.Set<TFeature>(TFeature? instance) -> void
+ChServerM.Features.IConnectionEndPointFeature
+ChServerM.Features.IConnectionEndPointFeature.LocalEndPoint.get -> System.Net.EndPoint?
+ChServerM.Features.IConnectionEndPointFeature.RemoteEndPoint.get -> System.Net.EndPoint?
+ChServerM.Features.IFeatureCollection
+ChServerM.Features.IFeatureCollection.Get<TFeature>() -> TFeature?
+ChServerM.Features.IFeatureCollection.Revision.get -> int
+ChServerM.Features.IFeatureCollection.Set<TFeature>(TFeature? instance) -> void
+ChServerM.Framing.FrameDecodeResult
+ChServerM.Framing.FrameDecodeResult.Consumed.get -> System.SequencePosition
+ChServerM.Framing.FrameDecodeResult.Equals(ChServerM.Framing.FrameDecodeResult other) -> bool
+ChServerM.Framing.FrameDecodeResult.Examined.get -> System.SequencePosition
+ChServerM.Framing.FrameDecodeResult.FrameDecodeResult() -> void
+ChServerM.Framing.FrameDecodeResult.Header.get -> ChServerM.Framing.FrameHeader
+ChServerM.Framing.FrameDecodeResult.IsDecoded.get -> bool
+ChServerM.Framing.FrameDecodeResult.IsFatal.get -> bool
+ChServerM.Framing.FrameDecodeResult.Payload.get -> System.Buffers.ReadOnlySequence<byte>
+ChServerM.Framing.FrameDecodeResult.Status.get -> ChServerM.Framing.FrameDecodeStatus
+ChServerM.Framing.FrameDecodeResult.ToErrorCode() -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Framing.FrameDecodeStatus
+ChServerM.Framing.FrameDecodeStatus.Decoded = 1 -> ChServerM.Framing.FrameDecodeStatus
+ChServerM.Framing.FrameDecodeStatus.InvalidFlags = 5 -> ChServerM.Framing.FrameDecodeStatus
+ChServerM.Framing.FrameDecodeStatus.Malformed = 2 -> ChServerM.Framing.FrameDecodeStatus
+ChServerM.Framing.FrameDecodeStatus.NeedMoreData = 0 -> ChServerM.Framing.FrameDecodeStatus
+ChServerM.Framing.FrameDecodeStatus.TooLarge = 3 -> ChServerM.Framing.FrameDecodeStatus
+ChServerM.Framing.FrameDecodeStatus.VersionMismatch = 4 -> ChServerM.Framing.FrameDecodeStatus
+ChServerM.Framing.FrameFlags
+ChServerM.Framing.FrameFlags.Compressed = 1 -> ChServerM.Framing.FrameFlags
+ChServerM.Framing.FrameFlags.Encrypted = 2 -> ChServerM.Framing.FrameFlags
+ChServerM.Framing.FrameFlags.EndOfMessage = 8 -> ChServerM.Framing.FrameFlags
+ChServerM.Framing.FrameFlags.Fragmented = 4 -> ChServerM.Framing.FrameFlags
+ChServerM.Framing.FrameFlags.None = 0 -> ChServerM.Framing.FrameFlags
+ChServerM.Framing.FrameHeader
+ChServerM.Framing.FrameHeader.Equals(ChServerM.Framing.FrameHeader other) -> bool
+ChServerM.Framing.FrameHeader.Flags.get -> ChServerM.Framing.FrameFlags
+ChServerM.Framing.FrameHeader.FrameHeader() -> void
+ChServerM.Framing.FrameHeader.FrameHeader(ChServerM.Identity.MessageId messageId, int payloadLength, ChServerM.Framing.FrameFlags flags = ChServerM.Framing.FrameFlags.None, uint sequence = 0, ushort version = 1) -> void
+ChServerM.Framing.FrameHeader.MessageId.get -> ChServerM.Identity.MessageId
+ChServerM.Framing.FrameHeader.PayloadLength.get -> int
+ChServerM.Framing.FrameHeader.Sequence.get -> uint
+ChServerM.Framing.FrameHeader.TotalLength.get -> int
+ChServerM.Framing.FrameHeader.Version.get -> ushort
+ChServerM.Framing.IFrameDecoder
+ChServerM.Framing.IFrameDecoder.Decode(in System.Buffers.ReadOnlySequence<byte> buffer) -> ChServerM.Framing.FrameDecodeResult
+ChServerM.Framing.IFrameDecoder.MaxPayloadLength.get -> int
+ChServerM.Framing.IFrameEncoder
+ChServerM.Framing.IFrameEncoder.HeaderSize.get -> int
+ChServerM.Framing.IFrameEncoder.WriteHeader(System.Buffers.IBufferWriter<byte>! writer, in ChServerM.Framing.FrameHeader header) -> void
+ChServerM.Identity.ConnectionId
+ChServerM.Identity.ConnectionId.ConnectionId() -> void
+ChServerM.Identity.ConnectionId.ConnectionId(uint slot, uint generation) -> void
+ChServerM.Identity.ConnectionId.Equals(ChServerM.Identity.ConnectionId other) -> bool
+ChServerM.Identity.ConnectionId.Generation.get -> uint
+ChServerM.Identity.ConnectionId.IsNone.get -> bool
+ChServerM.Identity.ConnectionId.Slot.get -> uint
+ChServerM.Identity.ConnectionId.ToPartitionKey() -> ChServerM.Identity.PartitionKey
+ChServerM.Identity.FrameworkMessageIds
+ChServerM.Identity.IObjectIdGenerator
+ChServerM.Identity.IObjectIdGenerator.NextId() -> ChServerM.Identity.ObjectId
+ChServerM.Identity.IObjectIdGenerator.NodeId.get -> int
+ChServerM.Identity.JobId
+ChServerM.Identity.JobId.Equals(ChServerM.Identity.JobId other) -> bool
+ChServerM.Identity.JobId.IsNone.get -> bool
+ChServerM.Identity.JobId.JobId() -> void
+ChServerM.Identity.JobId.JobId(ulong owner, ulong local) -> void
+ChServerM.Identity.JobId.Local.get -> ulong
+ChServerM.Identity.JobId.Owner.get -> ulong
+ChServerM.Identity.MessageId
+ChServerM.Identity.MessageId.CompareTo(ChServerM.Identity.MessageId other) -> int
+ChServerM.Identity.MessageId.Equals(ChServerM.Identity.MessageId other) -> bool
+ChServerM.Identity.MessageId.IsAppRange.get -> bool
+ChServerM.Identity.MessageId.IsFrameworkRange.get -> bool
+ChServerM.Identity.MessageId.IsNone.get -> bool
+ChServerM.Identity.MessageId.MessageId() -> void
+ChServerM.Identity.MessageId.MessageId(ushort value) -> void
+ChServerM.Identity.MessageId.Value.get -> ushort
+ChServerM.Identity.NodeId
+ChServerM.Identity.NodeId.Equals(ChServerM.Identity.NodeId other) -> bool
+ChServerM.Identity.NodeId.NodeId() -> void
+ChServerM.Identity.NodeId.NodeId(ushort value) -> void
+ChServerM.Identity.NodeId.Value.get -> ushort
+ChServerM.Identity.ObjectId
+ChServerM.Identity.ObjectId.CompareTo(ChServerM.Identity.ObjectId other) -> int
+ChServerM.Identity.ObjectId.Equals(ChServerM.Identity.ObjectId other) -> bool
+ChServerM.Identity.ObjectId.IsNone.get -> bool
+ChServerM.Identity.ObjectId.NodeId.get -> int
+ChServerM.Identity.ObjectId.ObjectId() -> void
+ChServerM.Identity.ObjectId.ObjectId(long value) -> void
+ChServerM.Identity.ObjectId.Sequence.get -> int
+ChServerM.Identity.ObjectId.TimestampMs.get -> long
+ChServerM.Identity.ObjectId.ToPartitionKey() -> ChServerM.Identity.PartitionKey
+ChServerM.Identity.ObjectId.Value.get -> long
+ChServerM.Identity.PartitionKey
+ChServerM.Identity.PartitionKey.Equals(ChServerM.Identity.PartitionKey other) -> bool
+ChServerM.Identity.PartitionKey.PartitionKey() -> void
+ChServerM.Identity.PartitionKey.ToIndex(int partitionCount) -> int
+ChServerM.Identity.PartitionKey.Value.get -> ulong
+ChServerM.Identity.SessionId
+ChServerM.Identity.SessionId.Equals(ChServerM.Identity.SessionId other) -> bool
+ChServerM.Identity.SessionId.IsNone.get -> bool
+ChServerM.Identity.SessionId.SessionId() -> void
+ChServerM.Identity.SessionId.SessionId(ChServerM.Identity.ObjectId value) -> void
+ChServerM.Identity.SessionId.ToPartitionKey() -> ChServerM.Identity.PartitionKey
+ChServerM.Identity.SessionId.Value.get -> ChServerM.Identity.ObjectId
+ChServerM.Serialization.IMessageSerializer<TMessage>
+ChServerM.Serialization.IMessageSerializer<TMessage>.Serialize(System.Buffers.IBufferWriter<byte>! writer, in TMessage message) -> void
+ChServerM.Serialization.IMessageSerializer<TMessage>.TryDeserialize(in System.Buffers.ReadOnlySequence<byte> payload, out TMessage message) -> bool
+ChServerM.Serialization.IMessageSerializerProvider
+ChServerM.Serialization.IMessageSerializerProvider.Find<TMessage>() -> ChServerM.Serialization.IMessageSerializer<TMessage>?
+ChServerM.Time.MonotonicTimestamp
+ChServerM.Time.MonotonicTimestamp.Add(System.TimeProvider! timeProvider, System.TimeSpan delta) -> ChServerM.Time.MonotonicTimestamp
+ChServerM.Time.MonotonicTimestamp.CompareTo(ChServerM.Time.MonotonicTimestamp other) -> int
+ChServerM.Time.MonotonicTimestamp.ElapsedSince(System.TimeProvider! timeProvider) -> System.TimeSpan
+ChServerM.Time.MonotonicTimestamp.ElapsedTo(System.TimeProvider! timeProvider, ChServerM.Time.MonotonicTimestamp later) -> System.TimeSpan
+ChServerM.Time.MonotonicTimestamp.Equals(ChServerM.Time.MonotonicTimestamp other) -> bool
+ChServerM.Time.MonotonicTimestamp.HasPassed(ChServerM.Time.MonotonicTimestamp deadline) -> bool
+ChServerM.Time.MonotonicTimestamp.IsNone.get -> bool
+ChServerM.Time.MonotonicTimestamp.MonotonicTimestamp() -> void
+ChServerM.Time.MonotonicTimestamp.Raw.get -> long
+ChServerM.Transports.IClientTransport
+ChServerM.Transports.IClientTransport.ConnectAsync(System.Net.EndPoint! endPoint, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Connections.IConnection!>
+ChServerM.Transports.IServerTransport
+ChServerM.Transports.IServerTransport.BindAsync(ChServerM.Connections.IConnectionHandler! handler, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ChServerM.Transports.IServerTransport.LocalEndPoint.get -> System.Net.EndPoint?
+ChServerM.Transports.IServerTransport.StopAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ChServerM.Transports.IServerTransport.UnbindAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ChServerM.Transports.ITransportBufferLimits
+ChServerM.Transports.ITransportBufferLimits.MaxBufferedBytesPerConnection.get -> long
+const ChServerM.Diagnostics.ActivityNames.Connection = "chservem.connection" -> string!
+const ChServerM.Diagnostics.ActivityNames.Dispatch = "chservem.dispatch" -> string!
+const ChServerM.Diagnostics.DiagnosticNames.ActivitySourceName = "ChServerM" -> string!
+const ChServerM.Diagnostics.DiagnosticNames.MeterName = "ChServerM" -> string!
+const ChServerM.Diagnostics.DiagnosticNames.Prefix = "chservem" -> string!
+const ChServerM.Diagnostics.MetricNames.BackpressureDuration = "chservem.backpressure.duration" -> string!
+const ChServerM.Diagnostics.MetricNames.BytesReceived = "chservem.bytes.received" -> string!
+const ChServerM.Diagnostics.MetricNames.BytesSent = "chservem.bytes.sent" -> string!
+const ChServerM.Diagnostics.MetricNames.ConnectionsAccepted = "chservem.connections.accepted" -> string!
+const ChServerM.Diagnostics.MetricNames.ConnectionsActive = "chservem.connections.active" -> string!
+const ChServerM.Diagnostics.MetricNames.ConnectionsRejected = "chservem.connections.rejected" -> string!
+const ChServerM.Diagnostics.MetricNames.DispatchDuration = "chservem.dispatch.duration" -> string!
+const ChServerM.Diagnostics.MetricNames.DispatchFailures = "chservem.dispatch.failures" -> string!
+const ChServerM.Diagnostics.MetricNames.FramesDropped = "chservem.frames.dropped" -> string!
+const ChServerM.Diagnostics.MetricNames.FramesReceived = "chservem.frames.received" -> string!
+const ChServerM.Diagnostics.MetricNames.FramesSent = "chservem.frames.sent" -> string!
+const ChServerM.Diagnostics.MetricNames.PartitionQueueDepth = "chservem.partition.queue.depth" -> string!
+const ChServerM.Diagnostics.MetricNames.PartitionWorkRejected = "chservem.partition.work.rejected" -> string!
+const ChServerM.Diagnostics.TagNames.CloseReason = "close_reason" -> string!
+const ChServerM.Diagnostics.TagNames.ErrorCode = "error_code" -> string!
+const ChServerM.Diagnostics.TagNames.MessageId = "message_id" -> string!
+const ChServerM.Diagnostics.TagNames.Partition = "partition" -> string!
+const ChServerM.Diagnostics.TagNames.Transport = "transport" -> string!
+const ChServerM.Framing.FrameHeader.CurrentVersion = 1 -> ushort
+const ChServerM.Framing.FrameHeader.FlagsOffset = 8 -> int
+const ChServerM.Framing.FrameHeader.MessageIdOffset = 2 -> int
+const ChServerM.Framing.FrameHeader.PayloadLengthOffset = 4 -> int
+const ChServerM.Framing.FrameHeader.ReservedOffset = 10 -> int
+const ChServerM.Framing.FrameHeader.SequenceOffset = 12 -> int
+const ChServerM.Framing.FrameHeader.Size = 16 -> int
+const ChServerM.Framing.FrameHeader.VersionOffset = 0 -> int
+const ChServerM.Identity.MessageId.AppRangeEnd = 40000 -> ushort
+const ChServerM.Identity.MessageId.AppRangeStart = 1 -> ushort
+const ChServerM.Identity.MessageId.FrameworkRangeStart = 40001 -> ushort
+const ChServerM.Identity.ObjectId.MaxNodeId = 1023 -> int
+const ChServerM.Identity.ObjectId.MaxSequence = 4095 -> int
+const ChServerM.Identity.ObjectId.NodeIdBits = 10 -> int
+const ChServerM.Identity.ObjectId.SequenceBits = 12 -> int
+const ChServerM.Identity.ObjectId.TimestampBits = 41 -> int
+override ChServerM.Connections.ConnectionCloseInfo.Equals(object? obj) -> bool
+override ChServerM.Connections.ConnectionCloseInfo.GetHashCode() -> int
+override ChServerM.Connections.ConnectionCloseInfo.ToString() -> string!
+override ChServerM.Diagnostics.EventId.Equals(object? obj) -> bool
+override ChServerM.Diagnostics.EventId.GetHashCode() -> int
+override ChServerM.Diagnostics.EventId.ToString() -> string!
+override ChServerM.Framing.FrameDecodeResult.Equals(object? obj) -> bool
+override ChServerM.Framing.FrameDecodeResult.GetHashCode() -> int
+override ChServerM.Framing.FrameDecodeResult.ToString() -> string!
+override ChServerM.Framing.FrameHeader.Equals(object? obj) -> bool
+override ChServerM.Framing.FrameHeader.GetHashCode() -> int
+override ChServerM.Framing.FrameHeader.ToString() -> string!
+override ChServerM.Identity.ConnectionId.Equals(object? obj) -> bool
+override ChServerM.Identity.ConnectionId.GetHashCode() -> int
+override ChServerM.Identity.ConnectionId.ToString() -> string!
+override ChServerM.Identity.JobId.Equals(object? obj) -> bool
+override ChServerM.Identity.JobId.GetHashCode() -> int
+override ChServerM.Identity.JobId.ToString() -> string!
+override ChServerM.Identity.MessageId.Equals(object? obj) -> bool
+override ChServerM.Identity.MessageId.GetHashCode() -> int
+override ChServerM.Identity.MessageId.ToString() -> string!
+override ChServerM.Identity.NodeId.Equals(object? obj) -> bool
+override ChServerM.Identity.NodeId.GetHashCode() -> int
+override ChServerM.Identity.NodeId.ToString() -> string!
+override ChServerM.Identity.ObjectId.Equals(object? obj) -> bool
+override ChServerM.Identity.ObjectId.GetHashCode() -> int
+override ChServerM.Identity.ObjectId.ToString() -> string!
+override ChServerM.Identity.PartitionKey.Equals(object? obj) -> bool
+override ChServerM.Identity.PartitionKey.GetHashCode() -> int
+override ChServerM.Identity.PartitionKey.ToString() -> string!
+override ChServerM.Identity.SessionId.Equals(object? obj) -> bool
+override ChServerM.Identity.SessionId.GetHashCode() -> int
+override ChServerM.Identity.SessionId.ToString() -> string!
+override ChServerM.Time.MonotonicTimestamp.Equals(object? obj) -> bool
+override ChServerM.Time.MonotonicTimestamp.GetHashCode() -> int
+override ChServerM.Time.MonotonicTimestamp.ToString() -> string!
+static ChServerM.Connections.ConnectionCloseInfo.ClientClosed.get -> ChServerM.Connections.ConnectionCloseInfo
+static ChServerM.Connections.ConnectionCloseInfo.operator !=(ChServerM.Connections.ConnectionCloseInfo left, ChServerM.Connections.ConnectionCloseInfo right) -> bool
+static ChServerM.Connections.ConnectionCloseInfo.operator ==(ChServerM.Connections.ConnectionCloseInfo left, ChServerM.Connections.ConnectionCloseInfo right) -> bool
+static ChServerM.Connections.ConnectionCloseInfo.ProtocolError(ChServerM.Diagnostics.ErrorCode errorCode, string? description = null) -> ChServerM.Connections.ConnectionCloseInfo
+static ChServerM.Connections.ConnectionCloseInfo.ShuttingDown.get -> ChServerM.Connections.ConnectionCloseInfo
+static ChServerM.CoreAssembly.Instance.get -> System.Reflection.Assembly!
+static ChServerM.Diagnostics.EventId.operator !=(ChServerM.Diagnostics.EventId left, ChServerM.Diagnostics.EventId right) -> bool
+static ChServerM.Diagnostics.EventId.operator ==(ChServerM.Diagnostics.EventId left, ChServerM.Diagnostics.EventId right) -> bool
+static ChServerM.Diagnostics.NullServerLogger.Instance.get -> ChServerM.Diagnostics.NullServerLogger!
+static ChServerM.Framing.FrameDecodeResult.Decoded(in ChServerM.Framing.FrameHeader header, in System.Buffers.ReadOnlySequence<byte> payload, System.SequencePosition consumed) -> ChServerM.Framing.FrameDecodeResult
+static ChServerM.Framing.FrameDecodeResult.Failed(ChServerM.Framing.FrameDecodeStatus status, System.SequencePosition position) -> ChServerM.Framing.FrameDecodeResult
+static ChServerM.Framing.FrameDecodeResult.NeedMoreData(System.SequencePosition consumed, System.SequencePosition examined) -> ChServerM.Framing.FrameDecodeResult
+static ChServerM.Framing.FrameDecodeResult.operator !=(ChServerM.Framing.FrameDecodeResult left, ChServerM.Framing.FrameDecodeResult right) -> bool
+static ChServerM.Framing.FrameDecodeResult.operator ==(ChServerM.Framing.FrameDecodeResult left, ChServerM.Framing.FrameDecodeResult right) -> bool
+static ChServerM.Framing.FrameHeader.operator !=(ChServerM.Framing.FrameHeader left, ChServerM.Framing.FrameHeader right) -> bool
+static ChServerM.Framing.FrameHeader.operator ==(ChServerM.Framing.FrameHeader left, ChServerM.Framing.FrameHeader right) -> bool
+static ChServerM.Identity.ConnectionId.None.get -> ChServerM.Identity.ConnectionId
+static ChServerM.Identity.ConnectionId.operator !=(ChServerM.Identity.ConnectionId left, ChServerM.Identity.ConnectionId right) -> bool
+static ChServerM.Identity.ConnectionId.operator ==(ChServerM.Identity.ConnectionId left, ChServerM.Identity.ConnectionId right) -> bool
+static ChServerM.Identity.FrameworkMessageIds.DisconnectRequest.get -> ChServerM.Identity.MessageId
+static ChServerM.Identity.FrameworkMessageIds.Heartbeat.get -> ChServerM.Identity.MessageId
+static ChServerM.Identity.FrameworkMessageIds.HeartbeatAck.get -> ChServerM.Identity.MessageId
+static ChServerM.Identity.JobId.None.get -> ChServerM.Identity.JobId
+static ChServerM.Identity.JobId.operator !=(ChServerM.Identity.JobId left, ChServerM.Identity.JobId right) -> bool
+static ChServerM.Identity.JobId.operator ==(ChServerM.Identity.JobId left, ChServerM.Identity.JobId right) -> bool
+static ChServerM.Identity.MessageId.None.get -> ChServerM.Identity.MessageId
+static ChServerM.Identity.MessageId.operator !=(ChServerM.Identity.MessageId left, ChServerM.Identity.MessageId right) -> bool
+static ChServerM.Identity.MessageId.operator <(ChServerM.Identity.MessageId left, ChServerM.Identity.MessageId right) -> bool
+static ChServerM.Identity.MessageId.operator <=(ChServerM.Identity.MessageId left, ChServerM.Identity.MessageId right) -> bool
+static ChServerM.Identity.MessageId.operator ==(ChServerM.Identity.MessageId left, ChServerM.Identity.MessageId right) -> bool
+static ChServerM.Identity.MessageId.operator >(ChServerM.Identity.MessageId left, ChServerM.Identity.MessageId right) -> bool
+static ChServerM.Identity.MessageId.operator >=(ChServerM.Identity.MessageId left, ChServerM.Identity.MessageId right) -> bool
+static ChServerM.Identity.NodeId.None.get -> ChServerM.Identity.NodeId
+static ChServerM.Identity.NodeId.operator !=(ChServerM.Identity.NodeId left, ChServerM.Identity.NodeId right) -> bool
+static ChServerM.Identity.NodeId.operator ==(ChServerM.Identity.NodeId left, ChServerM.Identity.NodeId right) -> bool
+static ChServerM.Identity.ObjectId.Create(long timestampMs, int nodeId, int sequence) -> ChServerM.Identity.ObjectId
+static ChServerM.Identity.ObjectId.None.get -> ChServerM.Identity.ObjectId
+static ChServerM.Identity.ObjectId.operator !=(ChServerM.Identity.ObjectId left, ChServerM.Identity.ObjectId right) -> bool
+static ChServerM.Identity.ObjectId.operator <(ChServerM.Identity.ObjectId left, ChServerM.Identity.ObjectId right) -> bool
+static ChServerM.Identity.ObjectId.operator <=(ChServerM.Identity.ObjectId left, ChServerM.Identity.ObjectId right) -> bool
+static ChServerM.Identity.ObjectId.operator ==(ChServerM.Identity.ObjectId left, ChServerM.Identity.ObjectId right) -> bool
+static ChServerM.Identity.ObjectId.operator >(ChServerM.Identity.ObjectId left, ChServerM.Identity.ObjectId right) -> bool
+static ChServerM.Identity.ObjectId.operator >=(ChServerM.Identity.ObjectId left, ChServerM.Identity.ObjectId right) -> bool
+static ChServerM.Identity.PartitionKey.FromPrecomputedHash(ulong hash) -> ChServerM.Identity.PartitionKey
+static ChServerM.Identity.PartitionKey.FromValue(ulong value) -> ChServerM.Identity.PartitionKey
+static ChServerM.Identity.PartitionKey.operator !=(ChServerM.Identity.PartitionKey left, ChServerM.Identity.PartitionKey right) -> bool
+static ChServerM.Identity.PartitionKey.operator ==(ChServerM.Identity.PartitionKey left, ChServerM.Identity.PartitionKey right) -> bool
+static ChServerM.Identity.SessionId.None.get -> ChServerM.Identity.SessionId
+static ChServerM.Identity.SessionId.operator !=(ChServerM.Identity.SessionId left, ChServerM.Identity.SessionId right) -> bool
+static ChServerM.Identity.SessionId.operator ==(ChServerM.Identity.SessionId left, ChServerM.Identity.SessionId right) -> bool
+static ChServerM.Time.MonotonicTimestamp.FromRaw(long raw) -> ChServerM.Time.MonotonicTimestamp
+static ChServerM.Time.MonotonicTimestamp.None.get -> ChServerM.Time.MonotonicTimestamp
+static ChServerM.Time.MonotonicTimestamp.Now(System.TimeProvider! timeProvider) -> ChServerM.Time.MonotonicTimestamp
+static ChServerM.Time.MonotonicTimestamp.operator !=(ChServerM.Time.MonotonicTimestamp left, ChServerM.Time.MonotonicTimestamp right) -> bool
+static ChServerM.Time.MonotonicTimestamp.operator <(ChServerM.Time.MonotonicTimestamp left, ChServerM.Time.MonotonicTimestamp right) -> bool
+static ChServerM.Time.MonotonicTimestamp.operator <=(ChServerM.Time.MonotonicTimestamp left, ChServerM.Time.MonotonicTimestamp right) -> bool
+static ChServerM.Time.MonotonicTimestamp.operator ==(ChServerM.Time.MonotonicTimestamp left, ChServerM.Time.MonotonicTimestamp right) -> bool
+static ChServerM.Time.MonotonicTimestamp.operator >(ChServerM.Time.MonotonicTimestamp left, ChServerM.Time.MonotonicTimestamp right) -> bool
+static ChServerM.Time.MonotonicTimestamp.operator >=(ChServerM.Time.MonotonicTimestamp left, ChServerM.Time.MonotonicTimestamp right) -> bool
+virtual ChServerM.Dispatch.MessageDelegate.Invoke(ChServerM.Dispatch.MessageContext! context) -> System.Threading.Tasks.ValueTask<ChServerM.Dispatch.DispatchStatus>

@@ -1,0 +1,49 @@
+#nullable enable
+ChServerM.Transport.InMemory.InMemoryClientTransport
+ChServerM.Transport.InMemory.InMemoryClientTransport.ConnectAsync(System.Net.EndPoint! endPoint, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Connections.IConnection!>
+ChServerM.Transport.InMemory.InMemoryClientTransport.DisposeAsync() -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.InMemory.InMemoryClientTransport.InMemoryClientTransport(ChServerM.Transport.InMemory.InMemoryTransportHub! hub, ChServerM.Transport.InMemory.InMemoryEndPoint? localEndPoint = null, ChServerM.Transport.InMemory.InMemoryTransportOptions? options = null) -> void
+ChServerM.Transport.InMemory.InMemoryClientTransport.LocalEndPoint.get -> ChServerM.Transport.InMemory.InMemoryEndPoint!
+ChServerM.Transport.InMemory.InMemoryClientTransport.MaxBufferedBytesPerConnection.get -> long
+ChServerM.Transport.InMemory.InMemoryConnection
+ChServerM.Transport.InMemory.InMemoryConnection.Abort(in ChServerM.Connections.ConnectionCloseInfo info) -> void
+ChServerM.Transport.InMemory.InMemoryConnection.CloseInfo.get -> ChServerM.Connections.ConnectionCloseInfo
+ChServerM.Transport.InMemory.InMemoryConnection.ConnectionClosed.get -> System.Threading.CancellationToken
+ChServerM.Transport.InMemory.InMemoryConnection.DisposeAsync() -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.InMemory.InMemoryConnection.Features.get -> ChServerM.Features.IFeatureCollection!
+ChServerM.Transport.InMemory.InMemoryConnection.Id.get -> ChServerM.Identity.ConnectionId
+ChServerM.Transport.InMemory.InMemoryConnection.Input.get -> System.IO.Pipelines.PipeReader!
+ChServerM.Transport.InMemory.InMemoryConnection.LocalEndPoint.get -> System.Net.EndPoint?
+ChServerM.Transport.InMemory.InMemoryConnection.Output.get -> System.IO.Pipelines.PipeWriter!
+ChServerM.Transport.InMemory.InMemoryConnection.RemoteEndPoint.get -> System.Net.EndPoint?
+ChServerM.Transport.InMemory.InMemoryEndPoint
+ChServerM.Transport.InMemory.InMemoryEndPoint.Equals(ChServerM.Transport.InMemory.InMemoryEndPoint? other) -> bool
+ChServerM.Transport.InMemory.InMemoryEndPoint.InMemoryEndPoint(string! name) -> void
+ChServerM.Transport.InMemory.InMemoryEndPoint.Name.get -> string!
+ChServerM.Transport.InMemory.InMemoryServerTransport
+ChServerM.Transport.InMemory.InMemoryServerTransport.BindAsync(ChServerM.Connections.IConnectionHandler! handler, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.InMemory.InMemoryServerTransport.ConnectionCount.get -> int
+ChServerM.Transport.InMemory.InMemoryServerTransport.DisposeAsync() -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.InMemory.InMemoryServerTransport.InMemoryServerTransport(ChServerM.Transport.InMemory.InMemoryTransportHub! hub, ChServerM.Transport.InMemory.InMemoryEndPoint! endPoint, ChServerM.Transport.InMemory.InMemoryTransportOptions? options = null, ChServerM.Diagnostics.IServerLogger? logger = null) -> void
+ChServerM.Transport.InMemory.InMemoryServerTransport.LocalEndPoint.get -> System.Net.EndPoint?
+ChServerM.Transport.InMemory.InMemoryServerTransport.MaxBufferedBytesPerConnection.get -> long
+ChServerM.Transport.InMemory.InMemoryServerTransport.StopAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.InMemory.InMemoryServerTransport.UnbindAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.InMemory.InMemoryTransportHub
+ChServerM.Transport.InMemory.InMemoryTransportHub.InMemoryTransportHub() -> void
+ChServerM.Transport.InMemory.InMemoryTransportHub.IsListening(string! name) -> bool
+ChServerM.Transport.InMemory.InMemoryTransportHub.ListenerCount.get -> int
+ChServerM.Transport.InMemory.InMemoryTransportOptions
+ChServerM.Transport.InMemory.InMemoryTransportOptions.InMemoryTransportOptions() -> void
+ChServerM.Transport.InMemory.InMemoryTransportOptions.MaxConnections.get -> int
+ChServerM.Transport.InMemory.InMemoryTransportOptions.MaxConnections.set -> void
+ChServerM.Transport.InMemory.InMemoryTransportOptions.PauseWriterThreshold.get -> long
+ChServerM.Transport.InMemory.InMemoryTransportOptions.PauseWriterThreshold.set -> void
+ChServerM.Transport.InMemory.InMemoryTransportOptions.ResumeWriterThreshold.get -> long
+ChServerM.Transport.InMemory.InMemoryTransportOptions.ResumeWriterThreshold.set -> void
+ChServerM.Transport.InMemory.InMemoryTransportOptions.Validate() -> void
+const ChServerM.Transport.InMemory.InMemoryTransportOptions.DefaultPauseWriterThreshold = 65536 -> long
+const ChServerM.Transport.InMemory.InMemoryTransportOptions.DefaultResumeWriterThreshold = 32768 -> long
+override ChServerM.Transport.InMemory.InMemoryEndPoint.Equals(object? obj) -> bool
+override ChServerM.Transport.InMemory.InMemoryEndPoint.GetHashCode() -> int
+override ChServerM.Transport.InMemory.InMemoryEndPoint.ToString() -> string!

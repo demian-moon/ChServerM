@@ -1,0 +1,31 @@
+#nullable enable
+ChServerM.Framing.FixedHeaderFrameDecoder
+ChServerM.Framing.FixedHeaderFrameDecoder.AcceptedVersion.get -> ushort
+ChServerM.Framing.FixedHeaderFrameDecoder.Decode(in System.Buffers.ReadOnlySequence<byte> buffer) -> ChServerM.Framing.FrameDecodeResult
+ChServerM.Framing.FixedHeaderFrameDecoder.FixedHeaderFrameDecoder(ChServerM.Framing.FramingOptions! options) -> void
+ChServerM.Framing.FixedHeaderFrameDecoder.FixedHeaderFrameDecoder(int maxPayloadLength = 1048576, ushort acceptedVersion = 1) -> void
+ChServerM.Framing.FixedHeaderFrameDecoder.MaxPayloadLength.get -> int
+ChServerM.Framing.FixedHeaderFrameEncoder
+ChServerM.Framing.FixedHeaderFrameEncoder.CreateHeader(ChServerM.Identity.MessageId messageId, int payloadLength, ChServerM.Framing.FrameFlags flags = ChServerM.Framing.FrameFlags.None, uint sequence = 0) -> ChServerM.Framing.FrameHeader
+ChServerM.Framing.FixedHeaderFrameEncoder.FixedHeaderFrameEncoder(ChServerM.Framing.FramingOptions! options) -> void
+ChServerM.Framing.FixedHeaderFrameEncoder.FixedHeaderFrameEncoder(int maxPayloadLength = 1048576, ushort protocolVersion = 1) -> void
+ChServerM.Framing.FixedHeaderFrameEncoder.HeaderSize.get -> int
+ChServerM.Framing.FixedHeaderFrameEncoder.MaxPayloadLength.get -> int
+ChServerM.Framing.FixedHeaderFrameEncoder.ProtocolVersion.get -> ushort
+ChServerM.Framing.FixedHeaderFrameEncoder.WriteHeader(System.Buffers.IBufferWriter<byte>! writer, in ChServerM.Framing.FrameHeader header) -> void
+ChServerM.Framing.FrameHeaderCodec
+ChServerM.Framing.FramingOptions
+ChServerM.Framing.FramingOptions.FramingOptions() -> void
+ChServerM.Framing.FramingOptions.MaxPayloadLength.get -> int
+ChServerM.Framing.FramingOptions.MaxPayloadLength.set -> void
+ChServerM.Framing.FramingOptions.ProtocolVersion.get -> ushort
+ChServerM.Framing.FramingOptions.ProtocolVersion.set -> void
+ChServerM.Framing.FramingOptions.Validate() -> void
+const ChServerM.Framing.FrameHeaderCodec.HeaderSize = 16 -> int
+const ChServerM.Framing.FrameHeaderCodec.KnownFlags = ChServerM.Framing.FrameFlags.Compressed | ChServerM.Framing.FrameFlags.Encrypted | ChServerM.Framing.FrameFlags.Fragmented | ChServerM.Framing.FrameFlags.EndOfMessage -> ChServerM.Framing.FrameFlags
+const ChServerM.Framing.FramingOptions.AbsoluteMaxPayloadLength = 67108864 -> int
+const ChServerM.Framing.FramingOptions.DefaultMaxPayloadLength = 1048576 -> int
+static ChServerM.Framing.FrameHeaderCodec.AreFlagsKnown(ChServerM.Framing.FrameFlags flags) -> bool
+static ChServerM.Framing.FrameHeaderCodec.Read(System.ReadOnlySpan<byte> source) -> ChServerM.Framing.FrameHeader
+static ChServerM.Framing.FrameHeaderCodec.TryRead(System.ReadOnlySpan<byte> source, int maxPayloadLength, ushort acceptedVersion, out ChServerM.Framing.FrameHeader header) -> ChServerM.Framing.FrameDecodeStatus
+static ChServerM.Framing.FrameHeaderCodec.Write(System.Span<byte> destination, in ChServerM.Framing.FrameHeader header) -> void

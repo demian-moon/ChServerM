@@ -19,6 +19,40 @@ namespace ChServerM.Hosting;
 /// 여기서 길이를 페이로드에서 직접 계산해 그 실수를 구조적으로 없앤다.
 /// </para>
 /// <para>
+/// <b>옵션 매개변수를 두지 않는다 — 전부 필수다.</b> 이 결정에는 이유가 있다.
+/// 기본값을 줄 만한 세 인자가 하필 <b>레거시가 조용히 실패한 지점과 정확히 겹친다.</b>
+/// </para>
+/// <list type="table">
+///   <item>
+///     <term><c>cancellationToken</c></term>
+///     <description>
+///       기본값 <c>default</c> 는 "절대 취소되지 않음"을 뜻한다. 커넥션이 닫혔는데도
+///       쓰기를 계속하게 되고, 그것이 레거시가 종료 후에도 소켓에 쓰던 경로다.
+///       <see cref="IConnection.ConnectionClosed"/> 를 넘기도록 강제한다
+///     </description>
+///   </item>
+///   <item>
+///     <term><c>sequence</c></term>
+///     <description>
+///       기본값 0 은 헤더의 <see cref="FrameHeader.Sequence"/> 필드를 무의미하게 만든다.
+///       순서 진단과 Phase 9 리플레이 방지가 그 필드에 달려 있는데, 아무도 채우지 않으면
+///       레거시의 "있는 척하는 체크섬 필드"와 같은 것이 된다
+///     </description>
+///   </item>
+///   <item>
+///     <term><c>flags</c></term>
+///     <description>
+///       기본값 <see cref="FrameFlags.None"/> 은 압축·암호화가 적용되지 않았다는 뜻이다.
+///       나중에 압축 축을 꽂았을 때 이 기본값이 남아 있으면
+///       <b>압축 코드가 한 번도 실행되지 않는다</b> — 레거시에서 실제로 일어난 일이다
+///     </description>
+///   </item>
+/// </list>
+/// <para>
+/// 부수 효과로 <c>RS0026</c>(옵션 매개변수를 가진 오버로드 다중 정의)도 해소된다.
+/// 공개 API 게이트가 이 문제를 처음 켠 날 잡아냈다.
+/// </para>
+/// <para>
 /// <b>스레드 규약 — 중요.</b> <see cref="PipeWriter"/>는 동시 쓰기를 허용하지 않는다.
 /// 하나의 커넥션에 여러 스레드가 응답을 쓰면 프레임이 뒤섞여 스트림이 손상된다.
 /// 송신은 커넥션당 단일 소유자가 하거나, 상위에서 직렬화한다
@@ -33,9 +67,11 @@ public static class FrameWriter
     /// <param name="encoder">헤더 인코더.</param>
     /// <param name="messageId">메시지 식별자.</param>
     /// <param name="payload">페이로드. 비어 있어도 된다.</param>
-    /// <param name="flags">적용된 변환.</param>
+    /// <param name="flags">적용된 변환. 변환이 없으면 <see cref="FrameFlags.None"/>.</param>
     /// <param name="sequence">프레임 일련번호.</param>
-    /// <param name="cancellationToken">내보내기 취소 토큰.</param>
+    /// <param name="cancellationToken">
+    /// 내보내기 취소 토큰. 커넥션에 쓰는 경우 <see cref="IConnection.ConnectionClosed"/> 를 넘긴다.
+    /// </param>
     /// <returns>내보내기 결과.</returns>
     /// <exception cref="ArgumentNullException">인자가 <see langword="null"/>일 때.</exception>
     /// <remarks>
@@ -46,9 +82,9 @@ public static class FrameWriter
         IFrameEncoder encoder,
         Identity.MessageId messageId,
         ReadOnlySpan<byte> payload,
-        FrameFlags flags = FrameFlags.None,
-        uint sequence = 0,
-        CancellationToken cancellationToken = default)
+        FrameFlags flags,
+        uint sequence,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(writer);
         ArgumentNullException.ThrowIfNull(encoder);
@@ -82,9 +118,9 @@ public static class FrameWriter
         IFrameEncoder encoder,
         Identity.MessageId messageId,
         in ReadOnlySequence<byte> payload,
-        FrameFlags flags = FrameFlags.None,
-        uint sequence = 0,
-        CancellationToken cancellationToken = default)
+        FrameFlags flags,
+        uint sequence,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(writer);
         ArgumentNullException.ThrowIfNull(encoder);
@@ -110,16 +146,18 @@ public static class FrameWriter
     /// <returns>내보내기 결과.</returns>
     /// <exception cref="ArgumentNullException">인자가 <see langword="null"/>일 때.</exception>
     /// <remarks>
-    /// 취소는 <see cref="IConnection.ConnectionClosed"/>를 쓴다 — 커넥션이 닫히면
-    /// 쓰기도 멈춰야 한다. 레거시는 종료 후에도 쓰기를 시도했다.
+    /// <b>이 오버로드의 존재 이유는 취소 토큰을 잊을 수 없게 하는 것이다.</b>
+    /// <see cref="IConnection.ConnectionClosed"/> 를 자동으로 쓴다 —
+    /// 커넥션이 닫히면 쓰기도 멈춰야 하고, 레거시는 그것을 하지 않아 종료 후에도
+    /// 소켓에 쓰기를 시도했다.
     /// </remarks>
     public static ValueTask<FlushResult> WriteFrameAsync(
         this IConnection connection,
         IFrameEncoder encoder,
         Identity.MessageId messageId,
         ReadOnlySpan<byte> payload,
-        FrameFlags flags = FrameFlags.None,
-        uint sequence = 0)
+        FrameFlags flags,
+        uint sequence)
     {
         ArgumentNullException.ThrowIfNull(connection);
 
