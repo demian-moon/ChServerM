@@ -75,7 +75,7 @@ Phase 순서는 워크로드가 아니라 **"무엇이 추상화를 먼저 증�
 - [x] `.gitattributes` — 줄바꿈 정규화를 저장소 제어로. `core.autocrlf` 의존 제거, `.editorconfig`와 정합
 - [x] `ChServerM.Core` 프로젝트 생성 — 서드파티 의존 0 검증 테스트 포함 (2중 가드: `CHSM0001` MSBuild + `CoreDependencyTests`. 참/거짓 양성 모두 검증)
 - [x] CI 스크립트 (build + test + AOT 컴파일 검증) — `eng/build.ps1` 4단계 전부 통과. **AOT 검증이 실제로 동작한다** (Echo 샘플 대상, Native AOT 1.9MB 바이너리 정상 실행). 개발자 셸이 아닌 환경에서 링크가 실패하지 않도록 `vswhere` 경로를 스크립트가 보강한다
-- [ ] 원격 CI 첫 실행 (진행 중: 2026-08-03 푸시 완료. **결과 미확인** — 작업 환경에서 GitHub 에 접근할 수 없다. Linux 잡의 Native AOT 는 ubuntu 러너의 clang·zlib1g-dev 에 의존한다)
+- [x] 원격 CI 첫 실행 — 2026-08-03, ubuntu·windows 양쪽 통과. **두 번 실패한 뒤 통과했다**: (1) SDK 드리프트로 CA2025 가 CI 에서만 발생(로컬 10.0.102 / CI 10.0.302) → `global.json` 고정, (2) `MaxConnections` 테스트가 실패 지점을 특정해 Linux 에서만 깨짐 → 보내기·읽기를 함께 감쌌다. Native AOT 는 ubuntu 러너에서 별도 준비 없이 통과했다
 - [x] `Bench/` 골격 — `Bench/ChServerM.Bench` (BenchmarkDotNet 0.15.8). `BenchConfig`가 ServerGC·할당량 진단·첫 실패 시 중단을 고정한다. ENV-A 프로필 기록(Ryzen 9 9900X, 물리 12 / 논리 24)
 - [x] 코드 커버리지 수집 (coverlet) + CI 리포트 — `eng/build.ps1 -Coverage`. **어셈블리별로 집계한다** (cobertura 파일명이 GUID 라 그대로 찍으면 관리에 쓸 수 없다). CI 가 cobertura 를 아티팩트로 올린다. 현재: Framing 95.0% / InMemory 83.4% / Concurrency 76.5% / Tcp 70.2% / Hosting 66.2% / Core 60.8%
   - [ ] 임계값 설정 — Core 추상화 확정 후. 지금은 수치를 보이게 만드는 단계다
@@ -88,11 +88,12 @@ Phase 순서는 워크로드가 아니라 **"무엇이 추상화를 먼저 증�
 
 **게이트**: CI가 build + test + 취약점 감사를 통과하고, public API 게이트가 켜져 있을 때.
 
-> **2026-08-03 — 로컬에서 충족.** `eng/build.ps1` 6단계(restore·build·test·coverage·audit·aot)가
-> Release + `-WarnAsError` 로 전부 통과하고 public API 게이트가 켜져 있다.
-> **남은 것은 원격 확인 하나다** — 작업 환경에서 GitHub 에 접근할 수 없어 ubuntu 잡의
-> 결과를 보지 못했다. Linux 에서 처음 도는 것이므로 Native AOT(clang·zlib1g-dev 의존)와
-> 소켓 동작 차이가 실제로 통과하는지는 미확인이다.
+> **✅ 2026-08-03 — 충족.** `eng/build.ps1` 6단계(restore·build·test·coverage·audit·aot)가
+> Release + `-WarnAsError` 로 전부 통과하고, public API 게이트가 켜져 있고,
+> **원격 CI 가 ubuntu·windows 양쪽에서 통과했다.**
+>
+> 남은 3건은 게이트 조건이 아니다 — `Client/` 솔루션 폴더(클라이언트 어셈블리 필요),
+> SDK 업그레이드(의도적으로 뒤로 미룬 결정), 커버리지 임계값·ReportGenerator.
 
 ## Phase 1 — Core 추상화
 
