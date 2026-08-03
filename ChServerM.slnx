@@ -4,6 +4,7 @@
     <Project Path="Server/ChServerM.Framing/ChServerM.Framing.csproj" />
     <Project Path="Server/ChServerM.Hosting/ChServerM.Hosting.csproj" />
     <Project Path="Server/ChServerM.Transport.InMemory/ChServerM.Transport.InMemory.csproj" />
+    <Project Path="Server/ChServerM.Transport.Tcp/ChServerM.Transport.Tcp.csproj" />
   </Folder>
   <Folder Name="/Tests/">
     <Project Path="Tests/ChServerM.Core.Tests/ChServerM.Core.Tests.csproj" />

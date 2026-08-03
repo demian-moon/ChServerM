@@ -86,6 +86,30 @@ raw TCP 서버의 소켓 계층을 직접 만들 것인지, 검증된 엔진을 
 다만 레거시 자산 승계 비용이 있으므로, Phase 5 진입 전 양쪽 프로토타입 벤치마크로 확정한다.
 참고: Bedrock Framework(Kestrel 전송을 비HTTP 프로토콜에 쓰는 실험적 구현).
 
+### 2026-08-03 — 순수 `Socket` 쪽 프로토타입 완성
+
+`ChServerM.Transport.Tcp` 를 raw `Socket` + `System.IO.Pipelines` 로 구현했다.
+**결정은 여전히 열려 있다** — 비교 대상 하나가 생겼을 뿐이다. Kestrel 버전을 만들어
+벤치마크로 붙여야 확정된다. `IServerTransport` 가 중립이므로 두 구현이 공존할 수 있다.
+
+구현하면서 확정한 것들:
+
+- **`TcpClient`/`NetworkStream` 을 쓰지 않는다.** `Socket` 의 `Memory<byte>` 오버로드를
+  직접 쓴다. 레거시 노선(`TcpClient.GetStream()`)보다 계층이 하나 적다
+- **소켓 작업에 `CancellationToken` 을 넘기지 않는다.** 플랫폼마다 실제 취소 가능 여부가
+  다르고 등록 비용이 작업마다 든다. 중단은 `Socket.Dispose()` 로 한다 — Kestrel 과 같은 방식
+- **0바이트 수신으로 대기한다**(`WaitForDataBeforeAllocating`, 기본 켬). 유휴 커넥션이
+  수신 버퍼를 붙들지 않는다. 1만 유휴 접속 × 4KB = 40MB 를 아낀다.
+  레거시는 커넥션당 64KB 를 상수로 붙들었다(= 640MB)
+- **부분 전송을 처리한다.** `SendAsync` 가 요청한 전부를 보낸다는 보장이 없다.
+  처리하지 않으면 조용히 잘린 프레임이 나가고 수신 측 프레임 경계가 통째로 밀린다
+- **이식 가능한 소켓 옵션만 쓴다.** 레거시의 `IOControlCode.KeepAliveValues` 는
+  Windows 전용이라 리눅스에서 던진다 — 크로스 플랫폼 차단 요인이었다.
+  세밀한 keep-alive 제어가 필요하면 애플리케이션 레벨 하트비트를 쓴다
+
+**검증**: `CrossTransportTests` 가 같은 핸들러 코드를 InMemory 와 TCP 양쪽에서 돌린다.
+14개 항목 × 2 전송이 전부 통과한다 — ADR-0004 의 조립 가능성 합격 기준.
+
 ---
 
 ## ADR-0002: 프레임 헤더에 직렬화 포맷을 쓰지 않는다

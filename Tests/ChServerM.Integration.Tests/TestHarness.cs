@@ -1,6 +1,7 @@
 using System;
 using System.Buffers;
 using System.IO.Pipelines;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using ChServerM.Connections;
@@ -9,35 +10,55 @@ using ChServerM.Hosting;
 using ChServerM.Hosting.Dispatch;
 using ChServerM.Identity;
 using ChServerM.Transport.InMemory;
+using ChServerM.Transport.Tcp;
+using ChServerM.Transports;
 
 namespace ChServerM.Integration.Tests;
+
+/// <summary>어느 전송으로 조립할지.</summary>
+/// <remarks>
+/// <c>[Theory]</c> 인자로 쓰이므로 <c>public</c> 이어야 한다 — xUnit 이 테스트 메서드
+/// 시그니처를 통해 접근한다.
+/// </remarks>
+#pragma warning disable CA1515 // xUnit 이 [Theory] 인자 타입에 접근해야 하므로 internal 로 낮출 수 없다.
+public enum TransportKind
+{
+    /// <summary>프로세스 내 루프백.</summary>
+    InMemory,
+
+    /// <summary>실제 TCP 소켓(루프백 주소).</summary>
+    Tcp,
+}
+#pragma warning restore CA1515
 
 /// <summary>
 /// 축을 조립해 굴리는 종단 테스트용 하네스.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>이 클래스의 생김새 자체가 검증 대상이다.</b> 서버 하나를 세우는 데 필요한 것이
-/// (전송, 프레이밍, 디스패처) 셋뿐이고 각각이 인터페이스라면, 축 교체가 실제로 성립한다는 뜻이다.
-/// 여기에 전송별 분기가 하나라도 생기면 추상화가 새고 있는 것이다.
+/// <b>이 클래스의 생김새 자체가 검증 대상이다.</b> 전송 종류에 따라 달라지는 코드가
+/// <see cref="CreateTransportsAsync"/> 한 곳뿐이고, 그 아래(프레이밍·디스패치·핸들러·
+/// 송수신)는 전부 공통이다. 여기에 전송별 분기가 새로 생긴다면 추상화가 새고 있는 것이다.
 /// </para>
 /// <para>
-/// 허브는 하네스마다 새로 만든다 — xUnit 은 클래스 단위로 병렬 실행하므로,
-/// 정적 허브였다면 테스트끼리 종단 이름이 충돌한다.
+/// TCP 는 포트 0 으로 바인드해 OS 가 배정한 포트를 쓴다. 포트를 하드코딩하면
+/// 병렬 실행에서 충돌하고, CI 에서 산발적으로 실패한다.
 /// </para>
 /// </remarks>
 internal sealed class TestHarness : IAsyncDisposable
 {
-    private readonly InMemoryTransportHub _hub;
+    private readonly InMemoryTransportHub? _hub;
 
     private TestHarness(
-        InMemoryTransportHub hub,
-        InMemoryEndPoint endPoint,
-        InMemoryServerTransport server,
-        InMemoryClientTransport client,
+        TransportKind kind,
+        InMemoryTransportHub? hub,
+        EndPoint endPoint,
+        IServerTransport server,
+        IClientTransport client,
         FixedHeaderFrameEncoder encoder,
         FixedHeaderFrameDecoder decoder)
     {
+        Kind = kind;
         _hub = hub;
         EndPoint = endPoint;
         Server = server;
@@ -46,27 +67,50 @@ internal sealed class TestHarness : IAsyncDisposable
         Decoder = decoder;
     }
 
-    public InMemoryEndPoint EndPoint { get; }
+    public TransportKind Kind { get; }
 
-    public InMemoryServerTransport Server { get; }
+    public EndPoint EndPoint { get; }
 
-    public InMemoryClientTransport Client { get; }
+    public IServerTransport Server { get; }
+
+    public IClientTransport Client { get; }
 
     public FixedHeaderFrameEncoder Encoder { get; }
 
     public FixedHeaderFrameDecoder Decoder { get; }
 
-    public int ListenerCount => _hub.ListenerCount;
+    /// <summary>서버가 들고 있는 커넥션 수.</summary>
+    /// <remarks>
+    /// 이것만 전송별 분기가 남는다 — <c>IServerTransport</c> 에 올릴 만한 값이 아니기 때문이다.
+    /// 커넥션 수는 메트릭(Phase 11)의 몫이지 전송 계약의 일부가 아니다.
+    /// </remarks>
+    public int ServerConnectionCount => Server switch
+    {
+        InMemoryServerTransport inMemory => inMemory.ConnectionCount,
+        TcpServerTransport tcp => tcp.ConnectionCount,
+        _ => throw new NotSupportedException($"알 수 없는 전송: {Server.GetType().Name}"),
+    };
+
+    /// <summary>인메모리 허브가 듣고 있는 종단 수. TCP 에서는 항상 0.</summary>
+    public int ListenerCount => _hub?.ListenerCount ?? 0;
+
+    /// <summary>인메모리 클라이언트의 종단. TCP 에서는 <see langword="null"/>.</summary>
+    public InMemoryEndPoint? InMemoryClientEndPoint =>
+        Client is InMemoryClientTransport inMemory ? inMemory.LocalEndPoint : null;
 
     /// <summary>디스패처를 구성해 서버를 세우고 바인드까지 마친다.</summary>
     /// <param name="configure">라우팅과 미들웨어 구성.</param>
+    /// <param name="kind">조립할 전송.</param>
     /// <param name="connectionOptions">읽기 루프의 종료 정책.</param>
-    /// <param name="transportOptions">전송 설정(백프레셔 임계값, 동시 접속 상한).</param>
+    /// <param name="transportOptions">인메모리 전송 설정.</param>
+    /// <param name="tcpOptions">TCP 전송 설정.</param>
     /// <param name="maxPayloadLength">프레임 페이로드 상한.</param>
     public static async Task<TestHarness> StartAsync(
         Action<MessageDispatcherBuilder> configure,
+        TransportKind kind = TransportKind.InMemory,
         FramedConnectionOptions? connectionOptions = null,
         InMemoryTransportOptions? transportOptions = null,
+        TcpTransportOptions? tcpOptions = null,
         int maxPayloadLength = 4096)
     {
         ArgumentNullException.ThrowIfNull(configure);
@@ -80,13 +124,41 @@ internal sealed class TestHarness : IAsyncDisposable
 
         FramedConnectionHandler handler = new(decoder, builder.Build(), connectionOptions);
 
-        InMemoryTransportHub hub = new();
-        InMemoryEndPoint endPoint = new($"test-{Guid.NewGuid():N}");
-        InMemoryServerTransport server = new(hub, endPoint, transportOptions);
+        (InMemoryTransportHub? hub, EndPoint endPoint, IServerTransport server, IClientTransport client) =
+            await CreateTransportsAsync(kind, handler, transportOptions, tcpOptions).ConfigureAwait(false);
 
-        await server.BindAsync(handler).ConfigureAwait(false);
+        return new TestHarness(kind, hub, endPoint, server, client, encoder, decoder);
+    }
 
-        return new TestHarness(hub, endPoint, server, new InMemoryClientTransport(hub), encoder, decoder);
+    /// <summary>전송 종류에 따라 달라지는 유일한 지점.</summary>
+    private static async Task<(InMemoryTransportHub? Hub, EndPoint EndPoint, IServerTransport Server, IClientTransport Client)>
+        CreateTransportsAsync(
+            TransportKind kind,
+            IConnectionHandler handler,
+            InMemoryTransportOptions? transportOptions,
+            TcpTransportOptions? tcpOptions)
+    {
+        if (kind == TransportKind.InMemory)
+        {
+            // 허브는 하네스마다 새로 만든다 — xUnit 은 클래스 단위 병렬이라
+            // 정적이었다면 테스트끼리 종단 이름이 충돌한다.
+            InMemoryTransportHub hub = new();
+            InMemoryEndPoint endPoint = new($"test-{Guid.NewGuid():N}");
+            InMemoryServerTransport server = new(hub, endPoint, transportOptions);
+
+            await server.BindAsync(handler).ConfigureAwait(false);
+
+            return (hub, endPoint, server, new InMemoryClientTransport(hub));
+        }
+
+        // 포트 0 → OS 가 배정. 바인드 뒤에 실제 포트를 읽는다.
+        TcpServerTransport tcpServer = new(new IPEndPoint(IPAddress.Loopback, 0), tcpOptions);
+        await tcpServer.BindAsync(handler).ConfigureAwait(false);
+
+        EndPoint actual = tcpServer.LocalEndPoint
+            ?? throw new InvalidOperationException("바인드 후에도 LocalEndPoint 가 없다.");
+
+        return (null, actual, tcpServer, new TcpClientTransport(tcpOptions));
     }
 
     /// <summary>클라이언트 커넥션을 하나 연다.</summary>
@@ -124,13 +196,12 @@ internal sealed class TestHarness : IAsyncDisposable
                 return (decoded.Header, payload);
             }
 
+            reader.AdvanceTo(decoded.Consumed, decoded.Examined);
+
             if (decoded.IsFatal)
             {
-                reader.AdvanceTo(decoded.Consumed, decoded.Examined);
                 throw new InvalidOperationException($"응답 프레임 디코딩 실패: {decoded.Status}");
             }
-
-            reader.AdvanceTo(decoded.Consumed, decoded.Examined);
 
             if (read.IsCompleted)
             {

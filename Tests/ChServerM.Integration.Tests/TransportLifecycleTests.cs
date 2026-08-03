@@ -180,13 +180,13 @@ public sealed class TransportLifecycleTests
         await harness.SendAsync(connection, EchoMessageId, [1]);
         await harness.ReceiveAsync(connection, TestTimeout.Token);
 
-        Assert.Equal(1, harness.Server.ConnectionCount);
+        Assert.Equal(1, harness.ServerConnectionCount);
 
         // 클라이언트가 정상 종료하면 서버 읽기 루프가 스스로 끝난다.
         await connection.DisposeAsync();
         await harness.Server.StopAsync(TestTimeout.Token);
 
-        Assert.Equal(0, harness.Server.ConnectionCount);
+        Assert.Equal(0, harness.ServerConnectionCount);
     }
 
     [Fact]
@@ -204,7 +204,7 @@ public sealed class TransportLifecycleTests
         using CancellationTokenSource shortDrain = new(TimeSpan.FromMilliseconds(100));
         await harness.Server.StopAsync(shortDrain.Token);
 
-        Assert.Equal(0, harness.Server.ConnectionCount);
+        Assert.Equal(0, harness.ServerConnectionCount);
 
         // 클라이언트 쪽 토큰은 직접 발화되지 않는다 — 서버가 끊은 것을
         // 스트림 종료로 관측할 뿐이다. 실제 소켓 전송에서도 같은 방식이다.
@@ -238,7 +238,7 @@ public sealed class TransportLifecycleTests
         await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await harness.ConnectAsync());
 
-        Assert.Equal(2, harness.Server.ConnectionCount);
+        Assert.Equal(2, harness.ServerConnectionCount);
     }
 
     [Fact]
@@ -254,7 +254,7 @@ public sealed class TransportLifecycleTests
 
         Assert.NotNull(feature);
         Assert.Equal(harness.EndPoint, feature.RemoteEndPoint);
-        Assert.Equal(harness.Client.LocalEndPoint, feature.LocalEndPoint);
+        Assert.Equal(harness.InMemoryClientEndPoint, feature.LocalEndPoint);
     }
 
     [Fact]

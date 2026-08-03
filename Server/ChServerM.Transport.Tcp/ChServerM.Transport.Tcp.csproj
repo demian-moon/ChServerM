@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.Transport.Tcp</RootNamespace>
+    <Description>ChServerM 의 raw Socket + Pipelines 기반 TCP 전송.</Description>
+  </PropertyGroup>
+
+  <!--
+    TcpClient / NetworkStream 을 쓰지 않는다.
+
+    레거시는 TcpClient.GetStream() → NetworkStream.ReadAsync 노선이었다(ADR-0001).
+    NetworkStream 은 Socket 위에 계층 하나를 더 얹고, Memory<byte> 경로에서
+    추가 검사와 상태를 갖는다. Socket 을 직접 쓰면 그 계층이 사라진다.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\ChServerM.Core\ChServerM.Core.csproj" />
+  </ItemGroup>
+
+</Project>
