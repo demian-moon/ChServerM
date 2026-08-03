@@ -431,10 +431,22 @@ public sealed class TcpTransportSpecificTests
         await harness.ReceiveAsync(first, TestTimeout.Token);
 
         await using IConnection second = await harness.ConnectAsync();
-        await harness.SendAsync(second, EchoMessageId, [2]);
 
-        await Assert.ThrowsAnyAsync<Exception>(
-            () => harness.ReceiveAsync(second, TestTimeout.Token));
+        // 서버는 상한을 넘은 소켓을 수락 직후 닫는다. 클라이언트 입장에서 그 RST 가
+        // 언제 도착하는지는 플랫폼과 타이밍에 달렸다 — 따라서 실패가
+        // 보내기에서 날 수도, 읽기에서 날 수도 있다.
+        //
+        // 리눅스에서는 RST 가 먼저 도착해 FlushAsync 가 이미 취소된
+        // ConnectionClosed 를 보고 TaskCanceledException 을 던졌고, Windows 에서는
+        // 읽기까지 진행됐다. 실패 지점을 특정하면 한쪽 플랫폼에서만 통과한다.
+        //
+        // 이 테스트가 확인하려는 것은 "상한을 넘은 커넥션은 쓸 수 없다"이지
+        // "어느 호출에서 실패한다"가 아니다.
+        await Assert.ThrowsAnyAsync<Exception>(async () =>
+        {
+            await harness.SendAsync(second, EchoMessageId, [2]);
+            await harness.ReceiveAsync(second, TestTimeout.Token);
+        });
 
         // 상한 안의 커넥션은 멀쩡해야 한다.
         await harness.SendAsync(first, EchoMessageId, [3]);
