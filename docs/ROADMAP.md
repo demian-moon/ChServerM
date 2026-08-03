@@ -68,13 +68,14 @@ Phase 순서는 워크로드가 아니라 **"무엇이 추상화를 먼저 증�
 빌드 규약과 자동 검증 장치. 여기서 정한 컴파일 옵션과 게이트가 이후 모든 작업의 전제가 된다.
 품질 게이트는 **초기에 켜야** 축적된다. 나중에 켜면 위반이 쌓여 못 켠다.
 
-- [ ] `ChServerM.sln` 생성, `Server/` `Client/` `Tests/` `Bench/` `Samples/` 솔루션 폴더 구성 (진행 중: `.NET 10` SDK가 `ChServerM.slnx`로 생성. `Server/`·`Tests/` 폴더만 존재 — `dotnet sln add`가 프로젝트 없이 폴더를 만들 수 없어 `Client/`·`Bench/`·`Samples/`는 첫 프로젝트와 함께 추가)
+- [ ] `ChServerM.sln` 생성, `Server/` `Client/` `Tests/` `Bench/` `Samples/` 솔루션 폴더 구성 (진행 중: `Server/`·`Tests/`·`Samples/` 존재. `Client/`·`Bench/`는 첫 프로젝트와 함께 추가 — `dotnet sln add`가 프로젝트 없이 폴더를 만들지 못한다)
 - [x] `Directory.Build.props` — `net10.0`, C# 14, nullable, `AllowUnsafeBlocks`, `IsAotCompatible`, ServerGC, TieredPGO
 - [x] `Directory.Packages.props` — 중앙 패키지 버전 관리 활성화
 - [x] `.editorconfig` — 코드 스타일 + 분석기 심각도 (Performance·Reliability 카테고리를 error로 승격)
 - [x] `.gitattributes` — 줄바꿈 정규화를 저장소 제어로. `core.autocrlf` 의존 제거, `.editorconfig`와 정합
 - [x] `ChServerM.Core` 프로젝트 생성 — 서드파티 의존 0 검증 테스트 포함 (2중 가드: `CHSM0001` MSBuild + `CoreDependencyTests`. 참/거짓 양성 모두 검증)
-- [ ] CI 스크립트 (build + test + AOT 컴파일 검증) (진행 중: `eng/build.ps1` + GitHub Actions 매트릭스 동작 확인. AOT 컴파일 검증은 실행 프로젝트가 없어 미수행 — 스크립트가 사유를 출력하며 Part II에서 자동 활성화)
+- [x] CI 스크립트 (build + test + AOT 컴파일 검증) — `eng/build.ps1` 4단계 전부 통과. **AOT 검증이 실제로 동작한다** (Echo 샘플 대상, Native AOT 1.9MB 바이너리 정상 실행). 개발자 셸이 아닌 환경에서 링크가 실패하지 않도록 `vswhere` 경로를 스크립트가 보강한다
+- [ ] 원격 CI 첫 실행 — 커밋이 미푸시 상태라 GitHub Actions 매트릭스가 한 번도 돌지 않았다
 - [ ] `Bench/` 골격 — BenchmarkDotNet 프로젝트. 측정 환경 프로필을 `docs/BENCHMARKS.md`에 기록
 - [ ] 코드 커버리지 수집 (coverlet) + CI 리포트. 임계값은 Core 추상화 확정 후 설정
 - [ ] ⚠ **public API 승인 파일 게이트** — `Microsoft.CodeAnalysis.PublicApiAnalyzers`. `PublicAPI.Shipped.txt`/`Unshipped.txt`로 공개 표면 변경을 리뷰에 노출시킨다. 상업용 라이브러리에서 이걸 나중에 켜면 이미 굳은 API를 되돌릴 수 없다
@@ -91,25 +92,25 @@ Core에 들어간 인터페이스는 되돌리기 비용이 가장 크다 — �
 
 ### 기본 계약 (다른 모든 축이 이것에 의존한다)
 
-- [ ] ⚠ **에러 모델** — 핫패스는 예외를 쓰지 않는다. `TryXxx` + 결과 구조체(`OperationResult`/`FrameReadResult` 등) 규약과 에러 코드 체계를 먼저 확정한다. 이걸 나중에 바꾸면 전 축의 시그니처가 흔들린다
-- [ ] ⚠ **생명주기·취소 계약** — `CancellationToken` 전파 규칙, `IAsyncDisposable` 규약, graceful vs abortive 종료 구분
-- [ ] ⚠ **ID 타입** — `ConnectionId`, `SessionId`, `MessageId`, `NodeId`, `ObjectId`, `JobId`. `readonly struct` + 강타입. `long`/`int` 원시 타입을 API에 노출하지 않는다
+- [x] ⚠ **에러 모델** — 범용 `Result<T>`를 쓰지 않는다. **연산별 상태 enum**(`FrameDecodeStatus`, `DispatchStatus`) + `TryXxx` + 목적 전용 결과 구조체(`FrameDecodeResult`). 공통 축은 `ErrorCode`(대역별 분류). 조립·설정 경로는 예외를 쓴다
+- [x] ⚠ **생명주기·취소 계약** — `IConnection.ConnectionClosed` 를 단일 취소 원천으로(핸들러에 별도 토큰을 두지 않는다 — 원천이 둘이면 어느 쪽이 이겼는지 알 수 없다), `IAsyncDisposable`(graceful) ↔ `Abort`(abortive) 구분, `CloseReason`/`ConnectionCloseInfo`, 전송 3단 종료(Bind→Unbind→Stop)
+- [x] ⚠ **ID 타입** — 6종 전부 `readonly struct` 강타입. `PartitionKey`(피보나치 해싱, 나눗셈 없는 인덱싱) 추가
   - ⚠ **`ObjectId`에 노드 성분을 반드시 포함한다.** 레거시 `GlobalM.MakeGameOid()`는 프로세스 전역 단조 카운터라 다중 노드에서 충돌하고 재시작 시 재사용된다 — **Phase 15의 선결 조건이며, 지금 `long` 증분으로 굳히면 되돌릴 수 없다.** Snowflake 계열 또는 노드별 블록 할당 ([06-session-user](legacy/06-session-user.md#globalm--compressandencryptmanm))
-  - **`SessionHandle`은 세대(generation) 카운터를 포함**해 삭제된 세션 접근을 할당 없이 O(1)로 판별한다 (레거시 `UserM` 래퍼가 매 조회 힙 할당 + null 분기 버그)
-  - **존재하지 않는 세션의 기본값은 가장 제한적인 값**으로. 레거시는 `AllowedPkState` 기본값이 `A_SC_ANY_STATE`(전부 허용)였다
-- [ ] **시간 추상화** — `IClock` / `ITimeProvider`(.NET `TimeProvider` 채택 검토). 틱·타임아웃·재시도 테스트가 실제 시간에 의존하면 테스트가 불안정해진다
-- [ ] **진단 계약** — `ActivitySource`/`Meter` 이름 규약, 이벤트 ID 체계. 관측 축(Phase 11)이 이것에 붙는다
+  - **`SessionHandle`은 세대(generation) 카운터를 포함**해 삭제된 세션 접근을 할당 없이 O(1)로 판별한다 (레거시 `UserM` 래퍼가 매 조회 힙 할당 + null 분기 버그) — **`ConnectionId`(slot+generation)에 이 패턴을 적용했다. 세션 쪽은 `ISessionStore`와 함께 남아 있다**
+  - **존재하지 않는 세션의 기본값은 가장 제한적인 값**으로. 레거시는 `AllowedPkState` 기본값이 `A_SC_ANY_STATE`(전부 허용)였다 — 세션 계층 미착수. 같은 원칙을 프레이밍 쪽에 먼저 적용했다(`MessageId.None`=0 을 센티넬로 두고 핸들러 등록을 거부)
+- [x] **시간 추상화** — `IClock`을 만들지 않고 BCL `TimeProvider`를 채택. `MonotonicTimestamp`(경과 측정 전용, 영속화 금지)로 벽시계와 타입 분리. `TimestampFrequency` 나눗셈이 public API로 새지 않는다. 음수 경과를 0으로 뭉개지 않는다 — 시계 역행은 감출 게 아니라 드러낼 신호다
+- [x] **진단 계약** — `LogLevel`(레거시엔 레벨 개념 자체가 없었다), `EventId`(번호가 정본), `IServerLogger`(무할당, MEL 형태), `DiagnosticNames`/`MetricNames`/`TagNames`/`ActivityNames`
 
 ### 축 인터페이스
 
-- [ ] `IMessageSerializer` / `IMessageSerializer<T>` — `Span<byte>` 기반, 할당 없는 시그니처
-- [ ] ⚠ `IFrameDecoder` / `IFrameEncoder` — `ReadOnlySequence<byte>` 입력. **ADR-0002를 코드로 굳히는 지점.** 헤더는 고정 `struct`, 직렬화는 페이로드 전용. 이 경계가 프레이밍/직렬화 두 축의 독립 교체를 가능하게 한다
-- [ ] `IServerTransport` / `IClientTransport` / `IConnection` — 전송 중립 커넥션 추상화
-- [ ] `IMessageDispatcher` / `IMessageHandler<T>` — 디스패치 계약
-- [ ] `IServerMiddleware` + 파이프라인 델리게이트 타입 — Chain of Responsibility 계약
-- [ ] ⚠ **`IExecutionModel` — 유저별 순서 보장을 *표현할 수 있어야* 한다**. 계약이 이 전략을 강제하는 것이 아니라, 필요한 프로필이 선택할 수 있어야 한다는 뜻이다. `realtime-stateful`은 이 전략을 쓰고 `stateless-web`은 병렬 실행을 쓴다 — **하나의 계약이 양쪽을 수용해야 한다.** 근거: 레거시 `UserM.MemPkActionBlock`(TPL Dataflow, 유저 단위 직렬) vs `NetworkM.gMemPkActionBlock`(글로벌) ([01-network-transport](legacy/01-network-transport.md#sendpacketgroupm))
+- [x] `IMessageSerializer<T>` + `IMessageSerializerProvider` — `IBufferWriter<byte>` 쓰기 / `ReadOnlySequence<byte>` 읽기. 실패는 `TryDeserialize`로, 예외 없음
+- [x] ⚠ `IFrameDecoder` / `IFrameEncoder` — `ReadOnlySequence<byte>` 입력. **ADR-0002를 코드로 굳히는 지점.** 헤더는 고정 `struct`, 직렬화는 페이로드 전용. 이 경계가 프레이밍/직렬화 두 축의 독립 교체를 가능하게 한다
+- [x] `IServerTransport` / `IClientTransport` / `IConnection` — 전송 중립 커넥션 추상화. 전송별 지식은 `IFeatureCollection`으로 뺀다(`IConnectionEndPointFeature`). 바이트 경로는 `PipeReader`/`PipeWriter`(**ADR-0006**)
+- [x] `IMessageDispatcher` / `IMessageHandler<T>` — 디스패치 계약. `MessageContext`는 커넥션당 1개 재사용이고 `EndFrame()`이 페이로드 참조를 실제로 끊는다 — 레거시는 이 계약을 주석으로만 적고 `ToArray()`로 위반했다
+- [x] `IServerMiddleware` + `MessageDelegate` — Chain of Responsibility. **`ValueTask<DispatchStatus>`를 반환한다** — 결과를 문맥의 가변 필드에 적는 방식이면 아무도 안 적고 지나가 거부된 메시지가 정상 처리로 집계된다
+- [x] ⚠ **`IExecutionModel` — 유저별 순서 보장을 *표현할 수 있어야* 한다**. 계약이 이 전략을 강제하는 것이 아니라, 필요한 프로필이 선택할 수 있어야 한다는 뜻이다. `realtime-stateful`은 이 전략을 쓰고 `stateless-web`은 병렬 실행을 쓴다 — **하나의 계약이 양쪽을 수용해야 한다.** 근거: 레거시 `UserM.MemPkActionBlock`(TPL Dataflow, 유저 단위 직렬) vs `NetworkM.gMemPkActionBlock`(글로벌) ([01-network-transport](legacy/01-network-transport.md#sendpacketgroupm))
 - [ ] `ISessionStore` / `ISession` — 상태 저장 추상화
-- [ ] `IServerLogger` / `IMetricsSink` — 관측 추상화
+- [ ] `IServerLogger` / `IMetricsSink` — 관측 추상화 (진행 중: `IServerLogger` 완료. `IMetricsSink` 미착수 — 이름 상수는 이미 있다)
 - [ ] `IPayloadCodec` — 압축 계약
 - [ ] `ITransportSecurity` — 전송 보안 계약
 - [ ] `IAuthenticator` / `IAuthorizationPolicy` — 인증·인가 계약 (Phase 9에서 구현)
@@ -118,8 +119,8 @@ Core에 들어간 인터페이스는 되돌리기 비용이 가장 크다 — �
 
 ### 마감
 
-- [ ] 각 축의 `XxxOptions` 타입 + `IValidateOptions<T>` 검증 계약
-- [ ] Core 공개 표면 리뷰 — 인터페이스 개수·메서드 수를 세고 줄일 수 있는 것을 줄인다. 추상화 자체가 비용이다
+- [ ] 각 축의 `XxxOptions` 타입 + `IValidateOptions<T>` 검증 계약 (진행 중: `FramingOptions`·`TcpTransportOptions`·`InMemoryTransportOptions`·`PartitionedExecutionOptions`·`FramedConnectionOptions`가 `Validate()`로 시작 시점 검증. `IValidateOptions<T>`는 `Microsoft.Extensions.Options` 의존이라 Core가 아닌 Hosting 계층에 붙일지 미결)
+- [x] Core 공개 표면 리뷰 — 44 타입 / 16 인터페이스. 축마다 하나씩이라 줄일 중복이 없음을 확인
 - [ ] `docs/ARCHITECTURE.md`에 의존 방향·확장 지점 확정 기록
 
 **게이트**: Core가 컴파일되고, 무의존 가드를 통과하고, 모든 축 인터페이스에 XML 문서가 있을 때.
@@ -128,16 +129,17 @@ Core에 들어간 인터페이스는 되돌리기 비용이 가장 크다 — �
 
 축을 실제로 "골라 끼우는" 표면. Phase 1 추상화가 진짜 조립 가능한지 검증하는 단계다.
 
-- [ ] `ServerBuilder` 플루언트 API — `.UseTransport()` `.UseSerializer()` `.Use<TMiddleware>()`
+- [ ] `ServerBuilder` 플루언트 API (진행 중: `.UseTransport()`·`.UseFraming()`·`.UseExecutionModel()`·`.ConfigureDispatcher()` 완료. 직렬화기는 현재 `Map<T>`에서 핸들러별로 등록한다 — 전역 `.UseSerializer()`로 올릴지 미결)
 - [ ] DI 컨테이너 통합 (`Microsoft.Extensions.DependencyInjection`)
-- [ ] 미들웨어 파이프라인 컴파일 — 델리게이트 체인. **조립 비용은 시작 시점에 지불하고 핫패스에 동적 결정을 남기지 않는다**
-- [ ] 서버 생명주기 — 시작 / graceful shutdown / 커넥션 드레인 / 강제 종료 타임아웃
-- [ ] 옵션 검증 — 잘못된 축 조합을 **시작 시점에** 실패시킨다 (런타임에 발견되면 프로덕션 장애)
+- [ ] **축 등록 편의 문법의 어셈블리 위치 결정** — `.UseTcp(port)` 같은 확장 메서드는 전송 어셈블리가 `Hosting`을 참조해야 성립하는데, 그것은 의존 방향(`Hosting → 어댑터 → Core`)을 뒤집는다. 지금은 `.UseTransport(new TcpServerTransport(...))`로 방향을 지키고 있다. 별도 `ChServerM.Hosting.Extensions` 계층을 둘지 결정 필요
+- [x] 미들웨어 파이프라인 컴파일 — 델리게이트 체인. 라우팅은 배열 인덱싱(레거시는 프레임마다 선형 탐색 + 가상 호출 n번). **미들웨어가 라우팅보다 앞에 있다** — 반대면 모르는 ID를 보내는 것만으로 인증을 우회할 수 있다
+- [x] 서버 생명주기 — 시작 / graceful shutdown / 커넥션 드레인 / 강제 종료 타임아웃. `ChServerMServer`가 종료 순서를 강제한다(전송 먼저, 실행 모델 나중 — 반대면 처리 중 커넥션의 연속이 갈 곳을 잃는다)
+- [x] 옵션 검증 — 잘못된 축 조합을 **시작 시점에** 실패시킨다. `CompositionGuard`가 최대 프레임 ≤ 전송 버퍼 한계를 검사(**ADR-0007**). 이 조합이 어긋나면 큰 메시지 하나에서 예외도 로그도 없이 교착한다 — 실제로 발견된 결함이다
 - [ ] 설정 소스 — `IConfiguration` 통합, 환경별 오버레이. 레거시 INI 방식은 폐기 — 1073줄 파서로 IP·포트 2개를 읽고 있었다 ([11-data-table](legacy/11-data-table.md#inifilem--inioptionm))
-- [ ] `ClientBuilder` 대칭 구성
-- [ ] ⚠ **인메모리 루프백 전송** — `ChServerM.Transport.InMemory`. 소켓 없이 파이프라인을 끝까지 도는 전송. **전송 축의 두 번째 구현체 역할**을 싸게 수행해 추상화가 진짜 전송 중립인지 조기에 증명한다. 통합 테스트의 기본 전송이 되어 테스트 속도도 올라간다 (Kestrel의 인메모리 전송과 같은 발상)
-- [ ] 조립 테스트 — 축을 교체해도 컴파일·동작이 유지되는지 검증
-- [ ] 첫 실행 가능 프로젝트(`Samples/`) — 이 시점부터 CI의 **AOT 컴파일 검증이 활성화**된다
+- [x] `ClientBuilder` 대칭 구성 — 서버와 같은 프레이밍·디스패치를 쓴다. 재접속 정책은 넣지 않는다(감추면 상위가 세션 재수립을 건너뛴다)
+- [x] ⚠ **인메모리 루프백 전송** — `ChServerM.Transport.InMemory`. 소켓 없이 파이프라인을 끝까지 도는 전송. **전송 축의 두 번째 구현체 역할**을 싸게 수행해 추상화가 진짜 전송 중립인지 조기에 증명한다. 통합 테스트의 기본 전송이 되어 테스트 속도도 올라간다 (Kestrel의 인메모리 전송과 같은 발상)
+- [x] 조립 테스트 — `CrossTransportTests` 14항목 × 2전송. 핸들러·프레이밍·디스패치 코드가 두 경우에 완전히 동일하다
+- [x] 첫 실행 가능 프로젝트(`Samples/ChServerM.Samples.EchoServer`) — CI의 **AOT 컴파일 검증이 활성화됐다**. 같은 핸들러를 TCP·인메모리 양쪽에서 1000회 왕복시키고 exit code로 보고한다
 
 **게이트**: 같은 핸들러 코드가 인메모리 전송과 (Phase 5 이후) TCP 전송 양쪽에서 동작하고, AOT publish가 성공할 때.
 전송 축이 두 구현으로 증명되기 전까지 `IServerTransport`는 가설로 취급한다(ADR-0000).
@@ -165,29 +167,30 @@ Core에 들어간 인터페이스는 되돌리기 비용이 가장 크다 — �
 
 ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 Phase로 다룬다.
 
-- [ ] ⚠ **와이어 헤더 레이아웃 확정** — 고정 크기 `struct` + `MemoryMarshal`/`BinaryPrimitives`. **버전 필드를 반드시 포함한다** (레이아웃 변경이 와이어 호환성을 직접 깨므로). 엔디안 규약 명시
-- [ ] length-prefix 디코더 — varint / fixed32 두 가지
-- [ ] 부분 프레임 처리 — `ReadOnlySequence<byte>` 세그먼트 경계를 넘는 헤더/페이로드
-- [ ] **프레임 오류 처리 정책** — 체크섬 불일치·길이 이상 시 커넥션 종료. 레거시는 예외를 잡고 루프를 계속해 상태 머신이 어긋난 채 파싱을 이어갔다(프레이밍 desync). `TryXxx`로 처리하고 오류 프레임은 커넥션을 닫는다
-- [ ] 최대 프레임 크기 상한 — 상한 없는 length-prefix는 메모리 고갈 공격 벡터다
-- [ ] 프레임 조립 상태 머신 — 레거시 `eToReadState` 5단 구조를 참고하되 할당 없이 재작성
-- [ ] 퍼징 테스트 — 임의 바이트열·잘린 프레임·거대 길이 필드를 던져 크래시/무한 루프가 없음을 확인
-- [ ] 벤치마크: 프레임당 파싱 비용, 할당 0 확인
+- [x] ⚠ **와이어 헤더 레이아웃 확정** — 16B 고정, 리틀 엔디안. **`MemoryMarshal`을 쓰지 않고 `BinaryPrimitives`만** 쓴다(정렬·패딩·호스트 엔디안에 와이어 포맷이 끌려가지 않는다). 버전 필드 포함. 레거시 52B(실데이터 13B) → 16B
+- [ ] length-prefix 디코더 — varint / fixed32 두 가지 (진행 중: fixed32 완료(`FixedHeaderFrameDecoder`). **varint 미착수** — 두 번째 구현이 나오기 전까지 `IFrameDecoder`는 가설로 취급한다)
+- [x] 부분 프레임 처리 — 헤더가 세그먼트를 넘을 때만 16B `stackalloc`(힙 할당 0). 세그먼트 크기 1~64 및 헤더 16B의 모든 분할 지점을 테스트
+- [x] **프레임 오류 처리 정책** — 길이 이상·버전 불일치·미정의 플래그·예약 필드 비영 시 커넥션 종료. 재동기화를 시도하지 않는다(다음 경계를 알 수 없다). 체크섬 필드는 두지 않는다 — 레거시 검증 함수는 본문이 `return true`였고 무결성은 Phase 9 AEAD가 담당한다. 레거시는 예외를 잡고 루프를 계속해 상태 머신이 어긋난 채 파싱을 이어갔다(프레이밍 desync). `TryXxx`로 처리하고 오류 프레임은 커넥션을 닫는다
+- [x] 최대 프레임 크기 상한 — `MaxPayloadLength` + 절대 상한 64MiB. 길이 필드를 `uint`인 채로 비교한다(`int` 캐스팅 후 비교하면 2GB 이상이 음수가 된다). **버퍼를 잡기 전에** 판정
+- [x] 프레임 조립 상태 머신 — **상태 머신이 필요 없는 설계로 해소했다.** 부분 프레임 상태는 `PipeReader` 버퍼가 이미 들고 있으므로 디코더는 무상태이고, 인스턴스 하나를 모든 커넥션이 공유한다. 레거시가 커넥션마다 5단 상태를 들고 있다가 예외 한 번에 desync 된 원인이 구조적으로 사라진다
+- [ ] **조각 재조립(`Fragmented`/`EndOfMessage`)** — 임계값보다 큰 논리 메시지를 나눠 보내는 경로. **재조립 버퍼에 상한과 미완성 조각 만료가 반드시 필요하다** — 마지막 조각이 오지 않는 부분 메시지를 무한정 들고 있으면 그 자체가 메모리 고갈 공격 경로다 (ADR-0007 미해결 항목)
+- [x] 퍼징 테스트 — 난수 12만 회 + 비트 플립 2만 회 + 잘린 프레임 전 오프셋 + 길이 필드 극단값. 불변식 4종(예외 없음 / 버퍼 밖 미참조 / **반드시 전진** / `NeedMoreData`는 버퍼 전체 검사). 시드 고정으로 재현 가능
+- [ ] 벤치마크: 프레임당 파싱 비용, 할당 0 확인 (진행 중: 할당 0은 `GC.GetAllocatedBytesForCurrentThread`로 5경로 실측 완료. **파싱 비용 수치는 `Bench/` 골격이 없어 미측정**)
 
 **게이트**: 퍼징이 크래시 없이 통과하고 프레임당 할당이 0일 때.
 
 ## Phase 5 — TCP 전송 (첫 실동 구현)
 
 - [ ] ⚠ Kestrel Socket Transport 재사용 vs 순수 `Socket`+Pipelines — 양쪽 프로토타입 벤치마크 후 **ADR-0001 확정**
-- [ ] `ChServerM.Transport.Tcp` — accept 루프, 수신/송신 Pipelines
-- [ ] 백프레셔 — `PipeOptions` pause/resume 임계값 **명시적 설정**. 레거시는 기본값에 방치했다
-- [ ] 커넥션 생명주기 — idle timeout, half-open 감지(keepalive), graceful close, RST 처리
+- [x] `ChServerM.Transport.Tcp` — accept 루프 + 수신/송신 펌프. `TcpClient`/`NetworkStream`을 쓰지 않는다. 수락 루프가 일시적 오류(개별 연결 끊김)와 치명적 오류(수락 소켓 사망)를 구분한다 — 구분하지 않으면 조용히 수용을 멈추거나 CPU를 태운다
+- [x] 백프레셔 — pause/resume 임계값을 옵션으로 노출. **최대 프레임보다 커야 한다는 제약을 조립 시점에 검사한다**(ADR-0007). `WaitForDataBeforeAllocating`(0바이트 수신)으로 유휴 커넥션이 버퍼를 붙들지 않게 — 1만 유휴 접속 × 4KB = 40MB 절감. 레거시는 커넥션당 64KB 상수(= 640MB)
+- [ ] 커넥션 생명주기 — idle timeout, half-open 감지(keepalive), graceful close, RST 처리 (진행 중: graceful close(2단 종료 — 드레인→FIN→상대 FIN 대기, 상한 있음)·RST 처리(`IsExpectedDisconnect`로 정상 종료 예외를 걸러 로그 소음 방지)·이식 가능한 keep-alive 옵션 완료. **idle timeout 미착수** — 타이밍 휠과 함께)
 - [ ] **종료 레이스 처리** — 로그인 완료 전 연결이 끊기는 경우. 레거시는 1초 지연 타이머로 대응했다(실전에서 나온 장치). 동등한 보장을 구조적으로 제공
 - [ ] 송신 배칭 — 작은 패킷 다수를 묶어 syscall 수를 줄인다. 레거시 `SendPacketGroupM` 참고
-- [ ] Nagle / `TCP_NODELAY` 정책 — 실시간 서버는 보통 비활성화. 옵션으로 노출
-- [ ] 소켓 옵션 노출 — 버퍼 크기, linger, reuseaddr
-- [ ] 통합 테스트: 연결/에코/대량 동시 접속/비정상 종료
-- [ ] 크로스 플랫폼 검증 — Linux/Windows 소켓 동작 차이 (CI 매트릭스가 이미 양쪽을 돌린다)
+- [x] Nagle / `TCP_NODELAY` 정책 — `NoDelay` 기본 켬(Nagle 비활성). 근거를 옵션 문서에 기록
+- [ ] 소켓 옵션 노출 — 버퍼 크기, linger, reuseaddr (진행 중: `NoDelay`·`EnableKeepAlive`만. **`IOControlCode.KeepAliveValues`를 쓰지 않는다** — Windows 전용이라 리눅스에서 던진다. 레거시의 크로스 플랫폼 차단 요인이었다)
+- [ ] 통합 테스트: 연결/에코/대량 동시 접속/비정상 종료 (진행 중: 연결·에코·200KB 다중 세그먼트·200프레임 파이프라이닝·16커넥션 동시·비정상 종료 격리·포트 점유 완료. **1만 동시 접속 미검증**)
+- [ ] 크로스 플랫폼 검증 — Linux/Windows 소켓 동작 차이 (미푸시라 원격 CI가 아직 돌지 않았다. 이식 불가 API는 코드에서 이미 배제)
 - [ ] 벤치마크: 에코 RPS, p50/p99/p999 레이턴시, 커넥션당 메모리, 동시 커넥션 상한
 
 **게이트**: 1만 동시 커넥션에서 안정 동작하고 p99 레이턴시 기준선이 기록됐을 때.
@@ -225,13 +228,13 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 > 9.6(유계 큐 + 포화 관측)은 레거시에서 실제로 서버를 멈추거나 데이터를 유실시킨 항목이다.
 
 
-- [ ] `ChServerM.Concurrency` — 채널 워커 풀 모델
-- [ ] ⚠ **유저별 순서 보장 구현** — `IExecutionModel` 계약의 실체. 유저 단위 직렬 실행 + 글로벌 병렬 실행 분리
-- [ ] 스레드-퍼-코어 모델 + CPU 어피니티
-- [ ] false sharing 회피 — 캐시 라인 패딩. 샤드별 카운터·상태를 같은 라인에 두지 않는다 (9.4)
+- [x] `ChServerM.Concurrency` — 파티션당 전용 스레드 + 단일 FIFO 채널. **큐를 하나로 둔 이유**: 스케줄러 연속과 외부 게시가 같은 FIFO를 공유해야 둘 사이의 순서도 보장된다. **유계 규약(9.6)은 유입 지점에만 적용한다** — 스케줄된 `Task`를 거부하면 그것을 `await`하던 코드가 영원히 깨어나지 못한다
+- [ ] ⚠ **유저별 순서 보장 구현** — `IExecutionModel` 계약의 실체 (진행 중: **커넥션 단위**로 완료. `PartitionedConnectionHandler`가 읽기 루프를 파티션에 고정해 프레임당 큐 비용이 0이다. 유저/세션 단위 고정은 세션 계층과 함께 — 지금은 재접속하면 다른 파티션으로 간다)
+- [ ] 스레드-퍼-코어 모델 + CPU 어피니티 (진행 중: 파티션당 전용 스레드 = 기본 `ProcessorCount`개, 절대 상한 512. **CPU 어피니티 미적용**)
+- [x] false sharing 회피 — 파티션 대기 카운터를 `[StructLayout(Size=128)]`로 패딩. 64B가 아니라 128B인 이유는 일부 x86이 인접 라인을 함께 프리페치하기 때문
 - [ ] 스케줄러 공정성 — 한 유저가 워커를 독점하지 못하게
-- [ ] 데드락·경합 테스트 — **반복 실행**으로 재현. 동시성 버그는 단발 테스트로 안 잡힌다 (9.9)
-- [ ] ⚠ **예외 안전성 테스트** — 작업 핸들러가 던졌을 때 실행기가 계속 동작하는지. 레거시는 `finally` 부재로 **디스패처와 스레드가 영구 정지**했다 (9.2)
+- [x] 데드락·경합 테스트 — 8 생산자 × 2000 작업이 정확히 1회 실행되는지 + Release 반복 실행. **실제로 두 건을 잡았다** — `Abort`가 송신 펌프를 깨우지 않아 생긴 교착, 최대 프레임 > 전송 버퍼 교착(ADR-0007)
+- [x] ⚠ **예외 안전성 테스트** — 항목별 `try/catch` + `finally`로 큐 슬롯 복원. 예외 작업 50개 뒤에도 정상 작업이 처리되고, 용량의 10배를 예외 작업으로 밀어 넣어도 슬롯이 새지 않음을 확인
 - [ ] 액터 모델 어댑터 검토 (Orleans / Proto.Actor) — Core에 침투 금지
 - [ ] ⚠ **벤치마크: 코어 수 대비 확장성 곡선** — 1·2·4·8·16코어. "병렬화했다"가 아니라 **"선형에 근접한다"** 를 증명한다 (`CLAUDE.md` 9.9)
 - [ ] 유저별 순서 보장 오버헤드 측정 — 샤딩 유/무 비교
