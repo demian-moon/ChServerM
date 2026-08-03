@@ -132,6 +132,17 @@ dotnet_analyzer_diagnostic.category-Performance.severity = suggestion
 dotnet_analyzer_diagnostic.category-Design.severity = suggestion
 dotnet_diagnostic.CS1591.severity = none
 
+# CA2007 — ConfigureAwait(false).
+# 라이브러리 코드에는 계속 적용된다(CLAUDE.md 8절). 테스트 본문에는 적용하지 않는다:
+# xUnit 은 동기화 컨텍스트를 설치하지 않으므로 효과가 없고, 단언마다 붙는 .ConfigureAwait(false)
+# 가 테스트의 의도를 가린다.
+dotnet_diagnostic.CA2007.severity = none
+
+# CA2000 — 스코프를 벗어나기 전에 Dispose.
+# 테스트 하네스는 소유권을 넘겨받아 IAsyncDisposable 로 정리한다.
+# 분석기가 비동기 해제와 소유권 이전을 추적하지 못해 오탐이 난다.
+dotnet_diagnostic.CA2000.severity = none
+
 # CA5394 — System.Random 은 암호학적으로 안전하지 않다.
 # 퍼징에서는 그것이 요구사항이다. 시드를 고정할 수 없으면 실패를 재현할 수 없고,
 # 재현 안 되는 퍼징은 디버깅에 쓸모가 없다. 프로덕션 코드에는 계속 적용된다.

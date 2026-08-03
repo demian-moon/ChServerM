@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.Hosting</RootNamespace>
+    <Description>ChServerM 의 조립 계층. 디스패처·파이프라인·커넥션 루프.</Description>
+  </PropertyGroup>
+
+  <!--
+    Core 만 참조한다.
+
+    이 어셈블리는 "축들을 엮는" 곳이지 "축을 구현하는" 곳이 아니다.
+    프레이밍·전송·직렬화를 인터페이스로만 다루므로, 어떤 구현이 꽂히든
+    여기 코드는 바뀌지 않는다 — 그것이 조립 가능성의 실체다.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\ChServerM.Core\ChServerM.Core.csproj" />
+  </ItemGroup>
+
+</Project>
