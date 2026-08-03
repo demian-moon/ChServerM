@@ -128,7 +128,26 @@ public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimit
 
         _listenSocket = listenSocket;
         _handler = handler;
+
+        // CA2025 억제 — 지적 자체는 맞지만 여기서는 의도된 설계다.
+        //
+        // 분석기가 보는 것: 수락 루프가 listenSocket 을 쓰는데
+        // UnbindAsync 가 그것을 Dispose 한 뒤에 루프를 await 한다.
+        //
+        // 그것이 정확히 취소 수단이다. AcceptAsync 로 대기 중인 소켓을 깨우는 방법은
+        // Dispose 뿐이다 — 토큰 취소는 플랫폼마다 대기 중 작업에 실제로 먹는지가
+        // 다르고(SocketConnection 문서 참조), 안 먹으면 UnbindAsync 가 영구히 매달린다.
+        // Kestrel 도 같은 방식을 쓴다.
+        //
+        // 안전한 이유: 루프가 ObjectDisposedException 을 잡고 즉시 반환한다
+        // (IsTransientAcceptError 가 아니라 별도 catch 절). 해제된 소켓을 계속 쓰는
+        // 경로가 없고, UnbindAsync 는 그 반환을 await 해 확인한다.
+        //
+        // await 먼저 → Dispose 나중으로 순서를 바꿀 수 없다. 루프는 소켓이 죽어야
+        // 끝나므로 그 순서는 교착이다.
+#pragma warning disable CA2025
         _acceptLoop = AcceptLoopAsync(listenSocket, handler);
+#pragma warning restore CA2025
 
         return ValueTask.CompletedTask;
     }

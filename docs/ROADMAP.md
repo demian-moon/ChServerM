@@ -83,6 +83,7 @@ Phase 순서는 워크로드가 아니라 **"무엇이 추상화를 먼저 증�
 - [x] ⚠ **public API 승인 파일 게이트** — `Microsoft.CodeAnalysis.PublicApiAnalyzers` 5.6.0. `Server/Directory.Build.props`가 Server 어셈블리 6개에 적용한다(Tests/Bench/Samples 제외). 기준선 629줄. **켠 첫날 RS0026 으로 실제 API 결함을 잡았다** — `FrameWriter.WriteFrameAsync` 의 옵션 매개변수 기본값 세 개가 레거시 실패 패턴과 겹쳤고, 전부 필수로 바꿨다. 작업 절차는 CLAUDE.md 8.1
 - [x] NuGet 취약점 감사 — `eng/build.ps1` audit 단계. **이 명령의 함정 둘을 모두 막았다**: (1) 취약점이 발견돼도 exit code 가 0 이라 naive 호출은 감사를 안 한 것과 같다, (2) 사람이 읽는 출력이 로케일에 따라 달라져 grep 이 CI 에서 깨진다 → `--format json` 파싱. **오프라인에서 빈 결과를 "안전함"으로 읽지 않도록** 원격 소스 존재까지 확인한다. 실제 취약 패키지(`System.Net.Http` 4.3.0)를 임시로 넣어 exit 1 을 확인했다
 - [x] 의존성 업데이트 자동화 — `.github/dependabot.yml`. NuGet 주간 / GitHub Actions 월간. 테스트 도구와 분석기는 그룹으로 묶는다(버전이 어긋나면 "테스트가 발견되지 않는" 형태로 실패한다). **NuGet 메이저는 자동으로 받지 않는다** — ADR 이 필요한 결정이다
+- [ ] **SDK 버전 업그레이드 (의도적 결정)** — `global.json` 이 10.0.1xx 로 고정돼 있다. 올리면 새 분석기 규칙이 함께 들어오므로 그때 걸리는 것들을 함께 처리한다. 지금 고정한 이유는 드리프트로 CI 가 갑자기 깨지는 것을 막기 위해서다 — 로컬 10.0.102 / CI 10.0.302 에서 CA2025 가 CI 에서만 터졌다
 - [x] `LegacyServer/` + `LagacyClient/` 전수 정독 — 27,300줄 / 문서 14종. 결과: `docs/legacy/`(인덱스: [00-overview](legacy/00-overview.md))
 
 **게이트**: CI가 build + test + 취약점 감사를 통과하고, public API 게이트가 켜져 있을 때.
