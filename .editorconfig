@@ -55,10 +55,19 @@ dotnet_analyzer_diagnostic.category-Maintainability.severity = suggestion
 # 위의 category- 일괄 설정은 기본 활성 규칙에는 적용되지 않는다(실측 확인).
 # Naming 계열 중 실제로 걸리는 것은 아래처럼 개별로 명시한다.
 
-# CA1711 — 'Collection' 접미사는 ICollection 구현을 요구한다.
-# IFeatureCollection/FeatureCollection 은 ASP.NET Core 가 확립한 표준 명칭이고
-# 타입 키 기반 조회라 ICollection 이 될 수 없다. 접미사만 허용한다.
-dotnet_code_quality.CA1711.allowed_suffixes = Collection
+# CA1711 — 금지 접미사 목록이 BCL 자신의 관례와 어긋나는 것들만 허용한다.
+#   Collection: IFeatureCollection/FeatureCollection 은 ASP.NET Core 표준 명칭이고
+#               타입 키 기반 조회라 ICollection 이 될 수 없다.
+#   Flags:      BindingFlags/SocketFlags 등 BCL 의 [Flags] enum 관례와 같다.
+#   Delegate:   ASP.NET Core RequestDelegate 와 같은 파이프라인 델리게이트 명칭.
+dotnet_code_quality.CA1711.allowed_suffixes = Collection|Flags|Delegate
+
+# CA1028 — enum 기반 타입을 int 로 올리라는 규칙.
+# 이 프로젝트에서는 따를 수 없다.
+#   FrameFlags 는 와이어 포맷 필드다 — ADR-0002 가 2바이트로 못박았다.
+#   상태 enum(byte)은 구조체에 패킹돼 프레임당 복사 비용에 직접 들어간다.
+# 규칙의 목적(다른 언어에서의 편의)보다 레이아웃 고정이 우선이다.
+dotnet_diagnostic.CA1028.severity = none
 
 # CA1716 — VB.NET 예약어(Get/Set 등)와의 이름 충돌.
 # 이 프레임워크는 C# 전용이고, 규칙을 따르면 Features.Get<T>() 같은

@@ -128,6 +128,33 @@ sentinel 값으로 우회하고 있어 값 공간이 오염되고 새 필드를 
 - 긍정: 헤더 파싱 비용 0. 프레이밍과 직렬화 축을 독립적으로 교체 가능. sentinel 규약 소멸
 - 부정: 헤더 레이아웃 변경이 와이어 호환성을 직접 깬다. 버전 필드를 헤더에 미리 넣어야 한다
 
+### 2026-08-03 확정 — 레이아웃
+
+`ChServerM.Core/Framing/FrameHeader.cs`에 **16바이트 고정, 리틀 엔디안**으로 굳혔다.
+
+```
+offset size 필드            비고
+  0     2   Version         이게 없으면 프로토콜을 영원히 못 바꾼다
+  2     2   MessageId
+  4     4   PayloadLength   디코더가 상한과 대조한 뒤에만 신뢰한다
+  8     2   Flags           Compressed / Encrypted / Fragmented / EndOfMessage
+ 10     2   Reserved        0으로 채운다
+ 12     4   Sequence        순서 진단 + Phase 9 리플레이 방지
+       ────
+       16
+```
+
+배경에서 계산한 레거시 헤더는 **52바이트**(실제 데이터 13바이트)였다.
+초당 10만 프레임 기준 헤더 오버헤드가 5.2MB/s → 1.6MB/s로 줄어든다.
+
+두 가지를 배경 시점의 서술에서 바꿨다.
+
+- **`MemoryMarshal`을 쓰지 않는다.** `BinaryPrimitives` + 명시적 리틀 엔디안만 쓴다.
+  구조체 정렬·패딩·호스트 엔디안에 와이어 포맷이 끌려가지 않는다. 그래서
+  `FrameHeader`에는 `[StructLayout]`이 없고 코덱은 별도 어셈블리(`ChServerM.Framing`)에 있다
+- **체크섬 필드를 두지 않는다.** 무결성은 Phase 9의 AEAD 태그가 담당한다.
+  레거시의 체크섬 검증 함수는 본문이 `return true`였다 — 있는 척하는 필드보다 없는 편이 정직하다
+
 ### 남은 미결
 **페이로드 직렬화 기본값은 확정하지 않았다.** MemoryPack / FlatSharp /
 Google.Protobuf·protobuf-net / MessagePack-CSharp 4자 벤치마크(Phase 6)로 결정한다.
@@ -301,3 +328,53 @@ ADR-0003이 모은 증거는 유효하다. 결론만 틀렸다. 재해석:
 **"코어 수 대비 처리량이 선형에 근접"을 벤치마크로 증명한다** (1·2·4·8·16코어).
 증명되지 않으면 이 결정은 무효다 — Phase 8 게이트이자 Phase 12의 회귀 게이트 대상이다.
 구현 규약은 `CLAUDE.md` 9절(병렬성 규약).
+
+---
+
+## ADR-0006: `System.IO.Pipelines`를 Core의 바이트 경로 추상으로 채택한다
+
+- **날짜**: 2026-08-03
+- **상태**: 채택
+- **영향 범위**: `ChServerM.Core`(`IConnection`), 모든 `ChServerM.Transport.*`
+
+### 배경
+
+`IConnection`이 바이트를 어떤 타입으로 노출할지 정해야 했다. 이것은 되돌리기 비용이
+가장 큰 결정 중 하나다 — 모든 전송 구현과 프레이밍 코드가 여기에 매인다.
+
+동시에 CLAUDE.md의 하드 룰이 있다: **Core는 서드파티 의존을 가질 수 없다.**
+`ChServerM.Core.csproj`의 `CHSM0001` 타깃과 `CoreDependencyTests`가 이를 강제한다.
+
+### 검증한 사실
+
+`System.IO.Pipelines`는 **net10.0 공유 프레임워크에 포함된다.** `PackageReference` 없이
+`PipeReader`/`PipeWriter`를 쓸 수 있다. `System.Threading.Channels`도 마찬가지다.
+
+반면 `System.IO.Hashing`(`XxHash3`)은 **별도 패키지**다. 그래서 파티션 해시를 Core에서
+`XxHash3`로 구현할 수 없고, 피보나치 해싱을 쓴다(ADR-0005 / `PartitionKey`).
+
+### 결정
+
+`IConnection`은 `PipeReader Input` / `PipeWriter Output`을 노출한다.
+프레임 디코더는 `ReadOnlySequence<byte>`를 받는다.
+
+무의존 하드 룰과 충돌하지 않는다 — 공유 프레임워크는 서드파티가 아니다.
+
+### 대안과 탈락 이유
+
+| 대안 | 탈락 이유 |
+|---|---|
+| `Stream` | 부분 읽기를 호출자가 매번 처리해야 하고, 백프레셔 개념이 없다. 버퍼 재사용도 직접 관리해야 한다 — 레거시가 정확히 이 지점에서 커넥션당 64KB 고정 버퍼(1만 접속 = 640MB)를 잡았다 |
+| 자체 `IByteChannel` 추상 정의 | 백프레셔·버퍼 풀링·세그먼트 관리를 처음부터 다시 만들게 된다. Pipelines가 이미 검증된 답이고, 새 추상은 결국 그것을 재발명한 열등한 사본이 된다 |
+| `IDuplexPipe`(BCL) 노출 | Kestrel의 선택. 나쁘지 않지만 `IConnection`이 이미 `Id`·`Features`·`Abort`를 갖는 마당에 파이프만 별도 객체로 감싸면 간접 참조만 한 겹 는다 |
+| `Memory<byte>` 직접 노출 | 소유권과 수명이 타입에 드러나지 않는다. 레거시 결함 원인 (A) "리소스 소유권이 주석에만 있다"의 재발 |
+
+### 결과
+
+- 긍정: 백프레셔·버퍼 재사용·세그먼트 경계 처리가 전송마다 재구현되지 않는다.
+  TCP·인메모리·WebSocket·QUIC이 같은 계약에 들어온다
+- 긍정: Core 무의존 유지. `CHSM0001` 가드가 계속 통과한다
+- 부정: `ReadOnlySequence<byte>`는 연속 메모리가 아니다. **프레임 디코더가 세그먼트
+  경계를 넘는 헤더를 반드시 처리해야 한다** — Stage 3의 퍼징 테스트 대상이다
+- 부정: `PipeWriter`는 동시 쓰기를 허용하지 않는다. 다중 생산자 송신은 상위에서
+  직렬화해야 한다(CLAUDE.md 9장 "공유하지 않는 것이 1순위")
