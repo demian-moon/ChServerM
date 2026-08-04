@@ -195,12 +195,12 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 - [ ] ⚠ Kestrel Socket Transport 재사용 vs 순수 `Socket`+Pipelines — 양쪽 프로토타입 벤치마크 후 **ADR-0001 확정**
 - [x] `ChServerM.Transport.Tcp` — accept 루프 + 수신/송신 펌프. `TcpClient`/`NetworkStream`을 쓰지 않는다. 수락 루프가 일시적 오류(개별 연결 끊김)와 치명적 오류(수락 소켓 사망)를 구분한다 — 구분하지 않으면 조용히 수용을 멈추거나 CPU를 태운다 (2026-08-04 DoD-3 충족: 에코 146-169k RPS / p50 104µs / p99 162µs~7.5ms — `BENCHMARKS.md` Phase 5 게이트 절)
 - [x] 백프레셔 — pause/resume 임계값을 옵션으로 노출. **최대 프레임보다 커야 한다는 제약을 조립 시점에 검사한다**(ADR-0007). `WaitForDataBeforeAllocating`(0바이트 수신)으로 유휴 커넥션이 버퍼를 붙들지 않게 (2026-08-04 DoD-3 충족: 1만 접속 실측 — 서버 워킹셋 82MB, **커넥션당 약 8KB**. 레거시 방식이었다면 640MB)
-- [ ] 커넥션 생명주기 — idle timeout, half-open 감지(keepalive), graceful close, RST 처리 (진행 중: graceful close(2단 종료 — 드레인→FIN→상대 FIN 대기, 상한 있음)·RST 처리(`IsExpectedDisconnect`로 정상 종료 예외를 걸러 로그 소음 방지)·이식 가능한 keep-alive 옵션 완료. **idle timeout 미착수** — 타이밍 휠과 함께)
-- [ ] **종료 레이스 처리** — 로그인 완료 전 연결이 끊기는 경우. 레거시는 1초 지연 타이머로 대응했다(실전에서 나온 장치). 동등한 보장을 구조적으로 제공
-- [ ] 송신 배칭 — 작은 패킷 다수를 묶어 syscall 수를 줄인다. 레거시 `SendPacketGroupM` 참고
+- [x] 커넥션 생명주기 — idle timeout, half-open 감지(keepalive), graceful close, RST 처리 (2026-08-04 완결: `IdleTimeout` 옵션 + **전송당 스윕 타이머 하나**(9.5 — 커넥션당 타이머 금지). 판정 해상도는 스윕 주기(≥1s)만큼 거칠다 — 계층적 타이밍 휠은 Phase 17 타이머 시스템과 함께. 활동 시각은 수신·송신 펌프가 `Volatile` 로 기록)
+- [x] **종료 레이스 처리** — 로그인 완료 전 연결이 끊기는 경우. 레거시는 1초 지연 타이머로 대응했다(실전에서 나온 장치). (2026-08-04: 구조적 보장을 테스트로 고정 — 디스패치 중 상대가 RST 로 소멸해도 완료 신호→읽기 루프 종료→`finally` 정리 사슬이 지연 타이머 없이 완결된다. `Phase5TransportTests.ClientVanishing_MidDispatch`)
+- [ ] 송신 배칭 — 작은 패킷 다수를 묶어 syscall 수를 줄인다 (진행 중: `Pipe` 병합으로 **자연 배칭은 이미 성립** — 한 번의 파이프 읽기에 쌓인 여러 프레임이 세그먼트(4KB 블록) 단위 syscall 로 나간다. 남은 것은 다중 세그먼트를 한 syscall 로 보내는 벡터드 send 인데, **측정 없는 최적화 금지** 원칙상 소량-다패킷 시나리오 실측과 함께 결정한다)
 - [x] Nagle / `TCP_NODELAY` 정책 — `NoDelay` 기본 켬(Nagle 비활성). 근거를 옵션 문서에 기록
-- [ ] 소켓 옵션 노출 — 버퍼 크기, linger, reuseaddr (진행 중: `NoDelay`·`EnableKeepAlive`만. **`IOControlCode.KeepAliveValues`를 쓰지 않는다** — Windows 전용이라 리눅스에서 던진다. 레거시의 크로스 플랫폼 차단 요인이었다)
-- [ ] **거부 이유를 클라이언트에 알린다** — 지금은 동시 접속 상한을 넘은 소켓을 수락 직후 그냥 닫는다. 클라이언트 입장에서는 RST 하나뿐이라 "서버가 꽉 찼다"와 "네트워크가 끊겼다"를 구분할 수 없고, 재시도 정책을 세울 수 없다. 거부 프레임을 보낸 뒤 닫거나 별도 신호가 필요하다 (Phase 10 과부하 제어와 연결된다)
+- [x] 소켓 옵션 노출 — 버퍼 크기, linger, reuseaddr (2026-08-04: `SocketReceiveBufferSize`/`SocketSendBufferSize`/`LingerSeconds`/`ReuseAddress` — 전부 표준 옵션이라 크로스 플랫폼. **`IOControlCode.KeepAliveValues`는 여전히 배제** — Windows 전용, 레거시의 이식 차단 요인)
+- [x] **거부 이유를 클라이언트에 알린다** — (2026-08-04: `FrameworkMessageIds.ConnectionRejected`(40004) + `TcpTransportOptions.RejectionNotice` 원시 바이트. 전송은 프레이밍을 모르므로 조립하는 쪽이 인코더로 프레임을 만들어 넣고, 전송은 최선 노력 동기 send 후 닫는다 — 거부 경로의 비동기 대기는 그 자체가 공격 표면이다. 상한 도달의 동적 판정·정책은 Phase 10 `IAdmissionControl` 의 몫)
 - [x] 통합 테스트: 연결/에코/대량 동시 접속/비정상 종료 — 연결·에코·200KB 다중 세그먼트·200프레임 파이프라이닝·16커넥션 동시·비정상 종료 격리·포트 점유(xUnit) + **1만 동시 접속은 부하 러너로 검증**(2026-08-04, 실패 0·정리 후 잔존 0)
 - [ ] 크로스 플랫폼 검증 — Linux/Windows 소켓 동작 차이 (미푸시라 원격 CI가 아직 돌지 않았다. 이식 불가 API는 코드에서 이미 배제)
 - [x] 벤치마크: 에코 RPS, p50/p99/p999 레이턴시, 커넥션당 메모리, 동시 커넥션 상한 — `Bench/ChServerM.Bench.LoadRunner`(ADR-0009). 수치는 `BENCHMARKS.md` Phase 5 게이트 절

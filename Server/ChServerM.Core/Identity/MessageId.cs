@@ -96,4 +96,12 @@ public static class FrameworkMessageIds
 
     /// <summary>정상 종료 요청.</summary>
     public static MessageId DisconnectRequest => new(40003);
+
+    /// <summary>서버가 연결을 거부했음을 알리는 통지. 페이로드에 사유가 실릴 수 있다.</summary>
+    /// <remarks>
+    /// 동시 접속 상한 등으로 수락 직후 닫을 때, 그냥 끊으면 클라이언트는 RST 하나만 보고
+    /// "서버가 꽉 찼다"와 "네트워크가 끊겼다"를 구분할 수 없어 재시도 정책을 세울 수 없다
+    /// (Phase 10 과부하 제어와 연결). 이 ID 의 프레임을 최선 노력으로 보낸 뒤 닫는다.
+    /// </remarks>
+    public static MessageId ConnectionRejected => new(40004);
 }

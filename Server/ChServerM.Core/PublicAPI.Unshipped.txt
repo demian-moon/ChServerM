@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 ChServerM.Connections.CloseReason
 ChServerM.Connections.CloseReason.ApplicationError = 6 -> ChServerM.Connections.CloseReason
 ChServerM.Connections.CloseReason.ClientClosed = 1 -> ChServerM.Connections.CloseReason
@@ -347,6 +347,7 @@ static ChServerM.Framing.FrameHeader.operator ==(ChServerM.Framing.FrameHeader l
 static ChServerM.Identity.ConnectionId.None.get -> ChServerM.Identity.ConnectionId
 static ChServerM.Identity.ConnectionId.operator !=(ChServerM.Identity.ConnectionId left, ChServerM.Identity.ConnectionId right) -> bool
 static ChServerM.Identity.ConnectionId.operator ==(ChServerM.Identity.ConnectionId left, ChServerM.Identity.ConnectionId right) -> bool
+static ChServerM.Identity.FrameworkMessageIds.ConnectionRejected.get -> ChServerM.Identity.MessageId
 static ChServerM.Identity.FrameworkMessageIds.DisconnectRequest.get -> ChServerM.Identity.MessageId
 static ChServerM.Identity.FrameworkMessageIds.Heartbeat.get -> ChServerM.Identity.MessageId
 static ChServerM.Identity.FrameworkMessageIds.HeartbeatAck.get -> ChServerM.Identity.MessageId

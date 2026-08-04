@@ -119,6 +119,65 @@ public sealed class TcpTransportOptions
     /// </remarks>
     public TimeSpan ShutdownTimeout { get; set; } = TimeSpan.FromSeconds(5);
 
+    /// <summary>이 시간 동안 수신·송신이 모두 없으면 커넥션을 끊는다. 기본 비활성.</summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="TimeSpan.Zero"/>(기본값)는 비활성이다. half-open 커넥션(상대가 전원
+    /// 차단·케이블 단절로 사라져 FIN 도 RST 도 없는 상태)은 이것 없이는 영원히 목록에
+    /// 남아 자원을 붙든다.
+    /// </para>
+    /// <para>
+    /// <b>구현은 전송당 스윕 타이머 하나다</b>(주기 = 타임아웃/4, 최소 1초) — 커넥션당
+    /// 타이머는 만들지 않는다(CLAUDE.md 9.5). 판정 해상도가 스윕 주기만큼 거칠다는
+    /// 뜻이기도 하다: 초과 후 최대 스윕 주기만큼 늦게 끊길 수 있다. 계층적 타이밍 휠은
+    /// 타이머 시스템(Phase 17)과 함께 온다.
+    /// </para>
+    /// <para>
+    /// 애플리케이션 하트비트(<see cref="ChServerM.Identity.FrameworkMessageIds.Heartbeat"/>)를
+    /// 쓰는 워크로드는 타임아웃을 하트비트 주기의 2~3배로 잡는다.
+    /// </para>
+    /// </remarks>
+    public TimeSpan IdleTimeout { get; set; }
+
+    /// <summary>커널 수신 버퍼 크기(SO_RCVBUF). <see langword="null"/>이면 OS 기본값.</summary>
+    /// <remarks>커넥션 수를 곱하면 커널 메모리가 된다 — 기본값을 바꿀 때는 그 곱을 계산한다.</remarks>
+    public int? SocketReceiveBufferSize { get; set; }
+
+    /// <summary>커널 송신 버퍼 크기(SO_SNDBUF). <see langword="null"/>이면 OS 기본값.</summary>
+    public int? SocketSendBufferSize { get; set; }
+
+    /// <summary>
+    /// 닫을 때 미전송 데이터를 기다리는 시간(초). <see langword="null"/>이면 OS 기본값,
+    /// <c>0</c>이면 즉시 RST.
+    /// </summary>
+    /// <remarks><c>0</c>(즉시 RST)은 TIME_WAIT 를 피하는 대신 미전송 데이터를 버린다 — 부하 도구용이다.</remarks>
+    public int? LingerSeconds { get; set; }
+
+    /// <summary>수락 소켓에 SO_REUSEADDR 를 켠다. 기본 끔.</summary>
+    /// <remarks>
+    /// 재시작 시 TIME_WAIT 포트를 즉시 재바인드할 수 있게 한다. Windows 에서는 의미가
+    /// 달라(활성 바인딩 탈취 가능) 기본을 끔으로 둔다 — 필요한 배포 환경에서만 켠다.
+    /// </remarks>
+    public bool ReuseAddress { get; set; }
+
+    /// <summary>
+    /// 동시 접속 상한으로 거부할 때 닫기 전에 보낼 통지 프레임의 원시 바이트.
+    /// 비어 있으면(기본) 통지 없이 닫는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 그냥 닫으면 클라이언트는 RST 하나만 보고 <b>"서버가 꽉 찼다"와 "네트워크가
+    /// 끊겼다"를 구분할 수 없다</b> — 재시도 정책을 세울 수 없다(2026-08-04 감사).
+    /// </para>
+    /// <para>
+    /// <b>원시 바이트인 이유.</b> 전송은 프레이밍을 모른다(축 독립). 조립하는 쪽이
+    /// 자기 인코더로 <see cref="ChServerM.Identity.FrameworkMessageIds.ConnectionRejected"/>
+    /// 프레임을 만들어 넣는다. 전송은 최선 노력으로 이 바이트를 보낸 뒤 닫는다 —
+    /// 전송 실패는 무시한다(거부 경로에서 기다리면 그것이 곧 공격 표면이다).
+    /// </para>
+    /// </remarks>
+    public ReadOnlyMemory<byte> RejectionNotice { get; set; }
+
     /// <summary>설정을 검증한다.</summary>
     /// <exception cref="InvalidOperationException">값이 유효하지 않을 때.</exception>
     public void Validate()
@@ -158,6 +217,24 @@ public sealed class TcpTransportOptions
             throw new InvalidOperationException(
                 $"{nameof(ShutdownTimeout)}는 0보다 커야 한다. 현재 값: {ShutdownTimeout}");
         }
+
+        if (IdleTimeout < TimeSpan.Zero)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(IdleTimeout)}는 음수일 수 없다. 비활성은 0(기본값)이다. 현재 값: {IdleTimeout}");
+        }
+
+        if (SocketReceiveBufferSize is <= 0 || SocketSendBufferSize is <= 0)
+        {
+            throw new InvalidOperationException(
+                "소켓 버퍼 크기는 1 이상이어야 한다. OS 기본값을 쓰려면 null 로 둔다.");
+        }
+
+        if (LingerSeconds is < 0)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(LingerSeconds)}는 음수일 수 없다. 현재 값: {LingerSeconds}");
+        }
     }
 
     /// <summary>현재 값을 복사한 스냅샷을 만든다.</summary>
@@ -178,6 +255,12 @@ public sealed class TcpTransportOptions
         WaitForDataBeforeAllocating = WaitForDataBeforeAllocating,
         MaxConnections = MaxConnections,
         ShutdownTimeout = ShutdownTimeout,
+        IdleTimeout = IdleTimeout,
+        SocketReceiveBufferSize = SocketReceiveBufferSize,
+        SocketSendBufferSize = SocketSendBufferSize,
+        LingerSeconds = LingerSeconds,
+        ReuseAddress = ReuseAddress,
+        RejectionNotice = RejectionNotice,
     };
 
     /// <summary>이 설정으로 <see cref="PipeOptions"/>를 만든다.</summary>
@@ -199,6 +282,23 @@ public sealed class TcpTransportOptions
         {
             // 이식 가능한 옵션만 쓴다. 간격 제어는 하지 않는다 — 위 remarks 참조.
             socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, optionValue: true);
+        }
+
+        // 아래 셋은 전부 표준 소켓 옵션이라 크로스 플랫폼이다 — IOControlCode 류
+        // (Windows 전용, 레거시의 이식 차단 요인)는 쓰지 않는다.
+        if (SocketReceiveBufferSize is { } receiveBuffer)
+        {
+            socket.ReceiveBufferSize = receiveBuffer;
+        }
+
+        if (SocketSendBufferSize is { } sendBuffer)
+        {
+            socket.SendBufferSize = sendBuffer;
+        }
+
+        if (LingerSeconds is { } linger)
+        {
+            socket.LingerState = new LingerOption(enable: true, seconds: linger);
         }
     }
 }

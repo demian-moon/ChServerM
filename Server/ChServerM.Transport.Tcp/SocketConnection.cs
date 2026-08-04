@@ -67,6 +67,9 @@ public sealed class SocketConnection : IConnection, IConnectionEndPointFeature
     /// <summary>0 = 열림, 1 = 닫힘. <see cref="Interlocked"/>로만 바꾼다.</summary>
     private int _closedFlag;
 
+    /// <summary>마지막 수신·송신 시각(<see cref="Environment.TickCount64"/>). idle 판정용.</summary>
+    private long _lastActivityTicks = Environment.TickCount64;
+
     internal SocketConnection(
         ConnectionId id,
         Socket socket,
@@ -118,6 +121,9 @@ public sealed class SocketConnection : IConnection, IConnectionEndPointFeature
 
     /// <summary>마지막으로 기록된 종료 사유. 진단용이다.</summary>
     public ConnectionCloseInfo CloseInfo { get; private set; }
+
+    /// <summary>마지막 수신·송신 시각. 전송의 idle 스윕이 읽는다.</summary>
+    internal long LastActivityTicks => Volatile.Read(ref _lastActivityTicks);
 
     /// <summary>두 펌프를 시작한다.</summary>
     /// <remarks>
@@ -278,6 +284,7 @@ public sealed class SocketConnection : IConnection, IConnectionEndPointFeature
                     break;
                 }
 
+                Volatile.Write(ref _lastActivityTicks, Environment.TickCount64);
                 _receivePipe.Writer.Advance(received);
 
                 FlushResult flush = await _receivePipe.Writer.FlushAsync().ConfigureAwait(false);
@@ -345,6 +352,8 @@ public sealed class SocketConnection : IConnection, IConnectionEndPointFeature
                     // 무한히 다시 읽는다.
                     _sendPipe.Reader.AdvanceTo(buffer.End);
                 }
+
+                Volatile.Write(ref _lastActivityTicks, Environment.TickCount64);
 
                 if (read.IsCompleted)
                 {

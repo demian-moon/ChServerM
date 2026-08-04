@@ -167,11 +167,15 @@ public sealed class InMemoryServerTransport : IServerTransport, ITransportBuffer
 #pragma warning disable CA1031 // 종료 경로다. 개별 커넥션의 예외로 전체 정리를 멈추지 않는다.
             try
             {
-                await Task.WhenAll(pending).ConfigureAwait(false);
+                // 상한이 있어야 한다 — 취소 토큰을 무시하는 사용자 핸들러가 서버 종료를
+                // 볼모로 잡지 않게(2026-08-04 감사 보류분). TCP 쪽과 같은 장치다.
+                // CancellationToken.None 명시 — 이 대기는 시간 상한으로만 통제한다.
+                await Task.WhenAll(pending)
+                    .WaitAsync(_shutdownTimeout, CancellationToken.None).ConfigureAwait(false);
             }
             catch (Exception)
             {
-                // 강제 종료된 커넥션의 예외는 여기서 흡수한다. 이미 기록됐다.
+                // 강제 종료된 커넥션의 예외(이미 기록됨)거나 상한 초과다.
             }
 #pragma warning restore CA1031
         }

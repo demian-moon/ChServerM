@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 ChServerM.Transport.Tcp.SocketConnection
 ChServerM.Transport.Tcp.SocketConnection.Abort(in ChServerM.Connections.ConnectionCloseInfo info) -> void
 ChServerM.Transport.Tcp.SocketConnection.CloseInfo.get -> ChServerM.Connections.ConnectionCloseInfo
@@ -49,3 +49,15 @@ const ChServerM.Transport.Tcp.TcpTransportOptions.DefaultBacklog = 512 -> int
 const ChServerM.Transport.Tcp.TcpTransportOptions.DefaultMinReceiveBufferSize = 4096 -> int
 const ChServerM.Transport.Tcp.TcpTransportOptions.DefaultPauseWriterThreshold = 65536 -> long
 const ChServerM.Transport.Tcp.TcpTransportOptions.DefaultResumeWriterThreshold = 32768 -> long
+ChServerM.Transport.Tcp.TcpTransportOptions.IdleTimeout.get -> System.TimeSpan
+ChServerM.Transport.Tcp.TcpTransportOptions.IdleTimeout.set -> void
+ChServerM.Transport.Tcp.TcpTransportOptions.SocketReceiveBufferSize.get -> int?
+ChServerM.Transport.Tcp.TcpTransportOptions.SocketReceiveBufferSize.set -> void
+ChServerM.Transport.Tcp.TcpTransportOptions.SocketSendBufferSize.get -> int?
+ChServerM.Transport.Tcp.TcpTransportOptions.SocketSendBufferSize.set -> void
+ChServerM.Transport.Tcp.TcpTransportOptions.LingerSeconds.get -> int?
+ChServerM.Transport.Tcp.TcpTransportOptions.LingerSeconds.set -> void
+ChServerM.Transport.Tcp.TcpTransportOptions.ReuseAddress.get -> bool
+ChServerM.Transport.Tcp.TcpTransportOptions.ReuseAddress.set -> void
+ChServerM.Transport.Tcp.TcpTransportOptions.RejectionNotice.get -> System.ReadOnlyMemory<byte>
+ChServerM.Transport.Tcp.TcpTransportOptions.RejectionNotice.set -> void

@@ -57,6 +57,12 @@ public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimit
     private int _bound;
     private int _disposed;
 
+    // idle 스윕 — 전송당 타이머 하나다. 커넥션당 타이머를 만들지 않는다(CLAUDE.md 9.5).
+    // CA2213 억제 사유는 _listenSocket 과 같다(비동기 정리 경로).
+#pragma warning disable CA2213
+    private Timer? _idleSweepTimer;
+#pragma warning restore CA2213
+
     /// <summary>수용 전송을 만든다.</summary>
     /// <param name="endPoint">바인드할 주소. 포트 0 이면 OS 가 배정한다.</param>
     /// <param name="options">전송 설정. <see langword="null"/>이면 기본값.</param>
@@ -118,6 +124,13 @@ public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimit
                 listenSocket.DualMode = true;
             }
 
+            if (_options.ReuseAddress)
+            {
+                // 재시작 시 TIME_WAIT 포트 재바인드용. 기본 끔 — 근거는 옵션 문서.
+                listenSocket.SetSocketOption(
+                    SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, optionValue: true);
+            }
+
             listenSocket.Bind(_bindEndPoint);
             listenSocket.Listen(_options.Backlog);
         }
@@ -152,7 +165,47 @@ public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimit
         _acceptLoop = AcceptLoopAsync(listenSocket, handler);
 #pragma warning restore CA2025
 
+        if (_options.IdleTimeout > TimeSpan.Zero)
+        {
+            // 스윕 주기 = 타임아웃/4 (최소 1초). 판정 해상도와 스윕 비용의 절충이다 —
+            // 상세는 TcpTransportOptions.IdleTimeout 문서.
+            TimeSpan period = TimeSpan.FromMilliseconds(
+                Math.Max(1000, _options.IdleTimeout.TotalMilliseconds / 4));
+            _idleSweepTimer = new Timer(static state => ((TcpServerTransport)state!).SweepIdleConnections(),
+                this, period, period);
+        }
+
         return ValueTask.CompletedTask;
+    }
+
+    /// <summary>idle 타임아웃을 넘긴 커넥션을 끊는다. 스윕 타이머 콜백.</summary>
+    /// <remarks>
+    /// O(커넥션 수) 순회다 — 1만 커넥션에 티스탬프 비교 1만 번은 스윕당 수십 µs 로,
+    /// 주기(≥1초) 대비 무시할 수준이다. 타이머 콜백에서 예외가 새면 프로세스가 죽으므로
+    /// 전체를 삼킨다(개별 Abort 는 멱등·예외 없음 설계).
+    /// </remarks>
+    private void SweepIdleConnections()
+    {
+        long cutoff = Environment.TickCount64 - (long)_options.IdleTimeout.TotalMilliseconds;
+
+#pragma warning disable CA1031 // 타이머 콜백의 미처리 예외는 프로세스를 죽인다.
+        try
+        {
+            foreach (ActiveConnection active in _connections.Values)
+            {
+                if (active.Connection.LastActivityTicks < cutoff)
+                {
+                    active.Connection.Abort(new ConnectionCloseInfo(
+                        CloseReason.Timeout, ErrorCode.TransportTimeout,
+                        $"수신·송신이 {_options.IdleTimeout} 동안 없었다."));
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // 다음 스윕에서 다시 시도한다.
+        }
+#pragma warning restore CA1031
     }
 
     /// <inheritdoc />
@@ -173,6 +226,9 @@ public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimit
         // 수락 루프가 끝나기를 기다린다. 기다리지 않으면 Unbind 가 돌아온 뒤에도
         // 커넥션이 하나 더 들어올 수 있다.
         await _acceptLoop.ConfigureAwait(false);
+
+        // idle 스윕은 기존 커넥션이 사는 동안(드레인 중) 계속 필요하므로 여기서 멈추지
+        // 않는다 — DisposeAsync 가 정리한다.
     }
 
     /// <inheritdoc />
@@ -207,11 +263,17 @@ public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimit
 #pragma warning disable CA1031 // 종료 경로. 개별 커넥션의 예외로 전체 정리를 멈추지 않는다.
             try
             {
-                await Task.WhenAll(pending).ConfigureAwait(false);
+                // 상한이 있어야 한다 — Abort 뒤에도 취소 토큰을 무시하는 사용자 핸들러는
+                // 안 끝날 수 있고, 그때 무한 대기면 서버 종료가 핸들러 하나에 볼모로
+                // 잡힌다(2026-08-04 감사 보류분). 커넥션 정리는 핸들러와 독립적으로
+                // RunHandlerAsync 의 finally 가 보장한다.
+                // CancellationToken.None 명시 — 이 대기는 시간 상한으로만 통제한다.
+                await Task.WhenAll(pending)
+                    .WaitAsync(_options.ShutdownTimeout, CancellationToken.None).ConfigureAwait(false);
             }
             catch (Exception)
             {
-                // 강제 종료된 커넥션의 예외는 이미 기록됐다.
+                // 강제 종료된 커넥션의 예외(이미 기록됨)거나 상한 초과다.
             }
 #pragma warning restore CA1031
         }
@@ -235,6 +297,11 @@ public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimit
         // StopAsync → UnbindAsync 가 이미 정리했지만, 바인드에 실패했거나
         // 바인드하지 않은 경로에서도 핸들이 남지 않도록 여기서 한 번 더 확인한다.
         Interlocked.Exchange(ref _listenSocket, null)?.Dispose();
+
+        if (Interlocked.Exchange(ref _idleSweepTimer, null) is { } sweep)
+        {
+            await sweep.DisposeAsync().ConfigureAwait(false);
+        }
 
         _stopping.Dispose();
     }
@@ -302,6 +369,27 @@ public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimit
         {
             // 거부가 붕괴보다 낫다. 조용히 받아두고 나중에 죽는 것이 최악이다.
             LogRejected();
+
+            // 거부 이유 통지(최선 노력). 그냥 닫으면 클라이언트는 RST 하나만 보고
+            // "서버가 꽉 찼다"와 "네트워크가 끊겼다"를 구분할 수 없다 — 옵션 문서 참조.
+            // 동기 Send 인 이유: 새 소켓의 송신 버퍼는 비어 있어 실질 논블로킹이고,
+            // 거부 경로에서 비동기 대기를 만들면 그것이 곧 자원 소모 공격 표면이다.
+            if (!_options.RejectionNotice.IsEmpty)
+            {
+                try
+                {
+                    accepted.Send(_options.RejectionNotice.Span);
+                }
+                catch (SocketException)
+                {
+                    // 상대가 이미 끊었다. 통지는 최선 노력이다.
+                }
+                catch (ObjectDisposedException)
+                {
+                    // 이미 버려진 소켓이다.
+                }
+            }
+
             accepted.Dispose();
             return;
         }
