@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 ChServerM.Connections.CloseReason
 ChServerM.Connections.CloseReason.ApplicationError = 6 -> ChServerM.Connections.CloseReason
 ChServerM.Connections.CloseReason.ClientClosed = 1 -> ChServerM.Connections.CloseReason
@@ -253,24 +253,24 @@ ChServerM.Transports.IServerTransport.StopAsync(System.Threading.CancellationTok
 ChServerM.Transports.IServerTransport.UnbindAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 ChServerM.Transports.ITransportBufferLimits
 ChServerM.Transports.ITransportBufferLimits.MaxBufferedBytesPerConnection.get -> long
-const ChServerM.Diagnostics.ActivityNames.Connection = "chservem.connection" -> string!
-const ChServerM.Diagnostics.ActivityNames.Dispatch = "chservem.dispatch" -> string!
+const ChServerM.Diagnostics.ActivityNames.Connection = "chserverm.connection" -> string!
+const ChServerM.Diagnostics.ActivityNames.Dispatch = "chserverm.dispatch" -> string!
 const ChServerM.Diagnostics.DiagnosticNames.ActivitySourceName = "ChServerM" -> string!
 const ChServerM.Diagnostics.DiagnosticNames.MeterName = "ChServerM" -> string!
-const ChServerM.Diagnostics.DiagnosticNames.Prefix = "chservem" -> string!
-const ChServerM.Diagnostics.MetricNames.BackpressureDuration = "chservem.backpressure.duration" -> string!
-const ChServerM.Diagnostics.MetricNames.BytesReceived = "chservem.bytes.received" -> string!
-const ChServerM.Diagnostics.MetricNames.BytesSent = "chservem.bytes.sent" -> string!
-const ChServerM.Diagnostics.MetricNames.ConnectionsAccepted = "chservem.connections.accepted" -> string!
-const ChServerM.Diagnostics.MetricNames.ConnectionsActive = "chservem.connections.active" -> string!
-const ChServerM.Diagnostics.MetricNames.ConnectionsRejected = "chservem.connections.rejected" -> string!
-const ChServerM.Diagnostics.MetricNames.DispatchDuration = "chservem.dispatch.duration" -> string!
-const ChServerM.Diagnostics.MetricNames.DispatchFailures = "chservem.dispatch.failures" -> string!
-const ChServerM.Diagnostics.MetricNames.FramesDropped = "chservem.frames.dropped" -> string!
-const ChServerM.Diagnostics.MetricNames.FramesReceived = "chservem.frames.received" -> string!
-const ChServerM.Diagnostics.MetricNames.FramesSent = "chservem.frames.sent" -> string!
-const ChServerM.Diagnostics.MetricNames.PartitionQueueDepth = "chservem.partition.queue.depth" -> string!
-const ChServerM.Diagnostics.MetricNames.PartitionWorkRejected = "chservem.partition.work.rejected" -> string!
+const ChServerM.Diagnostics.DiagnosticNames.Prefix = "chserverm" -> string!
+const ChServerM.Diagnostics.MetricNames.BackpressureDuration = "chserverm.backpressure.duration" -> string!
+const ChServerM.Diagnostics.MetricNames.BytesReceived = "chserverm.bytes.received" -> string!
+const ChServerM.Diagnostics.MetricNames.BytesSent = "chserverm.bytes.sent" -> string!
+const ChServerM.Diagnostics.MetricNames.ConnectionsAccepted = "chserverm.connections.accepted" -> string!
+const ChServerM.Diagnostics.MetricNames.ConnectionsActive = "chserverm.connections.active" -> string!
+const ChServerM.Diagnostics.MetricNames.ConnectionsRejected = "chserverm.connections.rejected" -> string!
+const ChServerM.Diagnostics.MetricNames.DispatchDuration = "chserverm.dispatch.duration" -> string!
+const ChServerM.Diagnostics.MetricNames.DispatchFailures = "chserverm.dispatch.failures" -> string!
+const ChServerM.Diagnostics.MetricNames.FramesDropped = "chserverm.frames.dropped" -> string!
+const ChServerM.Diagnostics.MetricNames.FramesReceived = "chserverm.frames.received" -> string!
+const ChServerM.Diagnostics.MetricNames.FramesSent = "chserverm.frames.sent" -> string!
+const ChServerM.Diagnostics.MetricNames.PartitionQueueDepth = "chserverm.partition.queue.depth" -> string!
+const ChServerM.Diagnostics.MetricNames.PartitionWorkRejected = "chserverm.partition.work.rejected" -> string!
 const ChServerM.Diagnostics.TagNames.CloseReason = "close_reason" -> string!
 const ChServerM.Diagnostics.TagNames.ErrorCode = "error_code" -> string!
 const ChServerM.Diagnostics.TagNames.MessageId = "message_id" -> string!

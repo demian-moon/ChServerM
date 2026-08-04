@@ -160,6 +160,26 @@ public sealed class TcpTransportOptions
         }
     }
 
+    /// <summary>현재 값을 복사한 스냅샷을 만든다.</summary>
+    /// <remarks>
+    /// 전송은 생성 시점에 이 스냅샷을 보관한다. 라이브 참조를 들고 있으면 <c>Build()</c>
+    /// 이후 사용자가 값을 바꿨을 때 <b>조립 검사(ADR-0007)를 통과한 적 없는 조합</b>으로
+    /// 커넥션이 만들어진다 — 검사가 사후 무효화되는 구멍이다(2026-08-04 감사).
+    /// <c>FramingOptions</c> 가 값을 복사하는 것과 같은 규약이다.
+    /// </remarks>
+    internal TcpTransportOptions Snapshot() => new()
+    {
+        Backlog = Backlog,
+        NoDelay = NoDelay,
+        EnableKeepAlive = EnableKeepAlive,
+        PauseWriterThreshold = PauseWriterThreshold,
+        ResumeWriterThreshold = ResumeWriterThreshold,
+        MinReceiveBufferSize = MinReceiveBufferSize,
+        WaitForDataBeforeAllocating = WaitForDataBeforeAllocating,
+        MaxConnections = MaxConnections,
+        ShutdownTimeout = ShutdownTimeout,
+    };
+
     /// <summary>이 설정으로 <see cref="PipeOptions"/>를 만든다.</summary>
     /// <remarks>
     /// <c>useSynchronizationContext: false</c> 로 고정한다. 동기화 컨텍스트를 타면

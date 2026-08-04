@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Buffers;
 using ChServerM.Identity;
 using Xunit;
@@ -6,8 +6,7 @@ using Xunit;
 namespace ChServerM.Framing.Tests;
 
 /// <summary>
-/// 인코더가 잘못된 프레임을 내보내면 상대가 커넥션을 끊는다. 그때는 원인이
-/// 이쪽 코드라는 걸 알기 어려우므로, 보내기 전에 예외로 드러내는지 검증한다.
+/// ?몄퐫?붽? ?섎せ???꾨젅?꾩쓣 ?대낫?대㈃ ?곷?媛 而ㅻ꽖?섏쓣 ?딅뒗?? 洹몃븣???먯씤??/// ?댁そ 肄붾뱶?쇰뒗 嫄??뚭린 ?대젮?곕?濡? 蹂대궡湲??꾩뿉 ?덉쇅濡??쒕윭?대뒗吏 寃利앺븳??
 /// </summary>
 public sealed class FixedHeaderFrameEncoderTests
 {
@@ -18,7 +17,7 @@ public sealed class FixedHeaderFrameEncoderTests
     {
         ArrayBufferWriter<byte> writer = new();
 
-        Encoder.WriteHeader(writer, Encoder.CreateHeader(new MessageId(1), 0));
+        Encoder.WriteHeader(writer, Encoder.CreateHeader(new MessageId(1), 0, FrameFlags.None, 0));
 
         Assert.Equal(FrameHeader.Size, writer.WrittenCount);
     }
@@ -26,7 +25,7 @@ public sealed class FixedHeaderFrameEncoderTests
     [Fact]
     public void WriteHeader_ThenPayload_ProducesDecodableFrame()
     {
-        // 인코더와 디코더가 같은 레이아웃을 보는지가 이 테스트의 요점이다.
+        // ?몄퐫?붿? ?붿퐫?붽? 媛숈? ?덉씠?꾩썐??蹂대뒗吏媛 ???뚯뒪?몄쓽 ?붿젏?대떎.
         ArrayBufferWriter<byte> writer = new();
         byte[] payload = [1, 2, 3, 4, 5];
 
@@ -52,7 +51,7 @@ public sealed class FixedHeaderFrameEncoderTests
         for (ushort id = 1; id <= 3; id++)
         {
             byte[] payload = new byte[id * 10];
-            Encoder.WriteHeader(writer, Encoder.CreateHeader(new MessageId(id), payload.Length));
+            Encoder.WriteHeader(writer, Encoder.CreateHeader(new MessageId(id), payload.Length, FrameFlags.None, 0));
             writer.Write(payload);
         }
 
@@ -74,14 +73,14 @@ public sealed class FixedHeaderFrameEncoderTests
     {
         FixedHeaderFrameEncoder encoder = new(1024, protocolVersion: 7);
 
-        Assert.Equal(7, encoder.CreateHeader(new MessageId(1), 0).Version);
+        Assert.Equal(7, encoder.CreateHeader(new MessageId(1), 0, FrameFlags.None, 0).Version);
     }
 
     [Fact]
     public void WriteHeader_NullWriter_Throws()
     {
         Assert.Throws<ArgumentNullException>(
-            () => Encoder.WriteHeader(null!, Encoder.CreateHeader(new MessageId(1), 0)));
+            () => Encoder.WriteHeader(null!, Encoder.CreateHeader(new MessageId(1), 0, FrameFlags.None, 0)));
     }
 
     [Fact]
@@ -90,7 +89,7 @@ public sealed class FixedHeaderFrameEncoderTests
         ArrayBufferWriter<byte> writer = new();
 
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => Encoder.WriteHeader(writer, Encoder.CreateHeader(new MessageId(1), 1025)));
+            () => Encoder.WriteHeader(writer, Encoder.CreateHeader(new MessageId(1), 1025, FrameFlags.None, 0)));
     }
 
     [Fact]
@@ -98,7 +97,7 @@ public sealed class FixedHeaderFrameEncoderTests
     {
         ArrayBufferWriter<byte> writer = new();
 
-        Encoder.WriteHeader(writer, Encoder.CreateHeader(new MessageId(1), 1024));
+        Encoder.WriteHeader(writer, Encoder.CreateHeader(new MessageId(1), 1024, FrameFlags.None, 0));
 
         Assert.Equal(FrameHeader.Size, writer.WrittenCount);
     }
@@ -106,7 +105,7 @@ public sealed class FixedHeaderFrameEncoderTests
     [Fact]
     public void WriteHeader_VersionMismatch_Throws()
     {
-        // 버전은 인코더의 설정이지 메시지의 속성이 아니다. 어긋나면 프로토콜이 조용히 깨진다.
+        // 踰꾩쟾? ?몄퐫?붿쓽 ?ㅼ젙?댁? 硫붿떆吏???띿꽦???꾨땲?? ?닿툔?섎㈃ ?꾨줈?좎퐳??議곗슜??源⑥쭊??
         ArrayBufferWriter<byte> writer = new();
         FrameHeader wrongVersion = new(new MessageId(1), 0, version: 99);
 
@@ -125,11 +124,11 @@ public sealed class FixedHeaderFrameEncoderTests
     [Fact]
     public void WriteHeader_FailedValidation_WritesNothing()
     {
-        // 예외를 던지고 반쯤 쓴 상태로 두면 스트림이 오염된다.
+        // ?덉쇅瑜??섏?怨?諛섏? ???곹깭濡??먮㈃ ?ㅽ듃由쇱씠 ?ㅼ뿼?쒕떎.
         ArrayBufferWriter<byte> writer = new();
 
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => Encoder.WriteHeader(writer, Encoder.CreateHeader(new MessageId(1), 99999)));
+            () => Encoder.WriteHeader(writer, Encoder.CreateHeader(new MessageId(1), 99999, FrameFlags.None, 0)));
 
         Assert.Equal(0, writer.WrittenCount);
     }

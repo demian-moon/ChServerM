@@ -74,7 +74,10 @@ public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimit
         options.Validate();
 
         _bindEndPoint = endPoint;
-        _options = options;
+
+        // 스냅샷 보관 — 라이브 참조면 Build() 이후의 옵션 변경이 조립 검사(ADR-0007)를
+        // 사후 무효화한다. 상세는 TcpTransportOptions.Snapshot 문서.
+        _options = options.Snapshot();
         _logger = logger ?? NullServerLogger.Instance;
     }
 
@@ -259,6 +262,24 @@ public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimit
                 // Unbind 가 수락 소켓을 닫았다. 정상 종료 경로다.
                 return;
             }
+            catch (SocketException exception) when (exception.SocketErrorCode == SocketError.TooManyOpenSockets)
+            {
+                // FD/핸들 고갈. 이 상태에서 즉시 재시도하면 AcceptAsync 가 곧바로 다시
+                // 실패해 수락 루프가 예외를 만들며 코어 하나를 태운다(2026-08-04 감사).
+                // 재시도 자체는 맞다 — 고갈은 대개 일시적이다 — 다만 물러났다 한다.
+                LogAcceptBackoff(exception);
+
+                try
+                {
+                    await Task.Delay(ExhaustionRetryDelay, _stopping.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+
+                continue;
+            }
             catch (SocketException exception) when (IsTransientAcceptError(exception))
             {
                 // 개별 연결이 수락 직전에 끊겼다. 흔한 일이고 루프를 멈출 이유가 없다.
@@ -366,14 +387,34 @@ public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimit
     private ConnectionId NextConnectionId() =>
         new((uint)Interlocked.Increment(ref _nextSlot), generation: 1);
 
-    /// <summary>수락 루프를 계속 돌아도 되는 오류인지 판별한다.</summary>
+    /// <summary>FD 고갈 시 재시도 전에 물러나는 시간.</summary>
+    private static readonly TimeSpan ExhaustionRetryDelay = TimeSpan.FromMilliseconds(100);
+
+    /// <summary>수락 루프를 즉시 계속 돌아도 되는 오류인지 판별한다.</summary>
+    /// <remarks>
+    /// <see cref="SocketError.TooManyOpenSockets"/> 는 여기 없다 — 그것은 즉시 재시도가
+    /// 아니라 백오프 후 재시도다(수락 루프의 전용 catch 절).
+    /// </remarks>
     private static bool IsTransientAcceptError(SocketException exception) =>
         exception.SocketErrorCode is
             SocketError.ConnectionReset or
             SocketError.ConnectionAborted or
             SocketError.Interrupted or
-            SocketError.NetworkReset or
-            SocketError.TooManyOpenSockets;
+            SocketError.NetworkReset;
+
+    private void LogAcceptBackoff(SocketException exception)
+    {
+        if (_logger.IsEnabled(LogLevel.Warning))
+        {
+            _logger.Log(
+                LogLevel.Warning,
+                AcceptFaultedEvent,
+                ExhaustionRetryDelay,
+                exception,
+                static (delay, ex) =>
+                    $"소켓 핸들이 고갈됐다({ex?.Message}). {delay.TotalMilliseconds:F0}ms 뒤 수락을 재시도한다.");
+        }
+    }
 
     private void LogAcceptFaulted(SocketException exception)
     {

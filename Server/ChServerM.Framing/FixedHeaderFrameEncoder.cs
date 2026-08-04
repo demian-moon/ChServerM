@@ -70,14 +70,22 @@ public sealed class FixedHeaderFrameEncoder : IFrameEncoder
     /// <param name="sequence">커넥션 내 프레임 일련번호.</param>
     /// <returns>이 인코더의 프로토콜 버전이 찍힌 헤더.</returns>
     /// <remarks>
+    /// <para>
     /// 호출자가 버전을 직접 채우다 틀리는 것을 막는다. 버전은 인코더의 설정이지
     /// 메시지의 속성이 아니다.
+    /// </para>
+    /// <para>
+    /// <c>flags</c>·<c>sequence</c> 에 기본값을 두지 않는다 — <c>FrameWriter</c> 가 같은
+    /// 이유로 기본값을 제거했는데(CLAUDE.md 8.1 의 RS0026 사례: 압축이 한 번도 실행되지
+    /// 않는 결함, 있는 척하는 필드) 여기 남아 있으면 그 계약의 우회로가 된다
+    /// (2026-08-04 감사).
+    /// </para>
     /// </remarks>
     public FrameHeader CreateHeader(
         Identity.MessageId messageId,
         int payloadLength,
-        FrameFlags flags = FrameFlags.None,
-        uint sequence = 0) =>
+        FrameFlags flags,
+        uint sequence) =>
         new(messageId, payloadLength, flags, sequence, _protocolVersion);
 
     /// <inheritdoc />

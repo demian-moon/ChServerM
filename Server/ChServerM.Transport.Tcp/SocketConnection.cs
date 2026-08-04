@@ -168,6 +168,12 @@ public sealed class SocketConnection : IConnection, IConnectionEndPointFeature
             CloseSocket();
             CancelPendingPipeReads();
 
+            // 신호도 여기서 반드시 한다. 선행 호출(Abort)이 플래그 선점 직후 선점당해
+            // 아직 SignalClosed 전이라면, 이 경로가 CTS 를 Dispose 한 뒤 선행 호출의
+            // Cancel 이 ObjectDisposedException 으로 무산돼 ConnectionClosed 가
+            // 영영 발화하지 않는 인터리빙이 있었다(2026-08-04 감사). Cancel 은 멱등이다.
+            SignalClosed();
+
             await WaitForPumpsAsync().ConfigureAwait(false);
             _closed.Dispose();
             return;

@@ -44,7 +44,9 @@ public sealed class TcpClientTransport : IClientTransport, ITransportBufferLimit
         options ??= new TcpTransportOptions();
         options.Validate();
 
-        _options = options;
+        // 스냅샷 보관 — 라이브 참조면 Build() 이후의 옵션 변경이 조립 검사(ADR-0007)를
+        // 사후 무효화한다. 상세는 TcpTransportOptions.Snapshot 문서.
+        _options = options.Snapshot();
         _logger = logger ?? NullServerLogger.Instance;
     }
 
@@ -78,8 +80,35 @@ public sealed class TcpClientTransport : IClientTransport, ITransportBufferLimit
         SocketConnection connection = new(NextConnectionId(), socket, _options, _logger);
         connection.Start();
         _connections[connection.Id] = connection;
+        RemoveOnClose(connection);
 
         return connection;
+    }
+
+    /// <summary>커넥션이 닫히면 추적 목록에서 뺀다.</summary>
+    /// <remarks>
+    /// 자연 종료를 제거하지 않으면 재접속을 반복하는 장수명 클라이언트에서 죽은
+    /// 커넥션 객체가 무한히 누적된다(2026-08-04 감사). 서버 전송이 핸들러 종료의
+    /// <c>finally</c> 에서 제거하는 것과 대칭인 장치다 — 클라이언트에는 핸들러 수명이
+    /// 없으므로 <see cref="IConnection.ConnectionClosed"/> 를 그 신호로 쓴다.
+    /// </remarks>
+    private void RemoveOnClose(SocketConnection connection)
+    {
+        try
+        {
+            connection.ConnectionClosed.Register(
+                static state =>
+                {
+                    (TcpClientTransport transport, ConnectionId id) = ((TcpClientTransport, ConnectionId))state!;
+                    transport._connections.TryRemove(id, out _);
+                },
+                (this, connection.Id));
+        }
+        catch (ObjectDisposedException)
+        {
+            // 이미 완전히 닫힌 커넥션이다. 즉시 제거한다.
+            _connections.TryRemove(connection.Id, out _);
+        }
     }
 
     /// <inheritdoc />

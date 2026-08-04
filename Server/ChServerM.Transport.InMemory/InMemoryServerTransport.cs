@@ -53,6 +53,9 @@ public sealed class InMemoryServerTransport : IServerTransport, ITransportBuffer
     private int _nextSlot;
     private int _bound;
 
+    /// <summary>수용 판정용 활성 커넥션 수. 상한 검사는 이것으로만 한다(엄격 유계).</summary>
+    private int _activeCount;
+
     /// <summary>수용 전송을 만든다.</summary>
     /// <param name="hub">이름 레지스트리. 클라이언트 전송과 같은 것을 써야 한다.</param>
     /// <param name="endPoint">수용할 종단.</param>
@@ -197,8 +200,13 @@ public sealed class InMemoryServerTransport : IServerTransport, ITransportBuffer
             throw new InvalidOperationException($"{_endPoint} 는 수용 중이 아니다.");
         }
 
-        if (_connections.Count >= _maxConnections)
+        // 증가 후 검사-롤백 — Accept 는 여러 클라이언트 스레드에서 동시에 불릴 수 있어
+        // Count 검사(check-then-act)로는 상한을 소폭 초과할 수 있다(2026-08-04 감사).
+        // 유계는 엄격해야 유계다(CLAUDE.md 9.6). TCP 는 단일 수락 루프라 해당 없다.
+        if (Interlocked.Increment(ref _activeCount) > _maxConnections)
         {
+            Interlocked.Decrement(ref _activeCount);
+
             // 거부가 붕괴보다 낫다. 조용히 받아두고 나중에 죽는 것이 최악이다.
             LogRejected();
             throw new InvalidOperationException(
@@ -258,6 +266,7 @@ public sealed class InMemoryServerTransport : IServerTransport, ITransportBuffer
         finally
         {
             _connections.TryRemove(connection.Id, out _);
+            Interlocked.Decrement(ref _activeCount);
 
             try
             {

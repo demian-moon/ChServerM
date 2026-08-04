@@ -98,10 +98,47 @@ public sealed class InMemoryClientTransport : IClientTransport, ITransportBuffer
             throw new InvalidOperationException($"{target} 를 듣고 있는 서버가 없다.");
         }
 
+        // 실제 파이프는 서버 쪽 옵션으로 만들어진다. 이 전송이 조립 검사(ADR-0007)에
+        // 보고한 한계가 실제와 다르면 검사를 통과하고도 조용한 교착이 재현된다 —
+        // 어긋난 조립을 여기서 소리 나게 실패시킨다(2026-08-04 감사).
+        if (listener.MaxBufferedBytesPerConnection != _maxBufferedBytes)
+        {
+            throw new InvalidOperationException(
+                $"클라이언트 전송이 보고한 버퍼 한계({_maxBufferedBytes})가 서버 전송의 실제 값" +
+                $"({listener.MaxBufferedBytesPerConnection})과 다르다. 인메모리 파이프는 서버 옵션으로" +
+                $" 만들어지므로 두 전송에 같은 {nameof(InMemoryTransportOptions)} 값을 넘겨야 한다.");
+        }
+
         InMemoryConnection connection = listener.Accept(_localEndPoint);
         _connections[connection] = 0;
+        RemoveOnClose(connection);
 
         return ValueTask.FromResult<IConnection>(connection);
+    }
+
+    /// <summary>커넥션이 닫히면 추적 목록에서 뺀다.</summary>
+    /// <remarks>
+    /// 자연 종료를 제거하지 않으면 재접속을 반복하는 장수명 클라이언트에서 죽은
+    /// 커넥션 객체가 무한히 누적된다(2026-08-04 감사). TCP 클라이언트 전송과 같은 장치다.
+    /// </remarks>
+    private void RemoveOnClose(InMemoryConnection connection)
+    {
+        try
+        {
+            connection.ConnectionClosed.Register(
+                static state =>
+                {
+                    (InMemoryClientTransport transport, InMemoryConnection target) =
+                        ((InMemoryClientTransport, InMemoryConnection))state!;
+                    transport._connections.TryRemove(target, out _);
+                },
+                (this, connection));
+        }
+        catch (ObjectDisposedException)
+        {
+            // 이미 완전히 닫힌 커넥션이다. 즉시 제거한다.
+            _connections.TryRemove(connection, out _);
+        }
     }
 
     /// <inheritdoc />

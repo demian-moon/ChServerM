@@ -150,8 +150,11 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
     public bool TryPost<TWork>(in TWork work) where TWork : struct, IPartitionWork
     {
         // 유입 통제는 여기서만 한다. 상세 이유는 타입 문서 참조.
-        if (Volatile.Read(ref _pendingExternalWork.Value) >= _queueCapacity)
+        // 증가 후 검사-롤백이다 — 검사 후 증가(check-then-act)는 동시 게시자 수만큼
+        // 상한을 넘을 수 있다. 유계는 엄격해야 유계다(CLAUDE.md 9.6, 2026-08-04 감사).
+        if (Interlocked.Increment(ref _pendingExternalWork.Value) > _queueCapacity)
         {
+            Interlocked.Decrement(ref _pendingExternalWork.Value);
             Interlocked.Increment(ref _rejectedCount);
             LogRejected();
             return false;
@@ -161,8 +164,6 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
         WorkBox<TWork> box = WorkBoxPool<TWork>.Rent();
         box.Set(work);
 
-        Interlocked.Increment(ref _pendingExternalWork.Value);
-
         if (_writer.TryWrite(box))
         {
             return true;
@@ -170,8 +171,10 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
 
         // 채널이 닫혔다(종료 중). 카운터와 박스를 반드시 되돌린다 —
         // 빠뜨리면 파티션이 영구히 "가득 찬" 상태가 된다 (CLAUDE.md 9.2).
+        // box.Return() 이어야 한다 — 풀에 직접 넣으면 _work 의 참조가 다음 대여까지
+        // 풀 안에 잔류한다(2026-08-04 감사).
         Interlocked.Decrement(ref _pendingExternalWork.Value);
-        WorkBoxPool<TWork>.Return(box);
+        box.Return();
         return false;
     }
 
@@ -227,10 +230,17 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
     /// <summary>파티션을 멈추고 스레드가 끝나기를 기다린다.</summary>
     /// <remarks>
     /// 여러 번 불러도 안전하다. 여러 파티션을 함께 멈출 때는 전부에게
-    /// <see cref="SignalStop"/> 을 먼저 보낸 뒤 각각을 정리한다 — 그러지 않으면
-    /// 최악의 종료 시간이 <c>파티션 수 × 제한 시간</c>이 된다.
+    /// <see cref="SignalStop"/> 을 먼저 보내고 <b>공유 데드라인</b>으로 정리한다
+    /// (<see cref="DisposeCore"/>) — 파티션마다 제한 시간을 새로 시작하면, 전부가
+    /// 블로킹된 최악의 경우 종료 시간이 <c>파티션 수 × 제한 시간</c>이 된다
+    /// (2026-08-04 감사).
     /// </remarks>
-    public void Dispose()
+    public void Dispose() =>
+        DisposeCore(Environment.TickCount64 + (long)_shutdownTimeout.TotalMilliseconds);
+
+    /// <summary>공유 데드라인으로 파티션을 정리한다.</summary>
+    /// <param name="deadlineMilliseconds"><see cref="Environment.TickCount64"/> 기준 데드라인.</param>
+    internal void DisposeCore(long deadlineMilliseconds)
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
@@ -239,7 +249,10 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
 
         SignalStop();
 
-        if (_thread.IsAlive && !_thread.Join(_shutdownTimeout))
+        long remaining = deadlineMilliseconds - Environment.TickCount64;
+        TimeSpan wait = remaining > 0 ? TimeSpan.FromMilliseconds(remaining) : TimeSpan.Zero;
+
+        if (_thread.IsAlive && !_thread.Join(wait))
         {
             // 조인 실패는 작업 하나가 블로킹하고 있다는 뜻이다. 백그라운드 스레드이므로
             // 프로세스 종료를 막지는 않지만, 원인을 알 수 있게 반드시 기록한다.

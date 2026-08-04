@@ -187,7 +187,8 @@ public sealed class FrameDecoderFuzzTests
         for (int i = 0; i < FrameCount; i++)
         {
             int payloadLength = random.Next(0, 300);
-            encoder.WriteHeader(writer, encoder.CreateHeader(new MessageId((ushort)(i % 1000 + 1)), payloadLength));
+            encoder.WriteHeader(writer, encoder.CreateHeader(
+                new MessageId((ushort)(i % 1000 + 1)), payloadLength, FrameFlags.None, sequence: 0));
             writer.Write(new byte[payloadLength]);
         }
 

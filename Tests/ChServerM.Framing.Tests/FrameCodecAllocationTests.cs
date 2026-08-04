@@ -157,10 +157,7 @@ public sealed class FrameCodecAllocationTests
         Assert.Equal(0, allocated);
     }
 
-    [Fact]
-    public void Sink_IsObserved()
-    {
-        // _sink 를 아무도 읽지 않으면 JIT 이 위 루프들을 지울 여지가 생긴다.
-        Assert.True(_sink >= 0);
-    }
+    // DCE 방지는 각 테스트가 힙 필드(_sink)에 쓰는 것으로 충분하다. 이것을 "검증"하는
+    // 별도 테스트는 항상 참이라(xUnit 은 테스트마다 인스턴스를 새로 만들어 _sink 가 늘 0)
+    // 삭제했다 (2026-08-04 감사).
 }

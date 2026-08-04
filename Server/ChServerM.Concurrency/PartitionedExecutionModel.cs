@@ -132,16 +132,18 @@ public sealed class PartitionedExecutionModel : IExecutionModel
             return ValueTask.CompletedTask;
         }
 
-        // 전부에게 먼저 알린 뒤 함께 기다린다. 순차로 하면 최악의 종료 시간이
-        // 파티션 수 × 제한 시간이 된다.
+        // 전부에게 먼저 알린 뒤 공유 데드라인으로 함께 기다린다. 파티션마다 제한 시간을
+        // 새로 시작하면, 전부가 블로킹된 최악의 경우 순차 조인이 파티션 수 × 제한 시간이
+        // 된다(64 × 5초 = 5분 20초 — 정확히 피하려던 그 수치다. 2026-08-04 감사).
         foreach (ExecutionPartition partition in _partitions)
         {
             partition.SignalStop();
         }
 
+        long deadline = Environment.TickCount64 + (long)_shutdownTimeout.TotalMilliseconds;
         foreach (ExecutionPartition partition in _partitions)
         {
-            partition.Dispose();
+            partition.DisposeCore(deadline);
         }
 
         return ValueTask.CompletedTask;

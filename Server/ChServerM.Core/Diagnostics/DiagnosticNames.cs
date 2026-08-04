@@ -19,7 +19,9 @@ namespace ChServerM.Diagnostics;
 public static class DiagnosticNames
 {
     /// <summary>모든 메트릭 이름의 공통 접두사.</summary>
-    public const string Prefix = "chservem";
+    // "chserverm" — 프로젝트명(ChServerM) 소문자다. 한 글자가 빠진 오타("chservem")로
+    // 릴리스되면 대시보드·알람 규칙에 영구 계약으로 굳는다(2026-08-04 감사에서 발견·정정).
+    public const string Prefix = "chserverm";
 
     /// <summary>분산 추적 <c>ActivitySource</c> 이름.</summary>
     public const string ActivitySourceName = "ChServerM";

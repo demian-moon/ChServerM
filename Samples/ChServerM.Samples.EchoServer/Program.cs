@@ -242,8 +242,15 @@ internal static class Program
         // 커넥션의 Input 을 직접 읽지 않는 것이 중요하다 — IConnection 계약상
         // Input 은 읽기 루프 하나가 소유한다. 두 곳에서 읽으면 PipeReader 가
         // "Concurrent reads are not supported" 로 던진다.
+        // 유계 채널(9.6). 교본 코드가 무제한 큐를 시연하면 안 된다 — 소비자(아래 왕복
+        // 루프)가 멈추면 무제한 채널은 메모리로 갚는다. Wait 모드이므로 쓰기는 반드시
+        // WriteAsync 로 한다(TryWrite 는 Wait 설정을 무시하고 조용히 버린다 — 레거시 결함).
         Channel<(uint Sequence, byte[] Payload)> responses =
-            Channel.CreateUnbounded<(uint, byte[])>(new UnboundedChannelOptions { SingleReader = true });
+            Channel.CreateBounded<(uint, byte[])>(new BoundedChannelOptions(256)
+            {
+                SingleReader = true,
+                FullMode = BoundedChannelFullMode.Wait,
+            });
 
         await using ChServerMClient client = new ClientBuilder()
             .UseTransport(clientTransport)
@@ -283,12 +290,16 @@ internal static class Program
     /// 무효가 되므로, <c>await</c> 너머로 들고 가려면 복사가 <b>반드시</b> 필요하다.
     /// 프로덕션 코드라면 여기서 역직렬화까지 끝내 복사를 피한다.
     /// </remarks>
-    private static ValueTask<DispatchStatus> Capture(
+    private static async ValueTask<DispatchStatus> Capture(
         MessageContext context,
         ChannelWriter<(uint Sequence, byte[] Payload)> writer)
     {
-        writer.TryWrite((context.Header.Sequence, context.Payload.ToArray()));
-        return ValueTask.FromResult(DispatchStatus.Handled);
+        // WriteAsync 여야 한다 — 유계 Wait 채널에 TryWrite 를 쓰면 포화 시 조용히
+        // 버려진다(CLAUDE.md 9.6 의 레거시 결함 조합).
+        // 페이로드 복사는 await 너머로 들고 가기 위한 필수 조치다(위 remarks).
+        (uint, byte[]) response = (context.Header.Sequence, context.Payload.ToArray());
+        await writer.WriteAsync(response, context.CancellationToken).ConfigureAwait(false);
+        return DispatchStatus.Handled;
     }
 
     private static async Task<bool> RunEchoRoundTripsAsync(

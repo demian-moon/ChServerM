@@ -278,11 +278,14 @@ else {
     )
 
     if ($aotProjects.Count -eq 0) {
-        # 조용히 통과시키지 않는다. 검증하지 않았다는 사실을 명시한다.
-        Write-Host 'SKIPPED — PublishAot=true 를 선언한 프로젝트가 없다.' -ForegroundColor Yellow
+        # 실패시킨다. 이 저장소는 AOT 검증 대상이 최소 1개(Echo 샘플) 있다는 전제 위에
+        # 있다 — 누가 PublishAot 선언을 지우면 이 게이트가 조용히 사라지고, SKIPPED
+        # 출력은 아무도 읽지 않는다(막으려던 실패 형태 그 자체다. 2026-08-04 감사).
+        Write-Host 'FAILED — PublishAot=true 를 선언한 프로젝트가 없다.' -ForegroundColor Red
         Write-Host '  IsAotCompatible=true 로 AOT/트리밍 분석기는 build 단계에서 이미 적용됐지만,'
         Write-Host '  실제 네이티브 링크가 성공하는지는 publish 해봐야 안다.'
         Write-Host '  AOT 로 배포할 프로젝트에 <PublishAot>true</PublishAot> 를 선언한다.'
+        exit 1
     }
     else {
         # ILCompiler 는 Windows 에서 네이티브 링크 단계에 vswhere.exe 로 MSVC 링커를 찾는다.
