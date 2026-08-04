@@ -43,7 +43,7 @@ internal sealed class PartitionDispatchGate : IPartitionExclusiveWork, IValueTas
     private readonly MessageContext _context;
     private ManualResetValueTaskSourceCore<DispatchStatus> _source;
 
-    /// <summary>완료 신호로 넘길 결과. 완료 스레드가 쓰고 <see cref="Execute"/>가 읽는다.</summary>
+    /// <summary>완료 신호로 넘길 결과. 완료 스레드가 쓰고 <see cref="IThreadPoolWorkItem.Execute"/>가 읽는다.</summary>
     /// <remarks>스레드풀 큐의 게시-소비가 가시성을 보장한다.</remarks>
     private DispatchStatus _pendingStatus;
     private Exception? _pendingException;

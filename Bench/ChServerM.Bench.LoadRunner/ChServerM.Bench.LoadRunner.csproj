@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>ChServerM.Bench.LoadRunner</RootNamespace>
+    <IsPackable>false</IsPackable>
+
+    <!-- 부하 도구는 AOT 배포 대상이 아니다. 측정 대상(서버)이 AOT 검증을 담당한다. -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+
+    <!-- Debug 로 재면 생성기 자체가 병목이 된다. 최적화를 고정한다. -->
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+
+    <!-- 서버 GC — 생성기 GC 가 측정 노이즈가 되지 않게. -->
+    <ServerGarbageCollector>true</ServerGarbageCollector>
+    <ConcurrentGarbageCollector>true</ConcurrentGarbageCollector>
+  </PropertyGroup>
+
+  <!--
+    프로덕션 조립과 같은 경로를 쓴다(ADR-0009) — 부하 클라이언트가 TcpClientTransport 와
+    프레이밍을 그대로 쓰므로, 부하 측정이 곧 클라이언트 경로의 검증이다.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\Server\ChServerM.Hosting\ChServerM.Hosting.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Transport.Tcp\ChServerM.Transport.Tcp.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Framing\ChServerM.Framing.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Concurrency\ChServerM.Concurrency.csproj" />
+  </ItemGroup>
+
+</Project>

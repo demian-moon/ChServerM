@@ -308,6 +308,10 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
             // 재사용하지 못해 대기마다 AsyncOperation 을 할당한다(실측 프레임당 ~90B).
             // 종료 깨우기는 SignalStop 의 TryComplete 가 담당한다: 채널 완료가 이 대기를
             // false 로 깨운다. 토큰 취소는 그 다음의 안전벨트였을 뿐이다.
+            // CA2012 억제 — 이 ValueTask 는 정확히 한 번 소비된다: 완료면 즉시 GetResult,
+            // 미완료면 콜백 등록 후 이벤트 신호를 받은 뒤 GetResult. 분석기는 두 경로의
+            // GetAwaiter 를 이중 소비로 오인한다.
+#pragma warning disable CA2012
             ValueTask<bool> wait = _reader.WaitToReadAsync();
 
             // 대부분의 경우 이미 완료돼 있다(다른 스레드가 방금 넣었다).
@@ -324,8 +328,11 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
             _wakeSignal.Reset();
             ValueTaskAwaiter<bool> awaiter = wait.GetAwaiter();
             awaiter.UnsafeOnCompleted(_wakeCallback);
+
+            // 이벤트는 완료 콜백에서만 켜진다 — Wait 이후 GetResult 는 완료 상태다.
             _wakeSignal.Wait();
             return awaiter.GetResult();
+#pragma warning restore CA2012
         }
         catch (OperationCanceledException)
         {
