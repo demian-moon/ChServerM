@@ -37,11 +37,16 @@ namespace ChServerM.Hosting;
 /// (레거시 결함 원인 A: 수명 규약이 주석에만 있었다).
 /// </para>
 /// </remarks>
-internal sealed class PartitionDispatchGate : IPartitionExclusiveWork, IValueTaskSource<DispatchStatus>
+internal sealed class PartitionDispatchGate : IPartitionExclusiveWork, IValueTaskSource<DispatchStatus>, IThreadPoolWorkItem
 {
     private readonly IMessageDispatcher _dispatcher;
     private readonly MessageContext _context;
     private ManualResetValueTaskSourceCore<DispatchStatus> _source;
+
+    /// <summary>완료 신호로 넘길 결과. 완료 스레드가 쓰고 <see cref="Execute"/>가 읽는다.</summary>
+    /// <remarks>스레드풀 큐의 게시-소비가 가시성을 보장한다.</remarks>
+    private DispatchStatus _pendingStatus;
+    private Exception? _pendingException;
 
     /// <summary>커넥션당 하나 만든다.</summary>
     /// <param name="dispatcher">메시지 디스패처.</param>
@@ -51,10 +56,14 @@ internal sealed class PartitionDispatchGate : IPartitionExclusiveWork, IValueTas
         _dispatcher = dispatcher;
         _context = context;
 
-        // 완료 신호를 받은 읽기 루프의 연속을 완료 스레드에서 인라인 실행하지 않는다.
+        // 완료 신호를 받은 읽기 루프의 연속을 파티션 스레드에서 인라인 실행하지 않는다 —
         // 인라인하면 파티션 스레드가 읽기 루프의 다음 구간(AdvanceTo·다음 디코드)까지
-        // 떠안아 배타 구간이 늘어난다.
-        _source.RunContinuationsAsynchronously = true;
+        // 떠안아 배타 구간이 늘어난다. 다만 RunContinuationsAsynchronously=true 는
+        // 델리게이트+상태를 감싸는 큐 항목을 프레임마다 할당하므로 쓰지 않는다
+        // (ADR-0008 후속 실측의 할당 원인 1). 대신 게이트 자신이
+        // IThreadPoolWorkItem 으로 큐에 들어가 SetResult 를 스레드풀에서 부른다 —
+        // 같은 비동기 인계를 할당 0 으로 얻는다.
+        _source.RunContinuationsAsynchronously = false;
     }
 
     /// <summary>프레임 하나를 파티션 배타 구간에서 디스패치하고 완료를 기다린다.</summary>
@@ -131,6 +140,23 @@ internal sealed class PartitionDispatchGate : IPartitionExclusiveWork, IValueTas
     {
         // 참조 절단이 신호보다 먼저다 — 신호를 받은 읽기 루프가 곧바로 AdvanceTo 한다.
         _context.EndFrame();
+
+        _pendingStatus = status;
+        _pendingException = exception;
+
+        // 게이트 자신이 큐 항목이다 — 프레임당 할당 0 (타입 문서·생성자 주석 참조).
+        ThreadPool.UnsafeQueueUserWorkItem(this, preferLocal: true);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>스레드풀에서 완료를 신호한다. 읽기 루프의 연속이 여기서 인라인으로 이어진다.</remarks>
+    void IThreadPoolWorkItem.Execute()
+    {
+        // 필드를 먼저 지역으로 옮긴다 — SetResult 의 인라인 연속(읽기 루프)이 같은 스택에서
+        // 다음 프레임을 진행해 파티션이 필드를 덮어쓸 수 있다.
+        DispatchStatus status = _pendingStatus;
+        Exception? exception = _pendingException;
+        _pendingException = null;
 
         if (exception is null)
         {

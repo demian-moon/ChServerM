@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Channels;
@@ -76,6 +77,12 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
     private readonly PartitionTaskScheduler _scheduler;
     private readonly Thread _thread;
     private readonly CancellationTokenSource _stopping = new();
+
+    /// <summary>빈 큐 대기용 재사용 이벤트. 소비 스레드만 Reset/Wait 한다.</summary>
+    private readonly ManualResetEventSlim _wakeSignal = new(initialState: false);
+
+    /// <summary>완료 콜백 캐시 — 대기마다 델리게이트를 만들면 그것이 곧 할당이다.</summary>
+    private readonly Action _wakeCallback;
     private readonly int _queueCapacity;
     private readonly TimeSpan _shutdownTimeout;
     private readonly IServerLogger _logger;
@@ -111,6 +118,7 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
         _writer = _queue.Writer;
         _reader = _queue.Reader;
         _scheduler = new PartitionTaskScheduler(this);
+        _wakeCallback = _wakeSignal.Set;
 
         _thread = new Thread(ConsumeLoop)
         {
@@ -252,11 +260,20 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
         long remaining = deadlineMilliseconds - Environment.TickCount64;
         TimeSpan wait = remaining > 0 ? TimeSpan.FromMilliseconds(remaining) : TimeSpan.Zero;
 
-        if (_thread.IsAlive && !_thread.Join(wait))
+        bool joined = !_thread.IsAlive || _thread.Join(wait);
+
+        if (!joined)
         {
             // 조인 실패는 작업 하나가 블로킹하고 있다는 뜻이다. 백그라운드 스레드이므로
             // 프로세스 종료를 막지는 않지만, 원인을 알 수 있게 반드시 기록한다.
             LogShutdownTimeout(_shutdownTimeout);
+        }
+        else
+        {
+            // 대기자가 있는 상태의 Dispose 는 동작이 정의되지 않으므로,
+            // 스레드가 확실히 끝났을 때만 이벤트를 정리한다. 조인 실패 시의 잔류는
+            // GC 가 처리한다 — 미정의 동작보다 낫다.
+            _wakeSignal.Dispose();
         }
 
         _stopping.Dispose();
@@ -287,12 +304,28 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
     {
         try
         {
-            ValueTask<bool> wait = _reader.WaitToReadAsync(_stopping.Token);
+            // 토큰을 넘기지 않는다 — 취소 가능 토큰이 있으면 채널이 싱글턴 waiter 를
+            // 재사용하지 못해 대기마다 AsyncOperation 을 할당한다(실측 프레임당 ~90B).
+            // 종료 깨우기는 SignalStop 의 TryComplete 가 담당한다: 채널 완료가 이 대기를
+            // false 로 깨운다. 토큰 취소는 그 다음의 안전벨트였을 뿐이다.
+            ValueTask<bool> wait = _reader.WaitToReadAsync();
 
             // 대부분의 경우 이미 완료돼 있다(다른 스레드가 방금 넣었다).
-            return wait.IsCompletedSuccessfully
-                ? wait.Result
-                : wait.AsTask().GetAwaiter().GetResult();
+            if (wait.IsCompleted)
+            {
+                return wait.GetAwaiter().GetResult();
+            }
+
+            // AsTask() 는 대기마다 Task 를 할당한다 — 프레임 단위 핑퐁(대기가 프레임마다
+            // 일어나는 부하)에서 그것이 곧 프레임당 할당이었다(ADR-0008 후속 실측의
+            // 할당 원인 2. 청크 벤치마크는 소비 스레드가 잠들지 않아 이 경로를 가렸다).
+            // 재사용 이벤트 + 캐시된 콜백으로 무할당 블로킹 대기를 한다. 전용 스레드의
+            // 블로킹은 의도된 동작이다(타입 문서).
+            _wakeSignal.Reset();
+            ValueTaskAwaiter<bool> awaiter = wait.GetAwaiter();
+            awaiter.UnsafeOnCompleted(_wakeCallback);
+            _wakeSignal.Wait();
+            return awaiter.GetResult();
         }
         catch (OperationCanceledException)
         {

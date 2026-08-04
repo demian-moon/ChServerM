@@ -34,8 +34,17 @@ namespace ChServerM.Bench.Concurrency;
 [Config(typeof(BenchConfig))]
 public class PartitionExclusiveBenchmarks
 {
+    /// <summary>바쁜 소비자 시나리오의 파티션당 게시자 수.</summary>
+    /// <remarks>
+    /// 게시자 1(핑퐁)은 프레임마다 소비 스레드가 잠들고 깨는 최악 사례다. 게시자가
+    /// 여럿이면 소비 스레드가 계속 바빠 깨우기 비용이 사라진다 — 파티션당 커넥션이
+    /// 여럿인 실제 부하에 가깝다.
+    /// </remarks>
+    private const int BusyProducersPerPartition = 4;
+
     private PartitionedExecutionModel _model = null!;
     private ExclusiveProbe[] _probes = null!;
+    private ExclusiveProbe[] _busyProbes = null!;
 
     /// <summary>파티션 수. 판정은 물리 코어 수(12)까지만 본다.</summary>
     /// <remarks>
@@ -58,6 +67,12 @@ public class PartitionExclusiveBenchmarks
         for (int i = 0; i < PartitionCount; i++)
         {
             _probes[i] = new ExclusiveProbe(seed: i + 1);
+        }
+
+        _busyProbes = new ExclusiveProbe[PartitionCount * BusyProducersPerPartition];
+        for (int i = 0; i < _busyProbes.Length; i++)
+        {
+            _busyProbes[i] = new ExclusiveProbe(seed: i + 1);
         }
     }
 
@@ -112,6 +127,34 @@ public class PartitionExclusiveBenchmarks
         return total;
     }
 
+    /// <summary>파티션당 게시자 여럿 — 소비 스레드가 잠들지 않는 구성의 왕복 비용.</summary>
+    /// <remarks>
+    /// `BENCHMARKS.md` 의 미측정 항목이었다. 핑퐁 측정의 역확장이 깨우기 비용 때문인지
+    /// 파티션 메커니즘 자체 때문인지를 이 곡선이 가른다.
+    /// </remarks>
+    [Benchmark(Description = "프레임 단위 배타 왕복 (바쁜 소비자)")]
+    public long ExclusiveRoundTripsBusyConsumer()
+    {
+        int producers = PartitionCount * BusyProducersPerPartition;
+        int frames = PartitionWorkload.TotalUnits / producers;
+        Task<long>[] tasks = new Task<long>[producers];
+
+        for (int i = 0; i < producers; i++)
+        {
+            tasks[i] = ProduceAsync(_model.GetPartition(i / BusyProducersPerPartition), _busyProbes[i], frames);
+        }
+
+        Task.WaitAll(tasks);
+
+        long total = 0;
+        foreach (Task<long> producer in tasks)
+        {
+            total += producer.Result;
+        }
+
+        return total;
+    }
+
     private static async Task<long> ProduceAsync(IExecutionPartition partition, ExclusiveProbe probe, int frames)
     {
         for (int i = 0; i < frames; i++)
@@ -132,7 +175,7 @@ public class PartitionExclusiveBenchmarks
     /// 같은 메커니즘(게시 → 파티션 실행 → 신호 → 재개)만 재현한다. 측정 대상은
     /// Hosting 이 아니라 <b>파티션의 배타 왕복 그 자체</b>다.
     /// </remarks>
-    private sealed class ExclusiveProbe : IPartitionExclusiveWork, IValueTaskSource
+    private sealed class ExclusiveProbe : IPartitionExclusiveWork, IValueTaskSource, System.Threading.IThreadPoolWorkItem
     {
         private ManualResetValueTaskSourceCore<bool> _source;
         private long _acc;
@@ -141,8 +184,9 @@ public class PartitionExclusiveBenchmarks
         {
             _acc = seed;
 
-            // 게시자 재개를 파티션 스레드에서 인라인하지 않는다 — 실물 게이트와 같은 이유.
-            _source.RunContinuationsAsynchronously = true;
+            // 게시자 재개를 파티션 스레드에서 인라인하지 않되, 큐 항목 할당 없이 —
+            // 실물 게이트(PartitionDispatchGate)와 같은 IThreadPoolWorkItem 방식이다.
+            _source.RunContinuationsAsynchronously = false;
         }
 
         public long Result => _acc;
@@ -164,9 +208,11 @@ public class PartitionExclusiveBenchmarks
         {
             // 프레임당 약 1µs 의 CPU 작업 — 실제 핸들러 규모(PartitionWorkload 문서 참조).
             _acc = PartitionWorkload.ExecuteUnit(_acc);
-            _source.SetResult(true);
+            System.Threading.ThreadPool.UnsafeQueueUserWorkItem(this, preferLocal: true);
             return ValueTask.CompletedTask;
         }
+
+        void System.Threading.IThreadPoolWorkItem.Execute() => _source.SetResult(true);
 
         void IValueTaskSource.GetResult(short token) => _source.GetResult(token);
 
