@@ -310,7 +310,15 @@ public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimit
         }
 
         connection.Start();
-        _connections[connection.Id] = new ActiveConnection(connection, RunHandlerAsync(handler, connection));
+
+        // 등록이 핸들러 기동보다 먼저다. 반대 순서면 즉시 끊긴 커넥션(포트 스캐너 등)의
+        // 정리(finally 의 TryRemove)가 등록보다 먼저 실행될 수 있고, 그 죽은 항목은 영구히
+        // 남는다 — ConnectionCount 가 부풀어 상한 판정이 살아 있는 연결을 거부하게 된다
+        // (2026-08-04 감사 H1). Completion 은 TCS 프록시로 두고 핸들러 정리가 끝난 뒤 알린다.
+        TaskCompletionSource completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        _connections[connection.Id] = new ActiveConnection(connection, completion.Task);
+
+        _ = RunHandlerAsync(handler, connection, completion);
     }
 
     /// <summary>핸들러를 돌리고, 끝나면 반드시 커넥션을 정리하고 목록에서 뺀다.</summary>
@@ -318,7 +326,10 @@ public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimit
     /// <b><c>finally</c>가 핵심이다.</b> 목록 제거를 빠뜨리면 종료된 커넥션이 영원히 남아
     /// <see cref="StopAsync"/>가 끝나지 않는다 (CLAUDE.md 9.2).
     /// </remarks>
-    private async Task RunHandlerAsync(IConnectionHandler handler, SocketConnection connection)
+    private async Task RunHandlerAsync(
+        IConnectionHandler handler,
+        SocketConnection connection,
+        TaskCompletionSource completion)
     {
         try
         {
@@ -339,7 +350,16 @@ public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimit
         finally
         {
             _connections.TryRemove(connection.Id, out _);
-            await connection.DisposeAsync().ConfigureAwait(false);
+
+            try
+            {
+                await connection.DisposeAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                // StopAsync 가 이 신호로 드레인 완료를 판정한다. 정리가 던져도 반드시 알린다.
+                completion.SetResult();
+            }
         }
     }
 

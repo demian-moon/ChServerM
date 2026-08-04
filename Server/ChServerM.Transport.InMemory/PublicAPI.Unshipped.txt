@@ -41,6 +41,8 @@ ChServerM.Transport.InMemory.InMemoryTransportOptions.PauseWriterThreshold.get -
 ChServerM.Transport.InMemory.InMemoryTransportOptions.PauseWriterThreshold.set -> void
 ChServerM.Transport.InMemory.InMemoryTransportOptions.ResumeWriterThreshold.get -> long
 ChServerM.Transport.InMemory.InMemoryTransportOptions.ResumeWriterThreshold.set -> void
+ChServerM.Transport.InMemory.InMemoryTransportOptions.ShutdownTimeout.get -> System.TimeSpan
+ChServerM.Transport.InMemory.InMemoryTransportOptions.ShutdownTimeout.set -> void
 ChServerM.Transport.InMemory.InMemoryTransportOptions.Validate() -> void
 const ChServerM.Transport.InMemory.InMemoryTransportOptions.DefaultPauseWriterThreshold = 65536 -> long
 const ChServerM.Transport.InMemory.InMemoryTransportOptions.DefaultResumeWriterThreshold = 32768 -> long

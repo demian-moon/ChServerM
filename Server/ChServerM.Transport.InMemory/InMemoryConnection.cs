@@ -47,21 +47,27 @@ public sealed class InMemoryConnection : IConnection, IConnectionEndPointFeature
 {
     private readonly PipeReader _input;
     private readonly PipeWriter _output;
+    private readonly TimeSpan _drainTimeout;
     private readonly CancellationTokenSource _closed = new();
 
-    /// <summary>0 = 열림, 1 = 닫힘. <see cref="Interlocked"/>로만 바꾼다.</summary>
+    /// <summary>0 = 열림, 1 = 종료 진입(<see cref="Abort"/> 또는 <see cref="DisposeAsync"/> 첫 호출).</summary>
     private int _closedFlag;
+
+    /// <summary>0 = 미완료, 1 = 파이프 완료 처리 끝. 완료는 정확히 한 번만 한다.</summary>
+    private int _completed;
 
     internal InMemoryConnection(
         ConnectionId id,
         PipeReader input,
         PipeWriter output,
         EndPoint? localEndPoint,
-        EndPoint? remoteEndPoint)
+        EndPoint? remoteEndPoint,
+        TimeSpan drainTimeout)
     {
         Id = id;
         _input = input;
         _output = output;
+        _drainTimeout = drainTimeout;
         LocalEndPoint = localEndPoint;
         RemoteEndPoint = remoteEndPoint;
 
@@ -97,52 +103,72 @@ public sealed class InMemoryConnection : IConnection, IConnectionEndPointFeature
     public ConnectionCloseInfo CloseInfo { get; private set; }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// <b>소유하지 않은 파이프 끝을 <c>Complete</c> 하지 않는다.</b> <see cref="Input"/>은
+    /// 읽기 루프가, <see cref="Output"/>은 쓰기 경로가 소유한다(타입 문서). 여기서 남의
+    /// 끝을 완료하면 디스패치에서 돌아온 읽기 루프의 <c>AdvanceTo</c> 가 던지고, 같은
+    /// 코드가 TCP 에서는 멀쩡히 돈다 — 전송 중립 검증(ADR-0004)이 깨진다
+    /// (2026-08-04 감사 H2). 여기서는 <b>대기만 깨운다</b>: 소유자들이 깨어나 자기 종료
+    /// 경로를 밟고, 파이프 완료는 <see cref="DisposeAsync"/>가 맡는다.
+    /// TCP(<c>SocketConnection</c>)와 같은 순서다.
+    /// </remarks>
     public void Abort(in ConnectionCloseInfo info)
     {
         // 여러 번 불러도 안전해야 한다(IConnection 계약). 첫 호출만 이유를 기록한다.
-        if (Interlocked.Exchange(ref _closedFlag, 1) != 0)
+        if (Interlocked.Exchange(ref _closedFlag, 1) == 0)
         {
-            return;
+            CloseInfo = info;
         }
 
-        CloseInfo = info;
-
-        // 대기 중인 송신 데이터를 보장하지 않는다 — 그것이 Abort 와 DisposeAsync 의 차이다.
+        // 재호출에도 깨우기는 반복한다 — 종료 드레인에 걸린 플러시(H3)를 나중에 온
+        // Abort(예: StopAsync 의 강제 종료)가 깨울 수 있어야 한다.
         _input.CancelPendingRead();
-        _input.Complete();
-        _output.Complete();
+        _output.CancelPendingFlush();
 
         SignalClosed();
     }
 
     /// <inheritdoc />
     /// <remarks>
-    /// 정상 종료다. 남은 송신 데이터를 내보낸 뒤 파이프를 완료한다.
+    /// 정상 종료다. 남은 송신 데이터를 <b>상한 시간 안에서</b> 내보낸 뒤 파이프를 완료한다.
     /// 상대는 <c>ReadResult.IsCompleted</c> 로 이것을 관측한다.
+    /// <see cref="Abort"/> 뒤에 불리면 드레인 없이 완료만 한다 — 대기 중 송신을
+    /// 보장하지 않는 것이 <see cref="Abort"/>의 계약이다.
     /// </remarks>
     public async ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref _closedFlag, 1) != 0)
-        {
-            _closed.Dispose();
-            return;
-        }
+        bool graceful = Interlocked.Exchange(ref _closedFlag, 1) == 0;
 
-        if (CloseInfo.Reason == CloseReason.None)
+        if (graceful && CloseInfo.Reason == CloseReason.None)
         {
             CloseInfo = new ConnectionCloseInfo(CloseReason.ServerClosed);
         }
 
-        try
+        // 파이프 완료는 정확히 한 번만. 두 번째 호출은 할 일이 없다.
+        if (Interlocked.Exchange(ref _completed, 1) != 0)
         {
-            await _output.FlushAsync(CancellationToken.None).ConfigureAwait(false);
+            return;
         }
+
+        if (graceful)
+        {
+            try
+            {
+                // ⚠ 드레인에는 반드시 상한이 있어야 한다. 상대가 읽지 않으면 백프레셔로
+                // 이 플러시가 영원히 끝나지 않고, 그때 _closedFlag 는 이미 1이라 어떤
+                // 경로도 이 대기를 깨울 수 없었다 — 서버 종료가 커넥션 하나에 볼모로
+                // 잡히는 결함이었다(2026-08-04 감사 H3). Abort 의 CancelPendingFlush 도
+                // 이 대기를 깨울 수 있다.
+                using CancellationTokenSource drainLimit = new(_drainTimeout);
+                await _output.FlushAsync(drainLimit.Token).ConfigureAwait(false);
+            }
 #pragma warning disable CA1031 // 종료 경로에서 예외를 던지면 나머지 정리가 실행되지 않는다.
-        catch (Exception)
-        {
-            // 상대가 이미 읽기를 닫았으면 플러시가 실패할 수 있다. 정상 경로다.
-        }
+            catch (Exception)
+            {
+                // 시간 초과·상대 닫힘 — 드레인을 포기하고 정리를 계속한다.
+            }
 #pragma warning restore CA1031
+        }
 
         await _output.CompleteAsync().ConfigureAwait(false);
         await _input.CompleteAsync().ConfigureAwait(false);

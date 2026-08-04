@@ -46,6 +46,15 @@ public sealed class InMemoryTransportOptions
     /// </remarks>
     public int MaxConnections { get; set; } = int.MaxValue;
 
+    /// <summary>정상 종료 시 남은 송신 데이터의 드레인을 기다리는 최대 시간.</summary>
+    /// <remarks>
+    /// <b>상한 없는 대기는 종료를 영원히 막는다.</b> 상대가 읽지 않으면 백프레셔로
+    /// 플러시가 끝나지 않는데, 그 대기에 상한이 없으면 서버 전체의 종료가 그 커넥션
+    /// 하나에 볼모로 잡힌다 — 실제로 발견된 결함이다(2026-08-04 감사 H3).
+    /// TCP 전송의 종료 상한과 같은 역할이다.
+    /// </remarks>
+    public TimeSpan ShutdownTimeout { get; set; } = TimeSpan.FromSeconds(5);
+
     /// <summary>설정을 검증한다.</summary>
     /// <exception cref="InvalidOperationException">값이 유효하지 않을 때.</exception>
     public void Validate()
@@ -67,6 +76,12 @@ public sealed class InMemoryTransportOptions
         {
             throw new InvalidOperationException(
                 $"{nameof(MaxConnections)}는 1 이상이어야 한다. 현재 값: {MaxConnections}");
+        }
+
+        if (ShutdownTimeout <= TimeSpan.Zero)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(ShutdownTimeout)}는 0보다 커야 한다. 현재 값: {ShutdownTimeout}");
         }
     }
 

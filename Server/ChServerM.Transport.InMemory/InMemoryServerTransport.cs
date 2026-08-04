@@ -44,6 +44,7 @@ public sealed class InMemoryServerTransport : IServerTransport, ITransportBuffer
     private readonly InMemoryEndPoint _endPoint;
     private readonly PipeOptions _pipeOptions;
     private readonly int _maxConnections;
+    private readonly TimeSpan _shutdownTimeout;
     private readonly IServerLogger _logger;
 
     private readonly ConcurrentDictionary<ConnectionId, ActiveConnection> _connections = new();
@@ -75,6 +76,7 @@ public sealed class InMemoryServerTransport : IServerTransport, ITransportBuffer
         _endPoint = endPoint;
         _pipeOptions = options.CreatePipeOptions();
         _maxConnections = options.MaxConnections;
+        _shutdownTimeout = options.ShutdownTimeout;
         _logger = logger ?? NullServerLogger.Instance;
         MaxBufferedBytesPerConnection = options.PauseWriterThreshold;
     }
@@ -210,13 +212,18 @@ public sealed class InMemoryServerTransport : IServerTransport, ITransportBuffer
         ConnectionId clientId = NextConnectionId();
 
         InMemoryConnection serverSide = new(
-            serverId, clientToServer.Reader, serverToClient.Writer, _endPoint, clientEndPoint);
+            serverId, clientToServer.Reader, serverToClient.Writer, _endPoint, clientEndPoint, _shutdownTimeout);
 
         InMemoryConnection clientSide = new(
-            clientId, serverToClient.Reader, clientToServer.Writer, clientEndPoint, _endPoint);
+            clientId, serverToClient.Reader, clientToServer.Writer, clientEndPoint, _endPoint, _shutdownTimeout);
 
-        Task completion = RunHandlerAsync(handler, serverSide);
-        _connections[serverId] = new ActiveConnection(serverSide, completion);
+        // 등록이 핸들러 기동보다 먼저다. 반대 순서면 즉시 끝난 핸들러의 정리(finally 의
+        // TryRemove)가 등록보다 먼저 실행돼 죽은 항목이 영구히 남는다 — TCP 와 같은
+        // 결함 부류(2026-08-04 감사 H1). Completion 은 TCS 프록시로 두고 정리 뒤 알린다.
+        TaskCompletionSource completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        _connections[serverId] = new ActiveConnection(serverSide, completion.Task);
+
+        _ = RunHandlerAsync(handler, serverSide, completion);
 
         return clientSide;
     }
@@ -227,7 +234,10 @@ public sealed class InMemoryServerTransport : IServerTransport, ITransportBuffer
     /// 영원히 남아 <see cref="StopAsync"/>가 끝나지 않는다 — 락-프리 상태를
     /// <c>finally</c>로 복원한다는 규약(CLAUDE.md 9.2)이 그대로 적용되는 자리다.
     /// </remarks>
-    private async Task RunHandlerAsync(IConnectionHandler handler, InMemoryConnection connection)
+    private async Task RunHandlerAsync(
+        IConnectionHandler handler,
+        InMemoryConnection connection,
+        TaskCompletionSource completion)
     {
         try
         {
@@ -248,7 +258,16 @@ public sealed class InMemoryServerTransport : IServerTransport, ITransportBuffer
         finally
         {
             _connections.TryRemove(connection.Id, out _);
-            await connection.DisposeAsync().ConfigureAwait(false);
+
+            try
+            {
+                await connection.DisposeAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                // StopAsync 가 이 신호로 드레인 완료를 판정한다. 정리가 던져도 반드시 알린다.
+                completion.SetResult();
+            }
         }
     }
 
