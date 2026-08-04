@@ -178,12 +178,12 @@ Core에 들어간 인터페이스는 되돌리기 비용이 가장 크다 — �
 ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 Phase로 다룬다.
 
 - [x] ⚠ **와이어 헤더 레이아웃 확정** — 16B 고정, 리틀 엔디안. **`MemoryMarshal`을 쓰지 않고 `BinaryPrimitives`만** 쓴다(정렬·패딩·호스트 엔디안에 와이어 포맷이 끌려가지 않는다). 버전 필드 포함. 레거시 52B(실데이터 13B) → 16B
-- [ ] length-prefix 디코더 — varint / fixed32 두 가지 (진행 중: fixed32 완료(`FixedHeaderFrameDecoder`). **varint 미착수** — 두 번째 구현이 나오기 전까지 `IFrameDecoder`는 가설로 취급한다)
+- [x] length-prefix 디코더 — varint / fixed32 두 가지 (2026-08-04 완료: fixed32(`FixedHeaderFrameDecoder`) + varint(`VarintFrameDecoder`/`VarintFrameEncoder`, `374299b`). **`IFrameDecoder` 가설 해소** — 정반대 성질(가변 2~8B 헤더, 버전·플래그·일련번호 없음)이 같은 계약에 들어왔다. LEB128 정규형만 수용(비정규는 Malformed — 표현이 여럿이면 Phase 9 AEAD 가 흔들린다), 프레임당 할당 0 실측, 교체 테스트로 같은 에코 핸들러가 고정/varint × 인메모리/TCP 4조합에서 동작(DoD-5))
 - [x] 부분 프레임 처리 — 헤더가 세그먼트를 넘을 때만 16B `stackalloc`(힙 할당 0). 세그먼트 크기 1~64 및 헤더 16B의 모든 분할 지점을 테스트
 - [x] **프레임 오류 처리 정책** — 길이 이상·버전 불일치·미정의 플래그·예약 필드 비영 시 커넥션 종료. 재동기화를 시도하지 않는다(다음 경계를 알 수 없다). 체크섬 필드는 두지 않는다 — 레거시 검증 함수는 본문이 `return true`였고 무결성은 Phase 9 AEAD가 담당한다. 레거시는 예외를 잡고 루프를 계속해 상태 머신이 어긋난 채 파싱을 이어갔다(프레이밍 desync). `TryXxx`로 처리하고 오류 프레임은 커넥션을 닫는다
 - [x] 최대 프레임 크기 상한 — `MaxPayloadLength` + 절대 상한 64MiB. 길이 필드를 `uint`인 채로 비교한다(`int` 캐스팅 후 비교하면 2GB 이상이 음수가 된다). **버퍼를 잡기 전에** 판정
 - [x] 프레임 조립 상태 머신 — **상태 머신이 필요 없는 설계로 해소했다.** 부분 프레임 상태는 `PipeReader` 버퍼가 이미 들고 있으므로 디코더는 무상태이고, 인스턴스 하나를 모든 커넥션이 공유한다. 레거시가 커넥션마다 5단 상태를 들고 있다가 예외 한 번에 desync 된 원인이 구조적으로 사라진다
-- [ ] ⚠ **Core 프레이밍 계약의 고정 헤더 결박 재검토** — `FrameHeader`(구체 와이어 포맷)가 Core 에 있고 `IFrameEncoder.HeaderSize`(상수 전제)·`MessageContext.Header` 가 그것에 결박돼, varint(가변 헤더)·델리미터 구현과 `stateless-web` 프로필(HTTP 는 `FrameHeader` 를 합성해야 함)을 막는다(2026-08-04 감사 H4). **Shipped 승격 전이 수정 비용이 가장 싼 마지막 시점** — 헤더를 어댑터 소유로 내리거나 디스패치 최소 계약(MessageId+Payload)만 Core 에 남기는 방향을 varint 디코더 착수와 함께 결정한다
+- [x] ⚠ **Core 프레이밍 계약의 고정 헤더 결박 재검토** — (2026-08-04 해소, **ADR-0010** + `e162534`) 논리 엔벨로프 방향 채택: Core 에 `MessageEnvelope`(MessageId+Flags+Sequence) 신설, `FrameHeader` 는 `ChServerM.Framing` 으로 이동, `IFrameEncoder.HeaderSize`(상수 전제) → `MaxHeaderSize`(상한) + `WriteHeader(writer, envelope, payloadLength)`. 표현 불가 값은 인코더가 예외로 거부(조용한 유실 금지). 대안(Features 경유 최소 계약)은 프레임마다 feature 조회가 핫패스에 들어와 탈락 — 근거는 ADR-0010
 - [ ] **조각 재조립(`Fragmented`/`EndOfMessage`)** — 임계값보다 큰 논리 메시지를 나눠 보내는 경로. **재조립 버퍼에 상한과 미완성 조각 만료가 반드시 필요하다** — 마지막 조각이 오지 않는 부분 메시지를 무한정 들고 있으면 그 자체가 메모리 고갈 공격 경로다 (ADR-0007 미해결 항목)
 - [x] 퍼징 테스트 — 난수 11만 회(단일 세그먼트 5시드×2만 + 분절 2시드×5천 — 종전 "12만"은 과기재, 2026-08-04 정정) + 비트 플립 2만 회 + 잘린 프레임 전 오프셋 + 길이 필드 극단값. 불변식 4종(예외 없음 / 버퍼 밖 미참조 / **반드시 전진** / `NeedMoreData`는 버퍼 전체 검사). 시드 고정으로 재현 가능
 - [x] 벤치마크: 프레임당 파싱 비용, 할당 0 확인 — 디코딩 **약 29 ns**, 할당 0. 초당 10만 프레임이면 코어 하나의 0.3%로, ADR-0002 의 "헤더 파싱 비용 0" 주장이 성립한다. 세그먼트 경계 경로는 14~19% 느리지만 절대값 4 ns 라 최적화할 이유가 없음을 확인
@@ -202,7 +202,7 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 - [x] 소켓 옵션 노출 — 버퍼 크기, linger, reuseaddr (2026-08-04: `SocketReceiveBufferSize`/`SocketSendBufferSize`/`LingerSeconds`/`ReuseAddress` — 전부 표준 옵션이라 크로스 플랫폼. **`IOControlCode.KeepAliveValues`는 여전히 배제** — Windows 전용, 레거시의 이식 차단 요인)
 - [x] **거부 이유를 클라이언트에 알린다** — (2026-08-04: `FrameworkMessageIds.ConnectionRejected`(40004) + `TcpTransportOptions.RejectionNotice` 원시 바이트. 전송은 프레이밍을 모르므로 조립하는 쪽이 인코더로 프레임을 만들어 넣고, 전송은 최선 노력 동기 send 후 닫는다 — 거부 경로의 비동기 대기는 그 자체가 공격 표면이다. 상한 도달의 동적 판정·정책은 Phase 10 `IAdmissionControl` 의 몫)
 - [x] 통합 테스트: 연결/에코/대량 동시 접속/비정상 종료 — 연결·에코·200KB 다중 세그먼트·200프레임 파이프라이닝·16커넥션 동시·비정상 종료 격리·포트 점유(xUnit) + **1만 동시 접속은 부하 러너로 검증**(2026-08-04, 실패 0·정리 후 잔존 0)
-- [ ] 크로스 플랫폼 검증 — Linux/Windows 소켓 동작 차이 (미푸시라 원격 CI가 아직 돌지 않았다. 이식 불가 API는 코드에서 이미 배제)
+- [x] 크로스 플랫폼 검증 — Linux/Windows 소켓 동작 차이 (2026-08-04 충족: 액터 전환 + Phase 5 전체 분량 12커밋 푸시 후 원격 CI ubuntu·windows 양쪽 통과 — run 30893493578, build·test·audit·AOT. 통합 테스트가 idle timeout·소켓 옵션·비정상 종료·1만 접속 경로를 포함한다. 이식 불가 API(`IOControlCode.KeepAliveValues` 등)는 코드에서 이미 배제)
 - [x] 벤치마크: 에코 RPS, p50/p99/p999 레이턴시, 커넥션당 메모리, 동시 커넥션 상한 — `Bench/ChServerM.Bench.LoadRunner`(ADR-0009). 수치는 `BENCHMARKS.md` Phase 5 게이트 절
 
 **게이트**: 1만 동시 커넥션에서 안정 동작하고 p99 레이턴시 기준선이 기록됐을 때.
