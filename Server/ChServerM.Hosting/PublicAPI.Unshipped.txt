@@ -42,7 +42,7 @@ ChServerM.Hosting.Dispatch.MessageDispatcherBuilder.Use(System.Func<ChServerM.Di
 ChServerM.Hosting.Dispatch.MessageDispatcherBuilder.UseLogger(ChServerM.Diagnostics.IServerLogger! logger) -> ChServerM.Hosting.Dispatch.MessageDispatcherBuilder!
 ChServerM.Hosting.FrameWriter
 ChServerM.Hosting.FramedConnectionHandler
-ChServerM.Hosting.FramedConnectionHandler.FramedConnectionHandler(ChServerM.Framing.IFrameDecoder! decoder, ChServerM.Dispatch.IMessageDispatcher! dispatcher, ChServerM.Hosting.FramedConnectionOptions? options = null, System.TimeProvider? timeProvider = null, ChServerM.Diagnostics.IServerLogger? logger = null) -> void
+ChServerM.Hosting.FramedConnectionHandler.FramedConnectionHandler(ChServerM.Framing.IFrameDecoder! decoder, ChServerM.Dispatch.IMessageDispatcher! dispatcher, ChServerM.Hosting.FramedConnectionOptions? options = null, System.TimeProvider? timeProvider = null, ChServerM.Diagnostics.IServerLogger? logger = null, ChServerM.Execution.IExecutionModel? executionModel = null) -> void
 ChServerM.Hosting.FramedConnectionHandler.RunAsync(ChServerM.Connections.IConnection! connection) -> System.Threading.Tasks.Task!
 ChServerM.Hosting.FramedConnectionOptions
 ChServerM.Hosting.FramedConnectionOptions.CloseOnDeserializationFailure.get -> bool
@@ -55,9 +55,6 @@ ChServerM.Hosting.FramedConnectionOptions.CloseOnPolicyRejection.get -> bool
 ChServerM.Hosting.FramedConnectionOptions.CloseOnPolicyRejection.set -> void
 ChServerM.Hosting.FramedConnectionOptions.FramedConnectionOptions() -> void
 ChServerM.Hosting.FramedConnectionOptions.Validate() -> void
-ChServerM.Hosting.PartitionedConnectionHandler
-ChServerM.Hosting.PartitionedConnectionHandler.PartitionedConnectionHandler(ChServerM.Connections.IConnectionHandler! inner, ChServerM.Execution.IExecutionModel! executionModel) -> void
-ChServerM.Hosting.PartitionedConnectionHandler.RunAsync(ChServerM.Connections.IConnection! connection) -> System.Threading.Tasks.Task!
 ChServerM.Hosting.ServerBuilder
 ChServerM.Hosting.ServerBuilder.Build() -> ChServerM.Hosting.ChServerMServer!
 ChServerM.Hosting.ServerBuilder.ConfigureConnection(System.Action<ChServerM.Hosting.FramedConnectionOptions!>! configure) -> ChServerM.Hosting.ServerBuilder!

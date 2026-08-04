@@ -14,9 +14,21 @@ namespace ChServerM.Concurrency;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>존재 이유.</b> ADR-0005 의 핵심 — 같은 키의 작업이 항상 이 하나의 스레드로 오므로
+/// <b>존재 이유.</b> ADR-0005 의 핵심 — 같은 키의 작업이 항상 이 하나의 파티션으로 오므로
 /// <b>락 없이 순서가 보장</b>되고, 다른 키는 다른 파티션에서 완전히 독립적으로 돈다.
-/// 여기 안에서 도는 코드는 동기화가 필요 없다는 것을 <b>계약으로 보장받는다.</b>
+/// </para>
+/// <para>
+/// <b>보장의 정의는 배타성+FIFO 다 (ADR-0008).</b> "같은 스레드에서 실행"이 아니다 —
+/// 그 정의는 <c>await</c> 연속이 스레드풀로 이탈하는 실전 경로에서 반증됐다.
+/// 여기서의 배타성은 <b>완료 대기</b>로 강제된다: <see cref="TryEnqueueExclusive"/> 로
+/// 들어온 작업은 그 <see cref="ValueTask"/> 가 완료될 때까지 다음 큐 항목의 시작을 막는다.
+/// 그래서 작업이 <c>ConfigureAwait(false)</c> 로 어느 스레드에서 이어지든
+/// <b>같은 파티션의 다른 작업과 절대 겹치지 않는다.</b>
+/// </para>
+/// <para>
+/// <b>⚠ 교착 규약.</b> 배타 작업 안에서 <b>이 파티션의</b> <see cref="Scheduler"/> 로
+/// 스케줄한 태스크를 <c>await</c> 하면 교착한다 — 소비 스레드는 그 배타 작업의 완료를
+/// 기다리는 중이다. 후속 작업은 <see cref="TryPost{TWork}"/> 로 기다리지 않고 게시한다.
 /// </para>
 /// <para>
 /// <b>큐가 하나인 이유.</b> 스케줄러로 들어오는 연속(continuation)과
@@ -163,6 +175,18 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
         return false;
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// <b>용량 검사를 하지 않는다.</b> 이 경로의 작업은 이미 승인됐고(커넥션 수락),
+    /// 게시자가 완료를 기다리므로 게시자당 동시 1건이다 — 유입 통제는
+    /// <see cref="TryPost{TWork}"/> 의 몫이다. <see langword="false"/> 는 종료 중뿐이다.
+    /// </remarks>
+    public bool TryEnqueueExclusive(IPartitionExclusiveWork work)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+        return _writer.TryWrite(work);
+    }
+
     /// <summary>스케줄러가 만든 <see cref="Task"/> 를 큐에 넣는다.</summary>
     /// <remarks>
     /// <b>거부하지 않는다.</b> 거부하면 그 태스크를 <c>await</c> 하던 코드가
@@ -277,6 +301,13 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
         // 항목별 try/catch. 나쁜 항목 하나가 이 파티션의 모든 커넥션을 죽이지 않게 한다.
         try
         {
+            // 빈도 순으로 판정한다. 프레임 디스패치(배타 작업)가 압도적으로 잦다.
+            if (item is IPartitionExclusiveWork exclusive)
+            {
+                WaitForExclusiveCompletion(exclusive.ExecuteAsync());
+                return;
+            }
+
             if (item is Task task)
             {
                 _scheduler.ExecuteInPartition(task);
@@ -307,6 +338,24 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
         {
             Interlocked.Increment(ref _executedCount);
         }
+    }
+
+    /// <summary>배타 작업이 완료될 때까지 다음 큐 항목의 시작을 막는다.</summary>
+    /// <remarks>
+    /// <b>이 블로킹이 배타성 보장의 실체다</b> (ADR-0008). 작업의 <c>await</c> 연속이
+    /// 어느 스레드에서 이어지든, 소비 스레드가 여기서 기다리는 동안 같은 파티션의
+    /// 다른 작업은 시작될 수 없다. 전용 스레드의 블로킹은 의도된 동작이다(타입 문서).
+    /// 동기로 완료되는 작업(대부분의 프레임)은 블로킹도 할당도 없다 —
+    /// <c>AsTask()</c> 할당은 진짜 비동기 작업에서만 생긴다.
+    /// </remarks>
+    private static void WaitForExclusiveCompletion(ValueTask completion)
+    {
+        if (completion.IsCompletedSuccessfully)
+        {
+            return;
+        }
+
+        completion.AsTask().GetAwaiter().GetResult();
     }
 
     private void LogRejected()

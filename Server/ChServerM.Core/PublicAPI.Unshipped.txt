@@ -112,7 +112,10 @@ ChServerM.Execution.IExecutionModel.PartitionCount.get -> int
 ChServerM.Execution.IExecutionPartition
 ChServerM.Execution.IExecutionPartition.Index.get -> int
 ChServerM.Execution.IExecutionPartition.Scheduler.get -> System.Threading.Tasks.TaskScheduler!
+ChServerM.Execution.IExecutionPartition.TryEnqueueExclusive(ChServerM.Execution.IPartitionExclusiveWork! work) -> bool
 ChServerM.Execution.IExecutionPartition.TryPost<TWork>(in TWork work) -> bool
+ChServerM.Execution.IPartitionExclusiveWork
+ChServerM.Execution.IPartitionExclusiveWork.ExecuteAsync() -> System.Threading.Tasks.ValueTask
 ChServerM.Execution.IPartitionWork
 ChServerM.Execution.IPartitionWork.Execute() -> void
 ChServerM.Features.FeatureCollection

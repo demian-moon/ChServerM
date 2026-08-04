@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using ChServerM.Connections;
 using ChServerM.Diagnostics;
 using ChServerM.Dispatch;
+using ChServerM.Execution;
 using ChServerM.Framing;
 using ChServerM.Time;
 
@@ -38,7 +39,16 @@ namespace ChServerM.Hosting;
 /// 두 루프가 같은 <see cref="PipeReader"/>를 다투게 되어 스트림이 손상된다.
 /// </para>
 /// <para>
-/// <b>할당.</b> 커넥션당 <see cref="MessageContext"/> 하나. 프레임당 할당은 0이다
+/// <b>실행 모델 통합 (ADR-0008).</b> 실행 모델이 주어지면 프레임 디스패치를 커넥션의
+/// 파티션 배타 구간에서 실행한다 — 같은 파티션의 다른 작업과 절대 겹치지 않는다.
+/// 프레임 단위로 통합하는 이유: 배타성은 "루프를 어느 스레드에서 시작했는가"로는 얻을 수
+/// 없고(<c>await</c> 연속이 이탈한다 — ADR-0008 의 반증), 완료 대기가 가능한 단위로
+/// 게시해야 한다. 실행 모델이 없으면 호출 스레드에서 그대로 디스패치한다
+/// (무상태 웹 프로필, ADR-0004).
+/// </para>
+/// <para>
+/// <b>할당.</b> 커넥션당 <see cref="MessageContext"/> 하나 + (실행 모델이 있으면)
+/// <see cref="PartitionDispatchGate"/> 하나. 프레임당 할당은 0이다
 /// (동기적으로 끝나는 핸들러 기준).
 /// </para>
 /// </remarks>
@@ -52,6 +62,7 @@ public sealed class FramedConnectionHandler : IConnectionHandler
     private readonly IMessageDispatcher _dispatcher;
     private readonly TimeProvider _timeProvider;
     private readonly IServerLogger _logger;
+    private readonly IExecutionModel? _executionModel;
     private readonly bool _closeOnHandlerNotFound;
     private readonly bool _closeOnDeserializationFailure;
     private readonly bool _closeOnPolicyRejection;
@@ -63,6 +74,10 @@ public sealed class FramedConnectionHandler : IConnectionHandler
     /// <param name="options">종료 정책. <see langword="null"/>이면 기본값.</param>
     /// <param name="timeProvider">시간 원본. <see langword="null"/>이면 <see cref="TimeProvider.System"/>.</param>
     /// <param name="logger">진단 로거. <see langword="null"/>이면 아무것도 기록하지 않는다.</param>
+    /// <param name="executionModel">
+    /// 실행 모델. 주어지면 프레임 디스패치가 커넥션의 파티션 배타 구간에서 실행된다
+    /// (ADR-0008). <see langword="null"/>이면 호출 스레드에서 그대로 디스패치한다.
+    /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="decoder"/> 또는 <paramref name="dispatcher"/>가 <see langword="null"/>일 때.</exception>
     /// <exception cref="InvalidOperationException">옵션이 유효하지 않을 때.</exception>
     public FramedConnectionHandler(
@@ -70,7 +85,8 @@ public sealed class FramedConnectionHandler : IConnectionHandler
         IMessageDispatcher dispatcher,
         FramedConnectionOptions? options = null,
         TimeProvider? timeProvider = null,
-        IServerLogger? logger = null)
+        IServerLogger? logger = null,
+        IExecutionModel? executionModel = null)
     {
         ArgumentNullException.ThrowIfNull(decoder);
         ArgumentNullException.ThrowIfNull(dispatcher);
@@ -82,6 +98,7 @@ public sealed class FramedConnectionHandler : IConnectionHandler
         _dispatcher = dispatcher;
         _timeProvider = timeProvider ?? TimeProvider.System;
         _logger = logger ?? NullServerLogger.Instance;
+        _executionModel = executionModel;
 
         // 값을 복사한다. 동작 중에 정책이 바뀌면 같은 커넥션 안에서 판정이 뒤바뀐다.
         _closeOnHandlerNotFound = options.CloseOnHandlerNotFound;
@@ -100,6 +117,16 @@ public sealed class FramedConnectionHandler : IConnectionHandler
 
         // 커넥션당 하나. 프레임마다 BeginFrame/EndFrame 으로 재사용한다.
         MessageContext context = new(connection);
+
+        // 실행 모델이 있으면 커넥션을 파티션에 배정하고 게이트를 하나 만든다(ADR-0008).
+        // 커넥션당 프레임은 순차이므로 게이트 하나로 충분하다 — 프레임당 할당 0.
+        IExecutionPartition? partition = null;
+        PartitionDispatchGate? gate = null;
+        if (_executionModel is not null)
+        {
+            partition = _executionModel.GetPartition(connection.Id.ToPartitionKey());
+            gate = new PartitionDispatchGate(_dispatcher, context);
+        }
 
         try
         {
@@ -146,7 +173,10 @@ public sealed class FramedConnectionHandler : IConnectionHandler
                         break;
                     }
 
-                    DispatchStatus status = await DispatchFrameAsync(context, decoded, token).ConfigureAwait(false);
+                    DispatchStatus status = gate is null
+                        ? await DispatchFrameAsync(context, decoded, token).ConfigureAwait(false)
+                        : await gate.DispatchExclusiveAsync(
+                            partition!, decoded, MonotonicTimestamp.Now(_timeProvider), token).ConfigureAwait(false);
 
                     buffer = buffer.Slice(decoded.Consumed);
                     consumed = decoded.Consumed;

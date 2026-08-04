@@ -6,6 +6,7 @@ ChServerM.Concurrency.ExecutionPartition.Index.get -> int
 ChServerM.Concurrency.ExecutionPartition.PendingExternalWork.get -> int
 ChServerM.Concurrency.ExecutionPartition.RejectedCount.get -> long
 ChServerM.Concurrency.ExecutionPartition.Scheduler.get -> System.Threading.Tasks.TaskScheduler!
+ChServerM.Concurrency.ExecutionPartition.TryEnqueueExclusive(ChServerM.Execution.IPartitionExclusiveWork! work) -> bool
 ChServerM.Concurrency.ExecutionPartition.TryPost<TWork>(in TWork work) -> bool
 ChServerM.Concurrency.PartitionedExecutionModel
 ChServerM.Concurrency.PartitionedExecutionModel.DisposeAsync() -> System.Threading.Tasks.ValueTask

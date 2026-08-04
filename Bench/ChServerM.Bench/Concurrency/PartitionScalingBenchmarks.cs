@@ -22,10 +22,12 @@ namespace ChServerM.Bench.Concurrency;
 /// 선형이면 파티션을 2배로 늘릴 때 소요 시간이 절반이 된다.
 /// </para>
 /// <para>
-/// <b>왜 스케줄러 경로인가.</b> 이것이 프로덕션의 주 경로다 —
-/// <c>PartitionedConnectionHandler</c> 가 읽기 루프를 파티션 스케줄러에 고정하고,
-/// 그 뒤 모든 작업이 그 위에서 돈다. <c>TryPost</c> 는 보조 경로이므로 별도로 잰다
-/// (<see cref="PartitionPostBenchmarks"/>).
+/// <b>이 곡선이 재는 것과 재지 않는 것 (ADR-0008 이후).</b> 파티션당 태스크 하나가
+/// 통짜 루프를 도는 <b>청크 단위</b> 측정이므로, 이 곡선이 보여주는 것은 전용 스레드들의
+/// 순수 계산 확장성 — 즉 <b>실행 모델의 상한</b>이다. 프레임당 큐·완료 신호·스레드 인계가
+/// 포함된 프로덕션 주 경로(<c>TryEnqueueExclusive</c>)의 메시지 단위 비용은
+/// <see cref="PartitionExclusiveBenchmarks"/> 가 잰다. <c>TryPost</c> 보조 경로는
+/// <see cref="PartitionPostBenchmarks"/>.
 /// </para>
 /// <para>
 /// <b>단일 생산자 병목을 피한 이유이기도 하다.</b> 한 스레드가 480,000건을 큐에 밀어넣으면

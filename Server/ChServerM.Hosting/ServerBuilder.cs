@@ -153,14 +153,9 @@ public sealed class ServerBuilder
         // 축 하나하나가 유효해도 조합이 성립하지 않을 수 있다.
         CompositionGuard.EnsureFrameFitsInTransportBuffer(transport, decoder, encoder);
 
+        // 실행 모델이 있으면 프레임 디스패치가 파티션 배타 구간에서 실행된다(ADR-0008).
         IConnectionHandler handler = new FramedConnectionHandler(
-            decoder, _dispatcher.Build(), _connectionOptions, _timeProvider, _logger);
-
-        // 실행 모델이 있으면 읽기 루프를 파티션에 고정한다(ADR-0005).
-        if (_executionModel is not null)
-        {
-            handler = new PartitionedConnectionHandler(handler, _executionModel);
-        }
+            decoder, _dispatcher.Build(), _connectionOptions, _timeProvider, _logger, _executionModel);
 
         return new ChServerMServer(transport, handler, encoder, _executionModel);
     }

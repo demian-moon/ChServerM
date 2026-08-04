@@ -14,7 +14,11 @@ namespace ChServerM.Execution;
 /// </para>
 /// <para>
 /// <b>ADR-0005에는 검증 조건이 붙어 있다.</b> 이 모델이 코어 수에 대해 선형 확장을
-/// 증명하지 못하면 결정 자체가 무효다. Phase 6 벤치마크에서 확인한다.
+/// 증명하지 못하면 결정 자체가 무효다. Phase 8 벤치마크에서 확인한다.
+/// </para>
+/// <para>
+/// <b>파티션의 보장은 배타성+FIFO 순서다</b>(ADR-0008). 스레드 어피니티가 아니다 —
+/// 상세는 <see cref="IExecutionPartition"/> 문서.
 /// </para>
 /// </remarks>
 public interface IExecutionModel : IAsyncDisposable
