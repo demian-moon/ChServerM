@@ -304,41 +304,48 @@ public sealed class PartitionedExecutionModelTests
     [Fact]
     public async Task ConcurrentProducers_AllWorkExecutesExactlyOnce()
     {
-        // 반복 실행으로 경합을 노린다. 단발 테스트는 이런 버그를 재현하지 못한다.
-        await using PartitionedExecutionModel model = new(new PartitionedExecutionOptions
+        // 반복 "실행"이어야 한다(CLAUDE.md 9.9) — 실행 안의 대량 반복은 인터리빙 기회가
+        // 실행당 한 번뿐이다(2026-08-04 감사). 모델 생성·소멸까지 포함해 반복해야
+        // 시작·종료 경로의 경합도 함께 노린다.
+        for (int iteration = 0; iteration < 10; iteration++)
         {
-            PartitionCount = 4,
-            QueueCapacity = 100_000,
-        });
-
-        const int ProducerCount = 8;
-        const int PerProducer = 2000;
-        const int Total = ProducerCount * PerProducer;
-
-        using CountdownEvent completed = new(Total);
-        Task[] producers = new Task[ProducerCount];
-
-        for (int p = 0; p < ProducerCount; p++)
-        {
-            int producer = p;
-            producers[p] = Task.Run(() =>
+            await using PartitionedExecutionModel model = new(new PartitionedExecutionOptions
             {
-                for (int i = 0; i < PerProducer; i++)
-                {
-                    PartitionKey key = PartitionKey.FromValue((ulong)((producer * PerProducer) + i));
-                    IExecutionPartition partition = model.GetPartition(key);
-
-                    while (!partition.TryPost(new SignalWork(completed)))
-                    {
-                        Thread.SpinWait(50);
-                    }
-                }
+                PartitionCount = 4,
+                QueueCapacity = 100_000,
             });
+
+            const int ProducerCount = 8;
+            const int PerProducer = 2000;
+            const int Total = ProducerCount * PerProducer;
+
+            using CountdownEvent completed = new(Total);
+            Task[] producers = new Task[ProducerCount];
+
+            for (int p = 0; p < ProducerCount; p++)
+            {
+                int producer = p;
+                producers[p] = Task.Run(() =>
+                {
+                    for (int i = 0; i < PerProducer; i++)
+                    {
+                        PartitionKey key = PartitionKey.FromValue((ulong)((producer * PerProducer) + i));
+                        IExecutionPartition partition = model.GetPartition(key);
+
+                        while (!partition.TryPost(new SignalWork(completed)))
+                        {
+                            Thread.SpinWait(50);
+                        }
+                    }
+                });
+            }
+
+            await Task.WhenAll(producers);
+
+            Assert.True(
+                completed.Wait(TimeSpan.FromSeconds(30)),
+                $"반복 {iteration}: 모든 작업이 실행되지 않았다.");
         }
-
-        await Task.WhenAll(producers);
-
-        Assert.True(completed.Wait(TimeSpan.FromSeconds(30)), "모든 작업이 실행되지 않았다.");
     }
 
     [Fact]

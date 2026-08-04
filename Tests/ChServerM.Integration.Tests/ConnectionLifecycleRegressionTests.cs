@@ -5,9 +5,11 @@ using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
+using ChServerM.Concurrency;
 using ChServerM.Connections;
 using ChServerM.Diagnostics;
 using ChServerM.Dispatch;
+using ChServerM.Execution;
 using ChServerM.Framing;
 using ChServerM.Hosting;
 using ChServerM.Identity;
@@ -202,6 +204,65 @@ public sealed class ConnectionLifecycleRegressionTests
         await harness.SendAsync(alive, ProbeMessageId, [1, 2, 3]);
         (_, byte[] echoed) = await harness.ReceiveAsync(alive, timeout.Token);
         Assert.Equal(new byte[] { 1, 2, 3 }, echoed);
+    }
+
+    /// <summary>
+    /// [감사 보강] 서버 생명주기 — 이중 시작이 거부되고, <c>StopAsync</c> 가 실행 모델까지
+    /// 정리한다("전송 먼저, 실행 모델 나중" 순서의 관측 가능한 결과).
+    /// </summary>
+    /// <remarks>
+    /// 2026-08-04 감사에서 <c>ChServerMServer</c> 생명주기가 무테스트로 지적됐다 —
+    /// 종료 순서 성질이 주석으로만 존재했다.
+    /// </remarks>
+    [Fact]
+    public async Task ServerLifecycle_StopDisposesExecutionModel_AndDoubleStartThrows()
+    {
+        using CancellationTokenSource timeout = new(TestTimeout);
+
+        PartitionedExecutionModel model = new(new PartitionedExecutionOptions { PartitionCount = 1 });
+        FramingOptions framing = new() { MaxPayloadLength = 1024 };
+        FixedHeaderFrameDecoder decoder = new(framing);
+        FixedHeaderFrameEncoder encoder = new(framing);
+
+        InMemoryTransportHub hub = new();
+        InMemoryEndPoint endPoint = new($"lifecycle-{Guid.NewGuid():N}");
+        InMemoryTransportOptions transportOptions = new();
+
+        await using ChServerMServer server = new ServerBuilder()
+            .UseTransport(new InMemoryServerTransport(hub, endPoint, transportOptions))
+            .UseFraming(decoder, encoder)
+            .UseExecutionModel(model)
+            .ConfigureDispatcher(d => d.MapRaw(new MessageId(ProbeMessageId), Echo()))
+            .Build();
+
+        await server.StartAsync(timeout.Token);
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => server.StartAsync(timeout.Token).AsTask());
+
+        // 왕복 한 번으로 서버가 실제로 동작함을 확인한 뒤 멈춘다 —
+        // "시작됐다"가 아니라 "메시지를 처리한다"를 확인해야 생명주기 검증이다.
+        await using (InMemoryClientTransport client = new(hub, null, transportOptions))
+        {
+            await using IConnection connection = await client.ConnectAsync(endPoint, timeout.Token);
+            await connection.WriteFrameAsync(
+                encoder, new MessageId(ProbeMessageId), [7], FrameFlags.None, sequence: 0);
+            byte[] echoed = await ReceiveFrameAsync(connection, decoder, timeout.Token);
+            Assert.Equal(new byte[] { 7 }, echoed);
+        }
+
+        await server.StopAsync(timeout.Token);
+
+        // StopAsync 는 실행 모델을 소유하므로 함께 정리해야 한다. 정리된 파티션은
+        // 새 작업을 받지 않는다 — 받는다면 갈 곳 없는 작업이 조용히 쌓인다.
+        Assert.False(model.GetPartition(0).TryPost(new NoopWork()));
+    }
+
+    private readonly struct NoopWork : IPartitionWork
+    {
+        public void Execute()
+        {
+            // 게시 가능 여부만 본다.
+        }
     }
 
     private static MessageDelegate Echo() => async context =>

@@ -87,21 +87,32 @@ public sealed class MiddlewarePipelineTests
     [Fact]
     public async Task Middleware_ThatRejects_StopsTheHandler()
     {
+        const ushort ProbeId = 200;
         int handlerCalls = 0;
 
         await using TestHarness harness = await TestHarness.StartAsync(builder => builder
-            .Use(next => _ => ValueTask.FromResult(DispatchStatus.RejectedByPolicy))
+            // EchoMessageId 만 거부한다 — 뒤따르는 프로브 왕복이 순서 동기화 장치가 된다.
+            .Use(next => context =>
+                context.Header.MessageId.Value == EchoMessageId
+                    ? ValueTask.FromResult(DispatchStatus.RejectedByPolicy)
+                    : next(context))
             .MapRaw(new MessageId(EchoMessageId), context =>
             {
                 Interlocked.Increment(ref handlerCalls);
                 return ValueTask.FromResult(DispatchStatus.Handled);
-            }));
+            })
+            .MapRaw(new MessageId(ProbeId), Echo(new FixedHeaderFrameEncoder(4096))));
 
         await using IConnection connection = await harness.ConnectAsync();
         await harness.SendAsync(connection, EchoMessageId, [1]);
 
-        // 거부됐으므로 응답이 없다. 커넥션은 기본 정책상 살아 있다.
-        await Task.Delay(50, TestTimeout.Token);
+        // "핸들러가 호출되지 않았다"는 부재 증명을 sleep 창에 걸지 않는다(2026-08-04 감사 —
+        // 느린 CI 에서 51ms 에 실행돼도 통과하는 거짓 통과). 같은 커넥션의 프레임은
+        // 순서대로 처리되므로, 뒤에 보낸 프로브의 응답이 오면 앞 프레임의 처리는
+        // 이미 끝난 것이다 — 그 시점의 0 이 진짜 0 이다.
+        await harness.SendAsync(connection, ProbeId, [2]);
+        _ = await harness.ReceiveAsync(connection, TestTimeout.Token);
+
         Assert.Equal(0, Volatile.Read(ref handlerCalls));
         Assert.False(connection.ConnectionClosed.IsCancellationRequested);
     }

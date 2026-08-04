@@ -42,7 +42,11 @@ Phase 5 이후 실측으로 대체한다.
 
 ### 2026-08-03 — ⚠ ADR-0005 검증: 파티션 모델 확장성 곡선
 
-- 환경: ENV-A, Release, ServerGC(Concurrent), 커밋 `3d6f4ff`
+- 환경: ENV-A, Release, ServerGC(Concurrent), 커밋 `3d6f4ff` — **⚠ 이 해시는 오기다
+  (2026-08-04 감사 발견).** `3d6f4ff` 에는 `Bench/` 가 없다. 벤치 코드는 다음 커밋
+  `d0bdea7` 에서 처음 커밋됐으므로 측정 시점의 작업 트리는 어느 커밋으로도 정확히
+  재현되지 않는다. 기록은 고치지 않고 남긴다(측정 자체는 유효하며, 재측정 시
+  `d0bdea7` 이후 코드를 쓴다). 이후 기록부터는 측정-커밋 대응을 명시한다
 - 실행: `dotnet run -c Release --project Bench/ChServerM.Bench -- --filter "*PartitionScaling*"`
 - 시나리오: 총 480,000 작업 단위(단위당 LCG 1,000회 ≈ 1µs)를 파티션에 균등 분배.
   각 파티션은 자기 스케줄러에서 `총량 / 파티션 수`를 실행한다.

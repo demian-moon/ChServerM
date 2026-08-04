@@ -83,7 +83,7 @@ C#(.NET 10 / C# 14) 기반의 **상업용 고성능 서버·클라이언트 프�
 
 ```
 ChServerM/
-├─ ChServerM.sln
+├─ ChServerM.slnx
 ├─ CLAUDE.md
 ├─ Directory.Build.props            # 공통 컴파일 옵션(nullable, AOT, unsafe, analyzer)
 ├─ Directory.Packages.props         # 중앙 패키지 버전 관리
@@ -100,6 +100,7 @@ ChServerM/
 │     └─ history/YYYY-MM-DD.md      # 일별 아카이브
 ├─ Server/
 │  ├─ ChServerM.Core/               # 추상화 전용. 서드파티 의존 0
+│  ├─ ChServerM.Framing/            # 고정 헤더 코덱 (프레이밍 축 구현)
 │  ├─ ChServerM.Buffers/            # 풀링, 슬랩 할당, Pipelines 유틸
 │  ├─ ChServerM.Hosting/            # ServerBuilder, DI, 옵션, 생명주기
 │  ├─ ChServerM.Transport.Tcp/

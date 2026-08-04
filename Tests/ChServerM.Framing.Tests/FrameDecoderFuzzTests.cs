@@ -33,9 +33,15 @@ public sealed class FrameDecoderFuzzTests
         {
             case FrameDecodeStatus.Decoded:
                 // 페이로드가 버퍼 안에 있어야 한다.
-                Assert.True(result.Payload.Length >= 0);
                 Assert.True(result.Payload.Length <= buffer.Length - FrameHeader.Size);
                 Assert.Equal(result.Header.PayloadLength, result.Payload.Length);
+
+                // 위치·내용까지 검증한다 — 길이만 보면 디코더가 엉뚱한 오프셋을 잘라
+                // 돌려줘도 통과한다(2026-08-04 감사: 불변식 2가 약식이었다). 디코딩은
+                // 항상 버퍼 시작에서 하므로 페이로드는 [헤더, 헤더+길이) 구간과 일치해야 한다.
+                Assert.Equal(
+                    buffer.Slice(FrameHeader.Size, result.Header.PayloadLength).ToArray(),
+                    result.Payload.ToArray());
 
                 // 반드시 전진한다. 최소 헤더 크기만큼은 소비해야 한다.
                 long remaining = buffer.Slice(result.Consumed).Length;

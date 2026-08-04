@@ -75,7 +75,8 @@ Samples / Tests / Bench
   **두 프로필이 같은 핸들러 코드로 동작하는 것**이 조립 가능성의 합격 기준이다.
   실시간 프리미티브(틱·룸·AOI)는 선택 패키지이며 Core는 그 존재를 알지 않는다.
 - **ADR-0002** — 프레임 헤더는 직렬화 라이브러리를 거치지 않는다. 고정 크기 `struct` +
-  `MemoryMarshal`/`BinaryPrimitives`로 직접 처리하고, 직렬화는 페이로드에만 적용한다.
+  **`BinaryPrimitives` 만**으로 직접 처리하고(2026-08-03 확정에서 `MemoryMarshal` 은
+  배제 — 정렬·패딩·호스트 엔디안에 와이어 포맷이 끌려간다), 직렬화는 페이로드에만 적용한다.
   위 "프레임 처리 흐름"의 `IFrameDecoder` ↔ `IMessageSerializer` 경계가 이 결정을 구현한다.
 
 ## 미확정
