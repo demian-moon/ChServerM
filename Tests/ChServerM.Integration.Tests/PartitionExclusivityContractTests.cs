@@ -73,10 +73,10 @@ public sealed class PartitionExclusivityContractTests
             await FrameWriter.WriteFrameAsync(
                 context.Connection.Output,
                 encoder,
-                context.Header.MessageId,
+                context.Envelope.MessageId,
                 context.Payload,
                 FrameFlags.None,
-                context.Header.Sequence,
+                context.Envelope.Sequence,
                 context.CancellationToken).ConfigureAwait(false);
 
             return DispatchStatus.Handled;
@@ -154,10 +154,10 @@ public sealed class PartitionExclusivityContractTests
             await FrameWriter.WriteFrameAsync(
                 context.Connection.Output,
                 encoder,
-                context.Header.MessageId,
+                context.Envelope.MessageId,
                 context.Payload,
                 FrameFlags.None,
-                context.Header.Sequence,
+                context.Envelope.Sequence,
                 context.CancellationToken).ConfigureAwait(false);
 
             return DispatchStatus.Handled;
@@ -231,10 +231,10 @@ public sealed class PartitionExclusivityContractTests
             await FrameWriter.WriteFrameAsync(
                 context.Connection.Output,
                 encoder,
-                context.Header.MessageId,
+                context.Envelope.MessageId,
                 context.Payload,
                 FrameFlags.None,
-                context.Header.Sequence,
+                context.Envelope.Sequence,
                 context.CancellationToken).ConfigureAwait(false);
 
             return DispatchStatus.Handled;

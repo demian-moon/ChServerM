@@ -63,10 +63,10 @@ internal sealed class EchoHandler(IFrameEncoder encoder)
         await FrameWriter.WriteFrameAsync(
             context.Connection.Output,
             encoder,
-            context.Header.MessageId,
+            context.Envelope.MessageId,
             context.Payload,
             FrameFlags.None,
-            context.Header.Sequence,
+            context.Envelope.Sequence,
             context.CancellationToken).ConfigureAwait(false);
 
         return DispatchStatus.Handled;
@@ -83,10 +83,10 @@ internal sealed class EchoHandler(IFrameEncoder encoder)
         await FrameWriter.WriteFrameAsync(
             context.Connection.Output,
             encoder,
-            context.Header.MessageId,
+            context.Envelope.MessageId,
             payload,
             FrameFlags.None,
-            context.Header.Sequence,
+            context.Envelope.Sequence,
             context.CancellationToken).ConfigureAwait(false);
 
         return DispatchStatus.Handled;

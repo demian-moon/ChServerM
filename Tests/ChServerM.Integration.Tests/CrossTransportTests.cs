@@ -42,10 +42,10 @@ public sealed class CrossTransportTests
         await FrameWriter.WriteFrameAsync(
             context.Connection.Output,
             encoder,
-            context.Header.MessageId,
+            context.Envelope.MessageId,
             context.Payload,
             FrameFlags.None,
-            context.Header.Sequence,
+            context.Envelope.Sequence,
             context.CancellationToken).ConfigureAwait(false);
 
         return DispatchStatus.Handled;
@@ -60,10 +60,10 @@ public sealed class CrossTransportTests
             await FrameWriter.WriteFrameAsync(
                 context.Connection.Output,
                 encoder,
-                context.Header.MessageId,
+                context.Envelope.MessageId,
                 reply,
                 FrameFlags.None,
-                context.Header.Sequence,
+                context.Envelope.Sequence,
                 context.CancellationToken).ConfigureAwait(false);
         }
     }
@@ -95,9 +95,9 @@ public sealed class CrossTransportTests
         byte[] payload = Encoding.UTF8.GetBytes("안녕 ChServerM");
         await harness.SendAsync(connection, EchoMessageId, payload);
 
-        (FrameHeader header, byte[] echoed) = await harness.ReceiveAsync(connection, TestTimeout.Token);
+        (MessageEnvelope envelope, byte[] echoed) = await harness.ReceiveAsync(connection, TestTimeout.Token);
 
-        Assert.Equal(new MessageId(EchoMessageId), header.MessageId);
+        Assert.Equal(new MessageId(EchoMessageId), envelope.MessageId);
         Assert.Equal(payload, echoed);
     }
 
@@ -124,9 +124,9 @@ public sealed class CrossTransportTests
         await using IConnection connection = await harness.ConnectAsync();
 
         await harness.SendAsync(connection, EchoMessageId, []);
-        (FrameHeader header, byte[] echoed) = await harness.ReceiveAsync(connection, TestTimeout.Token);
+        (MessageEnvelope envelope, byte[] echoed) = await harness.ReceiveAsync(connection, TestTimeout.Token);
 
-        Assert.Equal(0, header.PayloadLength);
+        Assert.Equal(new MessageId(EchoMessageId), envelope.MessageId);
         Assert.Empty(echoed);
     }
 
@@ -363,8 +363,8 @@ public sealed class TcpTransportSpecificTests
     private static MessageDelegate Echo(IFrameEncoder encoder) => async context =>
     {
         await FrameWriter.WriteFrameAsync(
-            context.Connection.Output, encoder, context.Header.MessageId, context.Payload,
-            FrameFlags.None, context.Header.Sequence,
+            context.Connection.Output, encoder, context.Envelope.MessageId, context.Payload,
+            FrameFlags.None, context.Envelope.Sequence,
             context.CancellationToken).ConfigureAwait(false);
 
         return DispatchStatus.Handled;

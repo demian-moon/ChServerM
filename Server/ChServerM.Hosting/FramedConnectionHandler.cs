@@ -230,7 +230,7 @@ public sealed class FramedConnectionHandler : IConnectionHandler
         FrameDecodeResult decoded,
         CancellationToken token)
     {
-        context.BeginFrame(decoded.Header, decoded.Payload, MonotonicTimestamp.Now(_timeProvider), token);
+        context.BeginFrame(decoded.Envelope, decoded.Payload, MonotonicTimestamp.Now(_timeProvider), token);
 
         try
         {
@@ -270,7 +270,7 @@ public sealed class FramedConnectionHandler : IConnectionHandler
             _logger.Log(
                 LogLevel.Warning,
                 DispatchRejectedEvent,
-                (MessageId: context.Header.MessageId.Value, Status: status),
+                (MessageId: context.Envelope.MessageId.Value, Status: status),
                 null,
                 static (state, _) => $"메시지 {state.MessageId} 가 처리되지 않았다: {state.Status}");
         }

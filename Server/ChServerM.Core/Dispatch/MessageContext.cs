@@ -46,8 +46,12 @@ public sealed class MessageContext
     /// <summary>이 메시지가 도착한 커넥션.</summary>
     public IConnection Connection { get; }
 
-    /// <summary>현재 프레임의 헤더.</summary>
-    public FrameHeader Header { get; private set; }
+    /// <summary>현재 프레임의 논리 엔벨로프.</summary>
+    /// <remarks>
+    /// 와이어 헤더가 아니다(ADR-0010) — 디스패치·미들웨어가 소비하는 논리 정보만 담는다.
+    /// 그래서 이 문맥은 프레이밍이 16바이트 고정인지 varint 인지 HTTP 인지 알지 못한다.
+    /// </remarks>
+    public MessageEnvelope Envelope { get; private set; }
 
     /// <summary>현재 프레임의 페이로드.</summary>
     /// <remarks><b>핸들러가 반환할 때까지만 유효하다.</b></remarks>
@@ -71,7 +75,7 @@ public sealed class MessageContext
     public CancellationToken CancellationToken { get; private set; }
 
     /// <summary>새 프레임을 처리하도록 문맥을 준비한다.</summary>
-    /// <param name="header">프레임 헤더.</param>
+    /// <param name="envelope">프레임의 논리 엔벨로프.</param>
     /// <param name="payload">프레임 페이로드.</param>
     /// <param name="receivedAt">읽어낸 시각.</param>
     /// <param name="cancellationToken">이 메시지 처리의 취소 토큰.</param>
@@ -79,12 +83,12 @@ public sealed class MessageContext
     /// <b>프레임워크 내부용이다.</b> 애플리케이션 코드가 부르면 처리 중인 프레임이 뒤바뀐다.
     /// </remarks>
     public void BeginFrame(
-        in FrameHeader header,
+        in MessageEnvelope envelope,
         in ReadOnlySequence<byte> payload,
         MonotonicTimestamp receivedAt,
         CancellationToken cancellationToken)
     {
-        Header = header;
+        Envelope = envelope;
         Payload = payload;
         ReceivedAt = receivedAt;
         CancellationToken = cancellationToken;
@@ -100,7 +104,7 @@ public sealed class MessageContext
     /// </remarks>
     public void EndFrame()
     {
-        Header = default;
+        Envelope = default;
         Payload = default;
         ReceivedAt = MonotonicTimestamp.None;
         CancellationToken = default;

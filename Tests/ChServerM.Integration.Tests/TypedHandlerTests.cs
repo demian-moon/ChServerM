@@ -37,10 +37,10 @@ public sealed class TypedHandlerTests
             await FrameWriter.WriteFrameAsync(
                 context.Connection.Output,
                 encoder,
-                context.Header.MessageId,
+                context.Envelope.MessageId,
                 reply,
                 FrameFlags.None,
-                context.Header.Sequence,
+                context.Envelope.Sequence,
                 context.CancellationToken).ConfigureAwait(false);
         }
     }
@@ -135,8 +135,8 @@ public sealed class TypedHandlerTests
                 .MapRaw(new MessageId(RawEchoId), async context =>
                 {
                     await FrameWriter.WriteFrameAsync(
-                        context.Connection.Output, encoder, context.Header.MessageId, context.Payload,
-                        FrameFlags.None, context.Header.Sequence,
+                        context.Connection.Output, encoder, context.Envelope.MessageId, context.Payload,
+                        FrameFlags.None, context.Envelope.Sequence,
                         context.CancellationToken).ConfigureAwait(false);
                     return DispatchStatus.Handled;
                 }),

@@ -297,7 +297,7 @@ internal static class Program
         // WriteAsync 여야 한다 — 유계 Wait 채널에 TryWrite 를 쓰면 포화 시 조용히
         // 버려진다(CLAUDE.md 9.6 의 레거시 결함 조합).
         // 페이로드 복사는 await 너머로 들고 가기 위한 필수 조치다(위 remarks).
-        (uint, byte[]) response = (context.Header.Sequence, context.Payload.ToArray());
+        (uint, byte[]) response = (context.Envelope.Sequence, context.Payload.ToArray());
         await writer.WriteAsync(response, context.CancellationToken).ConfigureAwait(false);
         return DispatchStatus.Handled;
     }

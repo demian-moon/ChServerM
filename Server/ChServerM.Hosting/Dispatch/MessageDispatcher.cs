@@ -83,7 +83,7 @@ public sealed class MessageDispatcher : IMessageDispatcher
                 _logger.Log(
                     LogLevel.Error,
                     HandlerFaultedEvent,
-                    context.Header.MessageId.Value,
+                    context.Envelope.MessageId.Value,
                     exception,
                     static (messageId, ex) => $"메시지 {messageId} 핸들러가 예외를 던졌다: {ex?.Message}");
             }

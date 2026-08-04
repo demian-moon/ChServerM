@@ -41,8 +41,8 @@ public sealed class FixedHeaderFrameDecoderTests
         FrameDecodeResult result = Decoder.Decode(new ReadOnlySequence<byte>(frame));
 
         Assert.True(result.IsDecoded);
-        Assert.Equal(new MessageId(42), result.Header.MessageId);
-        Assert.Equal(100, result.Header.PayloadLength);
+        Assert.Equal(new MessageId(42), result.Envelope.MessageId);
+        Assert.Equal(100, result.Payload.Length);
         Assert.Equal(100, result.Payload.Length);
     }
 
@@ -95,7 +95,7 @@ public sealed class FixedHeaderFrameDecoderTests
         {
             FrameDecodeResult result = Decoder.Decode(buffer);
             Assert.True(result.IsDecoded);
-            ids[i] = result.Header.MessageId.Value;
+            ids[i] = result.Envelope.MessageId.Value;
             buffer = buffer.Slice(result.Consumed);
         }
 
@@ -191,10 +191,10 @@ public sealed class FixedHeaderFrameDecoderTests
         FrameDecodeResult result = Decoder.Decode(SequenceFactory.Segmented(frame, segmentSize));
 
         Assert.True(result.IsDecoded, $"세그먼트 크기 {segmentSize}에서 실패했다.");
-        Assert.Equal(new MessageId(99), result.Header.MessageId);
-        Assert.Equal(200, result.Header.PayloadLength);
-        Assert.Equal(FrameFlags.Compressed, result.Header.Flags);
-        Assert.Equal(12345u, result.Header.Sequence);
+        Assert.Equal(new MessageId(99), result.Envelope.MessageId);
+        Assert.Equal(200, result.Payload.Length);
+        Assert.Equal(FrameFlags.Compressed, result.Envelope.Flags);
+        Assert.Equal(12345u, result.Envelope.Sequence);
         Assert.Equal(200, result.Payload.Length);
     }
 
@@ -203,7 +203,8 @@ public sealed class FixedHeaderFrameDecoderTests
     {
         // 헤더 16바이트를 (n, 16-n) 으로 쪼개 모든 분할 지점을 시험한다.
         byte[] frame = BuildFrame(1234, 32, FrameFlags.Encrypted, sequence: 777);
-        FrameHeader expected = FrameHeaderCodec.Read(frame);
+        FrameHeader wire = FrameHeaderCodec.Read(frame);
+        MessageEnvelope expected = new(wire.MessageId, wire.Flags, wire.Sequence);
 
         for (int split = 1; split < FrameHeader.Size; split++)
         {
@@ -213,7 +214,7 @@ public sealed class FixedHeaderFrameDecoderTests
             FrameDecodeResult result = Decoder.Decode(buffer);
 
             Assert.True(result.IsDecoded, $"분할 지점 {split}에서 실패했다.");
-            Assert.Equal(expected, result.Header);
+            Assert.Equal(expected, result.Envelope);
         }
     }
 
@@ -239,7 +240,7 @@ public sealed class FixedHeaderFrameDecoderTests
         {
             FrameDecodeResult result = Decoder.Decode(buffer);
             Assert.True(result.IsDecoded);
-            ids[i] = result.Header.MessageId.Value;
+            ids[i] = result.Envelope.MessageId.Value;
             buffer = buffer.Slice(result.Consumed);
         }
 

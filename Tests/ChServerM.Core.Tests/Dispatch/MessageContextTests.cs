@@ -38,13 +38,13 @@ public sealed class MessageContextTests
     {
         using StubConnection connection = new();
         MessageContext context = new(connection);
-        FrameHeader header = new(new MessageId(9), 32);
+        MessageEnvelope envelope = new(new MessageId(9), FrameFlags.None, 0);
         MonotonicTimestamp now = MonotonicTimestamp.FromRaw(12345);
         using CancellationTokenSource cts = new();
 
-        context.BeginFrame(header, Payload(32), now, cts.Token);
+        context.BeginFrame(envelope, Payload(32), now, cts.Token);
 
-        Assert.Equal(header, context.Header);
+        Assert.Equal(envelope, context.Envelope);
         Assert.Equal(32, context.Payload.Length);
         Assert.Equal(now, context.ReceivedAt);
         Assert.Equal(cts.Token, context.CancellationToken);
@@ -57,12 +57,12 @@ public sealed class MessageContextTests
         // 이 한 줄이 사용 후 해제를 막는다. 참조가 남으면 이미 반납된 버퍼를 가리킨다.
         using StubConnection connection = new();
         MessageContext context = new(connection);
-        context.BeginFrame(new FrameHeader(new MessageId(1), 64), Payload(64), MonotonicTimestamp.FromRaw(1), default);
+        context.BeginFrame(new MessageEnvelope(new MessageId(1), FrameFlags.None, 0), Payload(64), MonotonicTimestamp.FromRaw(1), default);
 
         context.EndFrame();
 
         Assert.Equal(0, context.Payload.Length);
-        Assert.Equal(default(FrameHeader), context.Header);
+        Assert.Equal(default(MessageEnvelope), context.Envelope);
         Assert.True(context.ReceivedAt.IsNone);
     }
 
@@ -72,7 +72,7 @@ public sealed class MessageContextTests
         // 메시지 스코프 기능이 다음 프레임으로 새면 인증 결과가 잘못 재사용된다.
         using StubConnection connection = new();
         MessageContext context = new(connection);
-        context.BeginFrame(new FrameHeader(new MessageId(1), 0), default, MonotonicTimestamp.FromRaw(1), default);
+        context.BeginFrame(new MessageEnvelope(new MessageId(1), FrameFlags.None, 0), default, MonotonicTimestamp.FromRaw(1), default);
         context.Features.Set<IScopedFeature>(new ScopedFeature());
 
         context.EndFrame();
@@ -87,7 +87,7 @@ public sealed class MessageContextTests
         using StubConnection connection = new();
         connection.Features.Set<IScopedFeature>(new ScopedFeature());
         MessageContext context = new(connection);
-        context.BeginFrame(new FrameHeader(new MessageId(1), 0), default, MonotonicTimestamp.FromRaw(1), default);
+        context.BeginFrame(new MessageEnvelope(new MessageId(1), FrameFlags.None, 0), default, MonotonicTimestamp.FromRaw(1), default);
 
         context.EndFrame();
 
@@ -101,11 +101,11 @@ public sealed class MessageContextTests
         using StubConnection connection = new();
         MessageContext context = new(connection);
 
-        context.BeginFrame(new FrameHeader(new MessageId(1), 16), Payload(16), MonotonicTimestamp.FromRaw(1), default);
+        context.BeginFrame(new MessageEnvelope(new MessageId(1), FrameFlags.None, 0), Payload(16), MonotonicTimestamp.FromRaw(1), default);
         context.EndFrame();
-        context.BeginFrame(new FrameHeader(new MessageId(2), 32), Payload(32), MonotonicTimestamp.FromRaw(2), default);
+        context.BeginFrame(new MessageEnvelope(new MessageId(2), FrameFlags.None, 0), Payload(32), MonotonicTimestamp.FromRaw(2), default);
 
-        Assert.Equal(new MessageId(2), context.Header.MessageId);
+        Assert.Equal(new MessageId(2), context.Envelope.MessageId);
         Assert.Equal(32, context.Payload.Length);
     }
 }

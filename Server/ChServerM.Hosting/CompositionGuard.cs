@@ -47,12 +47,12 @@ internal static class CompositionGuard
             return;
         }
 
-        long maxFrame = (long)decoder.MaxPayloadLength + encoder.HeaderSize;
+        long maxFrame = (long)decoder.MaxPayloadLength + encoder.MaxHeaderSize;
 
         if (maxFrame > limits.MaxBufferedBytesPerConnection)
         {
             throw new InvalidOperationException(
-                $"최대 프레임({maxFrame}B = 페이로드 {decoder.MaxPayloadLength} + 헤더 {encoder.HeaderSize})이 " +
+                $"최대 프레임({maxFrame}B = 페이로드 {decoder.MaxPayloadLength} + 헤더 {encoder.MaxHeaderSize})이 " +
                 $"전송의 커넥션당 버퍼 한계({limits.MaxBufferedBytesPerConnection}B)를 넘는다. " +
                 "이대로 두면 그 크기의 프레임에서 커넥션이 조용히 교착한다 " +
                 "(디코더는 부분 프레임을 소비할 수 없고, 버퍼가 차면 쓰기가 멈춘다). " +

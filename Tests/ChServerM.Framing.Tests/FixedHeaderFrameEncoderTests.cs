@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Buffers;
 using ChServerM.Identity;
 using Xunit;
@@ -6,18 +6,26 @@ using Xunit;
 namespace ChServerM.Framing.Tests;
 
 /// <summary>
-/// ?몄퐫?붽? ?섎せ???꾨젅?꾩쓣 ?대낫?대㈃ ?곷?媛 而ㅻ꽖?섏쓣 ?딅뒗?? 洹몃븣???먯씤??/// ?댁そ 肄붾뱶?쇰뒗 嫄??뚭린 ?대젮?곕?濡? 蹂대궡湲??꾩뿉 ?덉쇅濡??쒕윭?대뒗吏 寃利앺븳??
+/// 인코더가 잘못된 프레임을 내보내면 상대가 커넥션을 닫는다. 그때는 원인이
+/// 이쪽 코드라는 걸 알기 어려우므로, 보내기 전에 예외로 드러나는지 검증한다.
 /// </summary>
+/// <remarks>
+/// 원본 파일의 한글 주석이 인코딩 손상(PS5.1 ANSI 재저장 사고)으로 깨져 있던 것을
+/// ADR-0010 개정과 함께 재작성했다.
+/// </remarks>
 public sealed class FixedHeaderFrameEncoderTests
 {
     private static readonly FixedHeaderFrameEncoder Encoder = new(maxPayloadLength: 1024);
+
+    private static MessageEnvelope Envelope(ushort id, FrameFlags flags = FrameFlags.None, uint sequence = 0) =>
+        new(new MessageId(id), flags, sequence);
 
     [Fact]
     public void WriteHeader_AdvancesExactlyHeaderSize()
     {
         ArrayBufferWriter<byte> writer = new();
 
-        Encoder.WriteHeader(writer, Encoder.CreateHeader(new MessageId(1), 0, FrameFlags.None, 0));
+        Encoder.WriteHeader(writer, Envelope(1), 0);
 
         Assert.Equal(FrameHeader.Size, writer.WrittenCount);
     }
@@ -25,20 +33,20 @@ public sealed class FixedHeaderFrameEncoderTests
     [Fact]
     public void WriteHeader_ThenPayload_ProducesDecodableFrame()
     {
-        // ?몄퐫?붿? ?붿퐫?붽? 媛숈? ?덉씠?꾩썐??蹂대뒗吏媛 ???뚯뒪?몄쓽 ?붿젏?대떎.
+        // 인코더와 디코더가 같은 레이아웃을 보는지가 이 테스트의 요점이다.
         ArrayBufferWriter<byte> writer = new();
         byte[] payload = [1, 2, 3, 4, 5];
 
-        Encoder.WriteHeader(writer, Encoder.CreateHeader(new MessageId(77), payload.Length, FrameFlags.Compressed, 5));
+        Encoder.WriteHeader(writer, Envelope(77, FrameFlags.Compressed, 5), payload.Length);
         writer.Write(payload);
 
         FrameDecodeResult result = new FixedHeaderFrameDecoder(1024)
             .Decode(new ReadOnlySequence<byte>(writer.WrittenMemory));
 
         Assert.True(result.IsDecoded);
-        Assert.Equal(new MessageId(77), result.Header.MessageId);
-        Assert.Equal(FrameFlags.Compressed, result.Header.Flags);
-        Assert.Equal(5u, result.Header.Sequence);
+        Assert.Equal(new MessageId(77), result.Envelope.MessageId);
+        Assert.Equal(FrameFlags.Compressed, result.Envelope.Flags);
+        Assert.Equal(5u, result.Envelope.Sequence);
         Assert.Equal(payload, result.Payload.ToArray());
     }
 
@@ -51,7 +59,7 @@ public sealed class FixedHeaderFrameEncoderTests
         for (ushort id = 1; id <= 3; id++)
         {
             byte[] payload = new byte[id * 10];
-            Encoder.WriteHeader(writer, Encoder.CreateHeader(new MessageId(id), payload.Length, FrameFlags.None, 0));
+            Encoder.WriteHeader(writer, Envelope(id), payload.Length);
             writer.Write(payload);
         }
 
@@ -60,7 +68,7 @@ public sealed class FixedHeaderFrameEncoderTests
         {
             FrameDecodeResult result = decoder.Decode(buffer);
             Assert.True(result.IsDecoded);
-            Assert.Equal(new MessageId(id), result.Header.MessageId);
+            Assert.Equal(new MessageId(id), result.Envelope.MessageId);
             Assert.Equal(id * 10, result.Payload.Length);
             buffer = buffer.Slice(result.Consumed);
         }
@@ -69,18 +77,39 @@ public sealed class FixedHeaderFrameEncoderTests
     }
 
     [Fact]
-    public void CreateHeader_StampsTheEncoderVersion()
+    public void WriteHeader_StampsTheEncoderVersion()
     {
+        // 버전은 인코더의 설정이지 메시지의 속성이 아니다 (ADR-0010).
+        // 같은 버전의 디코더만 이 인코더의 출력을 받아들여야 한다.
         FixedHeaderFrameEncoder encoder = new(1024, protocolVersion: 7);
+        ArrayBufferWriter<byte> writer = new();
 
-        Assert.Equal(7, encoder.CreateHeader(new MessageId(1), 0, FrameFlags.None, 0).Version);
+        encoder.WriteHeader(writer, Envelope(1), 0);
+
+        FrameDecodeResult sameVersion = new FixedHeaderFrameDecoder(1024, acceptedVersion: 7)
+            .Decode(new ReadOnlySequence<byte>(writer.WrittenMemory));
+        FrameDecodeResult otherVersion = new FixedHeaderFrameDecoder(1024, acceptedVersion: 1)
+            .Decode(new ReadOnlySequence<byte>(writer.WrittenMemory));
+
+        Assert.True(sameVersion.IsDecoded);
+        Assert.Equal(FrameDecodeStatus.VersionMismatch, otherVersion.Status);
     }
 
     [Fact]
     public void WriteHeader_NullWriter_Throws()
     {
         Assert.Throws<ArgumentNullException>(
-            () => Encoder.WriteHeader(null!, Encoder.CreateHeader(new MessageId(1), 0, FrameFlags.None, 0)));
+            () => Encoder.WriteHeader(null!, Envelope(1), 0));
+    }
+
+    [Fact]
+    public void WriteHeader_NegativePayloadLength_Throws()
+    {
+        // 음수 길이는 uint 캐스팅을 거치며 거대한 양수가 된다. 쓰기 전에 걸러야 한다.
+        ArrayBufferWriter<byte> writer = new();
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => Encoder.WriteHeader(writer, Envelope(1), -1));
     }
 
     [Fact]
@@ -89,7 +118,7 @@ public sealed class FixedHeaderFrameEncoderTests
         ArrayBufferWriter<byte> writer = new();
 
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => Encoder.WriteHeader(writer, Encoder.CreateHeader(new MessageId(1), 1025, FrameFlags.None, 0)));
+            () => Encoder.WriteHeader(writer, Envelope(1), 1025));
     }
 
     [Fact]
@@ -97,46 +126,37 @@ public sealed class FixedHeaderFrameEncoderTests
     {
         ArrayBufferWriter<byte> writer = new();
 
-        Encoder.WriteHeader(writer, Encoder.CreateHeader(new MessageId(1), 1024, FrameFlags.None, 0));
+        Encoder.WriteHeader(writer, Envelope(1), 1024);
 
         Assert.Equal(FrameHeader.Size, writer.WrittenCount);
-    }
-
-    [Fact]
-    public void WriteHeader_VersionMismatch_Throws()
-    {
-        // 踰꾩쟾? ?몄퐫?붿쓽 ?ㅼ젙?댁? 硫붿떆吏???띿꽦???꾨땲?? ?닿툔?섎㈃ ?꾨줈?좎퐳??議곗슜??源⑥쭊??
-        ArrayBufferWriter<byte> writer = new();
-        FrameHeader wrongVersion = new(new MessageId(1), 0, version: 99);
-
-        Assert.Throws<ArgumentException>(() => Encoder.WriteHeader(writer, wrongVersion));
     }
 
     [Fact]
     public void WriteHeader_UnknownFlagBit_Throws()
     {
         ArrayBufferWriter<byte> writer = new();
-        FrameHeader badFlags = new(new MessageId(1), 0, (FrameFlags)0x8000);
 
-        Assert.Throws<ArgumentException>(() => Encoder.WriteHeader(writer, badFlags));
+        Assert.Throws<ArgumentException>(
+            () => Encoder.WriteHeader(writer, Envelope(1, (FrameFlags)0x8000), 0));
     }
 
     [Fact]
     public void WriteHeader_FailedValidation_WritesNothing()
     {
-        // ?덉쇅瑜??섏?怨?諛섏? ???곹깭濡??먮㈃ ?ㅽ듃由쇱씠 ?ㅼ뿼?쒕떎.
+        // 예외를 던지고도 반쯤 쓴 상태로 남으면 스트림이 오염된다.
         ArrayBufferWriter<byte> writer = new();
 
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => Encoder.WriteHeader(writer, Encoder.CreateHeader(new MessageId(1), 99999, FrameFlags.None, 0)));
+            () => Encoder.WriteHeader(writer, Envelope(1), 99999));
 
         Assert.Equal(0, writer.WrittenCount);
     }
 
     [Fact]
-    public void HeaderSize_MatchesCoreConstant()
+    public void MaxHeaderSize_MatchesWireConstant()
     {
-        Assert.Equal(FrameHeader.Size, Encoder.HeaderSize);
+        // 고정 헤더이므로 상한이 곧 정확한 크기다.
+        Assert.Equal(FrameHeader.Size, Encoder.MaxHeaderSize);
     }
 
     [Fact]

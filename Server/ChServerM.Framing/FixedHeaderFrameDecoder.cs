@@ -97,7 +97,11 @@ public sealed class FixedHeaderFrameDecoder : IFrameDecoder
         }
 
         ReadOnlySequence<byte> payload = buffer.Slice(FrameHeader.Size, header.PayloadLength);
-        return FrameDecodeResult.Decoded(header, payload, buffer.GetPosition(totalLength));
+
+        // 와이어 헤더를 논리 엔벨로프로 투영한다(ADR-0010). 버전은 위에서 이미 검증했으므로
+        // 프레임워크 계약으로 올려보낼 이유가 없다 — 와이어 포맷의 사정은 여기서 끝난다.
+        MessageEnvelope envelope = new(header.MessageId, header.Flags, header.Sequence);
+        return FrameDecodeResult.Decoded(envelope, payload, buffer.GetPosition(totalLength));
     }
 
     /// <summary>세그먼트 경계를 넘는 경우까지 포함해 헤더를 읽는다.</summary>

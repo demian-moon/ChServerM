@@ -34,7 +34,7 @@ namespace ChServerM.Hosting;
 ///   <item>
 ///     <term><c>sequence</c></term>
 ///     <description>
-///       기본값 0 은 헤더의 <see cref="FrameHeader.Sequence"/> 필드를 무의미하게 만든다.
+///       기본값 0 은 엔벨로프의 <see cref="MessageEnvelope.Sequence"/> 필드를 무의미하게 만든다.
 ///       순서 진단과 Phase 9 리플레이 방지가 그 필드에 달려 있는데, 아무도 채우지 않으면
 ///       레거시의 "있는 척하는 체크섬 필드"와 같은 것이 된다
 ///     </description>
@@ -89,7 +89,7 @@ public static class FrameWriter
         ArgumentNullException.ThrowIfNull(writer);
         ArgumentNullException.ThrowIfNull(encoder);
 
-        encoder.WriteHeader(writer, new FrameHeader(messageId, payload.Length, flags, sequence));
+        encoder.WriteHeader(writer, new MessageEnvelope(messageId, flags, sequence), payload.Length);
         writer.Write(payload);
 
         return writer.FlushAsync(cancellationToken);
@@ -126,7 +126,7 @@ public static class FrameWriter
         ArgumentNullException.ThrowIfNull(encoder);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(payload.Length, int.MaxValue);
 
-        encoder.WriteHeader(writer, new FrameHeader(messageId, (int)payload.Length, flags, sequence));
+        encoder.WriteHeader(writer, new MessageEnvelope(messageId, flags, sequence), (int)payload.Length);
 
         foreach (ReadOnlyMemory<byte> segment in payload)
         {

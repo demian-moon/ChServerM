@@ -675,3 +675,85 @@ Phase 5 게이트(1만 동시 접속 안정 동작 + p99 레이턴시 기준선)
 - 긍정: 의존 0, 클라이언트 경로 동시 검증, 측정 코드가 프레임워크와 함께 진화
 - 부정: 램프업·분위수 집계·리포트를 직접 구현한다. **부하 생성기 자체가 병목이면
   서버가 아니라 생성기를 재는 것이 된다** — 생성기 CPU 사용률을 결과와 함께 기록한다
+
+---
+
+## ADR-0010: 프레이밍 계약을 논리 엔벨로프와 와이어 헤더로 분리한다
+
+- **날짜**: 2026-08-04
+- **상태**: 채택
+- **영향 범위**: `ChServerM.Core`(Framing·Dispatch), `ChServerM.Framing`, `ChServerM.Hosting`
+- **관계**: 2026-08-04 정밀 감사 발견 **H4** 의 해소. ADR-0002(프레이밍·직렬화 분리)를
+  한 단계 더 밀고 나간 것 — 이제 프레이밍 축 안에서도 "논리 계약"과 "와이어 포맷"이 분리된다
+
+### 배경 — Core 가 특정 와이어 포맷에 결박돼 있었다
+
+감사 발견 H4: 구체 와이어 포맷인 `FrameHeader`(16B 고정, 오프셋 상수, `CurrentVersion`)가
+Core 에 있고, 계약 세 곳이 그것에 결박돼 있었다.
+
+| 결박 지점 | 문제 |
+|---|---|
+| `IFrameEncoder.HeaderSize` | 헤더 크기가 상수라는 전제 — varint(가변 길이) 인코더가 구현 불가 |
+| `FrameDecodeResult.Header` | 디코더가 16B 레이아웃 타입을 반환해야 함 — 다른 프레이밍은 없는 필드를 위조해야 함 |
+| `MessageContext.Header` | 디스패치·미들웨어에 와이어 포맷이 노출 — HTTP 전송(`stateless-web`)은 `FrameHeader` 를 합성해야 함 |
+
+이대로면 Phase 4 의 varint 디코더("두 번째 구현 전까지 `IFrameDecoder` 는 가설")와
+Phase 16 의 `stateless-web` 프로필이 구조적으로 막힌다. **한쪽만 도는 추상화는
+추상화가 아니다**(ADR-0004).
+
+수정 시점이 지금인 이유: 결박된 API 전부가 `PublicAPI.Unshipped.txt` 에 있다.
+Shipped 승격 후에는 파괴적 변경이다.
+
+### 소비자 분석 — 무엇이 실제로 필요한가
+
+- **디스패치가 소비하는 것은 `Header.MessageId` 하나뿐이다** (디스패처 라우팅 3곳 + 로깅 1곳)
+- `Flags` 는 Phase 9 `IPayloadCodec`(압축·암호화 변환 표시), `Sequence` 는 리플레이 방지가
+  소비할 예정 — 둘 다 **횡단 축이라 개념이 Core 에 있어야 한다**
+- `Version`·오프셋 상수·`Size` 는 순수한 와이어 포맷 소유물 — Core 의 어떤 소비자도 쓰지 않는다
+- `IFrameEncoder.HeaderSize` 의 유일한 소비자는 `CompositionGuard` 의 상한 계산 — 정확한
+  크기가 아니라 **상한**이면 충분하다
+
+### 결정
+
+**Core 는 논리 엔벨로프만 알고, 와이어 헤더는 프레이밍 어댑터가 소유한다.**
+
+1. Core 에 `MessageEnvelope`(readonly struct: `MessageId` + `FrameFlags` + `Sequence`)를
+   신설한다. 디스패치·미들웨어가 소비하는 논리 메타데이터의 전부다
+2. `FrameHeader`(레이아웃·오프셋·`CurrentVersion`)는 `ChServerM.Framing` 으로 옮긴다 —
+   `FrameHeaderCodec` 옆, 원래 있어야 할 곳
+3. `IFrameEncoder` 는 `WriteHeader(IBufferWriter<byte>, in MessageEnvelope, int payloadLength)`
+   로 바꾼다. `IBufferWriter` 라 가변 크기 헤더가 자연 수용된다.
+   `HeaderSize` 는 `MaxHeaderSize`(상한)로 교체 — `CompositionGuard` 는 상한으로 충분하다
+4. `FrameDecodeResult.Header` / `MessageContext.Header` → `Envelope`
+5. **표현 불가 값은 거부한다** — 와이어에 해당 필드가 없는 프레이밍(varint 등)의 인코더는
+   기본값이 아닌 `Flags`/`Sequence` 를 받으면 예외를 던진다. 조용히 버리면 레거시의
+   "압축이 한 번도 실행되지 않음"(FrameWriter 참조)과 같은 조용한 실패가 된다.
+   반대로 디코더가 채우는 `Flags=None`/`Sequence=0` 은 "그 와이어에 그 개념이 없다"는
+   사실의 표현이라 위조가 아니다
+
+버전 협상(Phase 9 로드맵)과의 정합: 버전이 어댑터 소유가 되므로 협상된 버전은
+커넥션 단위 상태로 어댑터가 관리한다. Core 상수였다면 협상 자체가 성립하지 않았다.
+
+### 대안과 탈락 이유
+
+| 대안 | 탈락 이유 |
+|---|---|
+| **최소 계약 + Features** — Core 는 `MessageId`+`Payload` 만, `Flags`·`Sequence` 는 `IFeatureCollection` 경유 | 압축·리플레이 미들웨어가 **프레임마다 feature 조회**(딕셔너리 + 캐스팅) — 핫패스 무할당·저비용 원칙과 충돌. `FrameFlags` 타입은 `IPayloadCodec` 계약 때문에 어차피 Core 에 남아 개념 제거 효과도 반감. 디코더 반환 경로까지 feature 로 옮기면 `FrameDecodeResult` 구조가 흐려진다 |
+| **보류 — varint 프로토타입을 먼저 만들어 부딪히는 지점을 실측** | 부딪히는 지점은 이미 코드 조사로 특정됐다(위 표 3곳). 프로토타입이 추가로 알려줄 것이 없고, 그 사이 Shipped 승격이 일어나면 수정 비용이 파괴적 변경으로 뛴다 |
+| **현상 유지** — varint 도 16B 헤더의 부분집합으로 우겨 넣음 | 없는 필드를 위조한 `FrameHeader` 를 만들게 된다 — 레거시의 "있는 척하는 헤더 필드"(체크섬 `return true`) 재현. `stateless-web` 은 여전히 막힌다 |
+
+### 결과
+
+- 긍정: varint·델리미터·HTTP 프레이밍이 계약 변경 없이 구현 가능해진다.
+  `stateless-web` 프로필의 구조적 차단이 풀린다
+- 긍정: 핫패스 비용 불변 — 엔벨로프는 struct 필드 접근이라 기존 `Header.MessageId` 와
+  동일 비용. 할당 0 유지
+- 긍정: 전부 Unshipped 단계라 파괴적 변경 비용 0
+- 부정: `MessageEnvelope` ↔ `FrameHeader` 변환 지점이 어댑터에 생긴다(디코더가 헤더를
+  읽고 엔벨로프로 투영). 비용은 필드 복사 수준이지만 개념이 하나 늘었다
+- 부정: 표현 불가 값 거부가 **런타임 예외**다 — 압축 축을 varint 프레이밍과 조합하면
+  첫 압축 프레임에서 터진다. 조립 시점 검출(인코더가 지원 능력을 보고하고
+  `CompositionGuard` 가 대조)은 `IPayloadCodec` 이 실물이 되는 Phase 9 에서 재검토
+- 부정: `FrameDecodeStatus.VersionMismatch` 등 버전 관련 상태는 Core 에 남는다 —
+  버전 개념이 있는 프레이밍이 공통으로 쓰는 실패 분류라 일반적이다. 버전 "값"만
+  어댑터로 내려간다

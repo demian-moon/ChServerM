@@ -186,7 +186,7 @@ public sealed class MessageDispatcherBuilder
                 logger.Log(
                     LogLevel.Warning,
                     HandlerNotFoundEvent,
-                    context.Header.MessageId.Value,
+                    context.Envelope.MessageId.Value,
                     null,
                     static (id, _) => $"메시지 {id} 에 등록된 핸들러가 없다.");
             }
@@ -218,7 +218,7 @@ public sealed class MessageDispatcherBuilder
         // 배열 인덱싱 하나. 범위 밖이면 등록되지 않은 식별자다.
         return context =>
         {
-            ushort id = context.Header.MessageId.Value;
+            ushort id = context.Envelope.MessageId.Value;
             return id < routes.Length ? routes[id](context) : notFound(context);
         };
     }

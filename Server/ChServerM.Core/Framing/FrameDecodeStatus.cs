@@ -43,8 +43,8 @@ public enum FrameDecodeStatus : byte
     /// 핸들러에 넘기게 되고, 그것은 조용한 오동작이다 — 레거시 결함의 대표 유형이다.
     /// </para>
     /// <para>
-    /// 플래그를 추가할 때는 <see cref="FrameHeader.Version"/>을 올린다. 버전 필드가
-    /// 있는 이유가 정확히 이것이다.
+    /// 플래그를 추가할 때는 와이어 포맷의 프로토콜 버전을 올린다
+    /// (고정 헤더라면 <c>FrameHeader.Version</c>). 버전 필드가 있는 이유가 정확히 이것이다.
     /// </para>
     /// </remarks>
     InvalidFlags = 5,

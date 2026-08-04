@@ -40,6 +40,7 @@ public class FrameCodecBenchmarks
     private FixedHeaderFrameEncoder _encoder = null!;
     private ArrayBufferWriter<byte> _writer = null!;
     private FrameHeader _header;
+    private MessageEnvelope _envelope;
 
     /// <summary>페이로드 크기. 헤더 파싱 비용이 페이로드 크기와 무관한지도 함께 확인한다.</summary>
     [Params(0, 64, 1024)]
@@ -52,7 +53,8 @@ public class FrameCodecBenchmarks
         _decoder = new FixedHeaderFrameDecoder(options);
         _encoder = new FixedHeaderFrameEncoder(options);
         _writer = new ArrayBufferWriter<byte>(FrameHeader.Size * 4);
-        _header = _encoder.CreateHeader(new MessageId(1), PayloadLength, FrameFlags.None, 42);
+        _envelope = new MessageEnvelope(new MessageId(1), FrameFlags.None, 42);
+        _header = new FrameHeader(new MessageId(1), PayloadLength, FrameFlags.None, 42);
 
         _frame = new byte[FrameHeader.Size + PayloadLength];
         FrameHeaderCodec.Write(_frame, _header);
@@ -80,7 +82,7 @@ public class FrameCodecBenchmarks
     public int WriteHeader()
     {
         _writer.ResetWrittenCount();
-        _encoder.WriteHeader(_writer, _header);
+        _encoder.WriteHeader(_writer, _envelope, PayloadLength);
         return _writer.WrittenCount;
     }
 

@@ -82,8 +82,10 @@ public sealed class Phase5TransportTests
         // 조립하는 쪽이 자기 인코더로 통지 프레임을 만든다 — 전송은 프레이밍을 모른다(축 독립).
         FixedHeaderFrameEncoder encoder = new(4096);
         ArrayBufferWriter<byte> notice = new(FrameHeader.Size);
-        encoder.WriteHeader(notice, encoder.CreateHeader(
-            FrameworkMessageIds.ConnectionRejected, payloadLength: 0, FrameFlags.None, sequence: 0));
+        encoder.WriteHeader(
+            notice,
+            new MessageEnvelope(FrameworkMessageIds.ConnectionRejected, FrameFlags.None, 0),
+            payloadLength: 0);
 
         await using TestHarness harness = await TestHarness.StartAsync(
             builder => builder.MapRaw(new MessageId(EchoMessageId), Echo()),
@@ -101,9 +103,9 @@ public sealed class Phase5TransportTests
 
         // 두 번째는 TCP 수락 후 통지를 받고 닫힌다.
         await using IConnection second = await harness.ConnectAsync();
-        (FrameHeader header, _) = await harness.ReceiveAsync(second, timeout.Token);
+        (MessageEnvelope envelope, _) = await harness.ReceiveAsync(second, timeout.Token);
 
-        Assert.Equal(FrameworkMessageIds.ConnectionRejected, header.MessageId);
+        Assert.Equal(FrameworkMessageIds.ConnectionRejected, envelope.MessageId);
 
         // 통지 뒤에는 스트림이 끝난다 — 통지는 예외가 아니라 종료의 서곡이다.
         await Assert.ThrowsAsync<InvalidOperationException>(
@@ -131,10 +133,10 @@ public sealed class Phase5TransportTests
             await FrameWriter.WriteFrameAsync(
                 context.Connection.Output,
                 new FixedHeaderFrameEncoder(4096),
-                context.Header.MessageId,
+                context.Envelope.MessageId,
                 context.Payload,
                 FrameFlags.None,
-                context.Header.Sequence,
+                context.Envelope.Sequence,
                 context.CancellationToken).ConfigureAwait(false);
 
             return DispatchStatus.Handled;
@@ -166,10 +168,10 @@ public sealed class Phase5TransportTests
         await FrameWriter.WriteFrameAsync(
             context.Connection.Output,
             new FixedHeaderFrameEncoder(4096),
-            context.Header.MessageId,
+            context.Envelope.MessageId,
             context.Payload,
             FrameFlags.None,
-            context.Header.Sequence,
+            context.Envelope.Sequence,
             context.CancellationToken).ConfigureAwait(false);
 
         return DispatchStatus.Handled;

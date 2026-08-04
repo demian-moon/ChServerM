@@ -24,10 +24,10 @@ public sealed class MiddlewarePipelineTests
         await FrameWriter.WriteFrameAsync(
             context.Connection.Output,
             encoder,
-            context.Header.MessageId,
+            context.Envelope.MessageId,
             context.Payload,
             FrameFlags.None,
-            context.Header.Sequence,
+            context.Envelope.Sequence,
             context.CancellationToken).ConfigureAwait(false);
 
         return DispatchStatus.Handled;
@@ -93,7 +93,7 @@ public sealed class MiddlewarePipelineTests
         await using TestHarness harness = await TestHarness.StartAsync(builder => builder
             // EchoMessageId 만 거부한다 — 뒤따르는 프로브 왕복이 순서 동기화 장치가 된다.
             .Use(next => context =>
-                context.Header.MessageId.Value == EchoMessageId
+                context.Envelope.MessageId.Value == EchoMessageId
                     ? ValueTask.FromResult(DispatchStatus.RejectedByPolicy)
                     : next(context))
             .MapRaw(new MessageId(EchoMessageId), context =>

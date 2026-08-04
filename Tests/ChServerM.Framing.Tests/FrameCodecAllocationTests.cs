@@ -113,19 +113,19 @@ public sealed class FrameCodecAllocationTests
     {
         FixedHeaderFrameEncoder encoder = new(4096);
         ArrayBufferWriter<byte> writer = new(initialCapacity: 256);
-        FrameHeader header = encoder.CreateHeader(new MessageId(1), 0, FrameFlags.Compressed, 7);
+        MessageEnvelope envelope = new(new MessageId(1), FrameFlags.Compressed, 7);
 
         for (int i = 0; i < WarmupIterations; i++)
         {
             writer.ResetWrittenCount();
-            encoder.WriteHeader(writer, header);
+            encoder.WriteHeader(writer, envelope, 0);
         }
 
         long before = GC.GetAllocatedBytesForCurrentThread();
         for (int i = 0; i < Iterations; i++)
         {
             writer.ResetWrittenCount();
-            encoder.WriteHeader(writer, header);
+            encoder.WriteHeader(writer, envelope, 0);
         }
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 

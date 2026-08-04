@@ -95,12 +95,12 @@ ChServerM.Dispatch.IMessageHandler<TMessage>.HandleAsync(ChServerM.Dispatch.Mess
 ChServerM.Dispatch.IServerMiddleware
 ChServerM.Dispatch.IServerMiddleware.InvokeAsync(ChServerM.Dispatch.MessageContext! context, ChServerM.Dispatch.MessageDelegate! next) -> System.Threading.Tasks.ValueTask<ChServerM.Dispatch.DispatchStatus>
 ChServerM.Dispatch.MessageContext
-ChServerM.Dispatch.MessageContext.BeginFrame(in ChServerM.Framing.FrameHeader header, in System.Buffers.ReadOnlySequence<byte> payload, ChServerM.Time.MonotonicTimestamp receivedAt, System.Threading.CancellationToken cancellationToken) -> void
+ChServerM.Dispatch.MessageContext.BeginFrame(in ChServerM.Framing.MessageEnvelope envelope, in System.Buffers.ReadOnlySequence<byte> payload, ChServerM.Time.MonotonicTimestamp receivedAt, System.Threading.CancellationToken cancellationToken) -> void
 ChServerM.Dispatch.MessageContext.CancellationToken.get -> System.Threading.CancellationToken
 ChServerM.Dispatch.MessageContext.Connection.get -> ChServerM.Connections.IConnection!
 ChServerM.Dispatch.MessageContext.EndFrame() -> void
+ChServerM.Dispatch.MessageContext.Envelope.get -> ChServerM.Framing.MessageEnvelope
 ChServerM.Dispatch.MessageContext.Features.get -> ChServerM.Features.IFeatureCollection!
-ChServerM.Dispatch.MessageContext.Header.get -> ChServerM.Framing.FrameHeader
 ChServerM.Dispatch.MessageContext.MessageContext(ChServerM.Connections.IConnection! connection) -> void
 ChServerM.Dispatch.MessageContext.Payload.get -> System.Buffers.ReadOnlySequence<byte>
 ChServerM.Dispatch.MessageContext.ReceivedAt.get -> ChServerM.Time.MonotonicTimestamp
@@ -135,10 +135,10 @@ ChServerM.Features.IFeatureCollection.Revision.get -> int
 ChServerM.Features.IFeatureCollection.Set<TFeature>(TFeature? instance) -> void
 ChServerM.Framing.FrameDecodeResult
 ChServerM.Framing.FrameDecodeResult.Consumed.get -> System.SequencePosition
+ChServerM.Framing.FrameDecodeResult.Envelope.get -> ChServerM.Framing.MessageEnvelope
 ChServerM.Framing.FrameDecodeResult.Equals(ChServerM.Framing.FrameDecodeResult other) -> bool
 ChServerM.Framing.FrameDecodeResult.Examined.get -> System.SequencePosition
 ChServerM.Framing.FrameDecodeResult.FrameDecodeResult() -> void
-ChServerM.Framing.FrameDecodeResult.Header.get -> ChServerM.Framing.FrameHeader
 ChServerM.Framing.FrameDecodeResult.IsDecoded.get -> bool
 ChServerM.Framing.FrameDecodeResult.IsFatal.get -> bool
 ChServerM.Framing.FrameDecodeResult.Payload.get -> System.Buffers.ReadOnlySequence<byte>
@@ -157,22 +157,19 @@ ChServerM.Framing.FrameFlags.Encrypted = 2 -> ChServerM.Framing.FrameFlags
 ChServerM.Framing.FrameFlags.EndOfMessage = 8 -> ChServerM.Framing.FrameFlags
 ChServerM.Framing.FrameFlags.Fragmented = 4 -> ChServerM.Framing.FrameFlags
 ChServerM.Framing.FrameFlags.None = 0 -> ChServerM.Framing.FrameFlags
-ChServerM.Framing.FrameHeader
-ChServerM.Framing.FrameHeader.Equals(ChServerM.Framing.FrameHeader other) -> bool
-ChServerM.Framing.FrameHeader.Flags.get -> ChServerM.Framing.FrameFlags
-ChServerM.Framing.FrameHeader.FrameHeader() -> void
-ChServerM.Framing.FrameHeader.FrameHeader(ChServerM.Identity.MessageId messageId, int payloadLength, ChServerM.Framing.FrameFlags flags = ChServerM.Framing.FrameFlags.None, uint sequence = 0, ushort version = 1) -> void
-ChServerM.Framing.FrameHeader.MessageId.get -> ChServerM.Identity.MessageId
-ChServerM.Framing.FrameHeader.PayloadLength.get -> int
-ChServerM.Framing.FrameHeader.Sequence.get -> uint
-ChServerM.Framing.FrameHeader.TotalLength.get -> int
-ChServerM.Framing.FrameHeader.Version.get -> ushort
 ChServerM.Framing.IFrameDecoder
 ChServerM.Framing.IFrameDecoder.Decode(in System.Buffers.ReadOnlySequence<byte> buffer) -> ChServerM.Framing.FrameDecodeResult
 ChServerM.Framing.IFrameDecoder.MaxPayloadLength.get -> int
 ChServerM.Framing.IFrameEncoder
-ChServerM.Framing.IFrameEncoder.HeaderSize.get -> int
-ChServerM.Framing.IFrameEncoder.WriteHeader(System.Buffers.IBufferWriter<byte>! writer, in ChServerM.Framing.FrameHeader header) -> void
+ChServerM.Framing.IFrameEncoder.MaxHeaderSize.get -> int
+ChServerM.Framing.IFrameEncoder.WriteHeader(System.Buffers.IBufferWriter<byte>! writer, in ChServerM.Framing.MessageEnvelope envelope, int payloadLength) -> void
+ChServerM.Framing.MessageEnvelope
+ChServerM.Framing.MessageEnvelope.Equals(ChServerM.Framing.MessageEnvelope other) -> bool
+ChServerM.Framing.MessageEnvelope.Flags.get -> ChServerM.Framing.FrameFlags
+ChServerM.Framing.MessageEnvelope.MessageEnvelope() -> void
+ChServerM.Framing.MessageEnvelope.MessageEnvelope(ChServerM.Identity.MessageId messageId, ChServerM.Framing.FrameFlags flags, uint sequence) -> void
+ChServerM.Framing.MessageEnvelope.MessageId.get -> ChServerM.Identity.MessageId
+ChServerM.Framing.MessageEnvelope.Sequence.get -> uint
 ChServerM.Identity.ConnectionId
 ChServerM.Identity.ConnectionId.ConnectionId() -> void
 ChServerM.Identity.ConnectionId.ConnectionId(uint slot, uint generation) -> void
@@ -276,14 +273,6 @@ const ChServerM.Diagnostics.TagNames.ErrorCode = "error_code" -> string!
 const ChServerM.Diagnostics.TagNames.MessageId = "message_id" -> string!
 const ChServerM.Diagnostics.TagNames.Partition = "partition" -> string!
 const ChServerM.Diagnostics.TagNames.Transport = "transport" -> string!
-const ChServerM.Framing.FrameHeader.CurrentVersion = 1 -> ushort
-const ChServerM.Framing.FrameHeader.FlagsOffset = 8 -> int
-const ChServerM.Framing.FrameHeader.MessageIdOffset = 2 -> int
-const ChServerM.Framing.FrameHeader.PayloadLengthOffset = 4 -> int
-const ChServerM.Framing.FrameHeader.ReservedOffset = 10 -> int
-const ChServerM.Framing.FrameHeader.SequenceOffset = 12 -> int
-const ChServerM.Framing.FrameHeader.Size = 16 -> int
-const ChServerM.Framing.FrameHeader.VersionOffset = 0 -> int
 const ChServerM.Identity.MessageId.AppRangeEnd = 40000 -> ushort
 const ChServerM.Identity.MessageId.AppRangeStart = 1 -> ushort
 const ChServerM.Identity.MessageId.FrameworkRangeStart = 40001 -> ushort
@@ -301,9 +290,9 @@ override ChServerM.Diagnostics.EventId.ToString() -> string!
 override ChServerM.Framing.FrameDecodeResult.Equals(object? obj) -> bool
 override ChServerM.Framing.FrameDecodeResult.GetHashCode() -> int
 override ChServerM.Framing.FrameDecodeResult.ToString() -> string!
-override ChServerM.Framing.FrameHeader.Equals(object? obj) -> bool
-override ChServerM.Framing.FrameHeader.GetHashCode() -> int
-override ChServerM.Framing.FrameHeader.ToString() -> string!
+override ChServerM.Framing.MessageEnvelope.Equals(object? obj) -> bool
+override ChServerM.Framing.MessageEnvelope.GetHashCode() -> int
+override ChServerM.Framing.MessageEnvelope.ToString() -> string!
 override ChServerM.Identity.ConnectionId.Equals(object? obj) -> bool
 override ChServerM.Identity.ConnectionId.GetHashCode() -> int
 override ChServerM.Identity.ConnectionId.ToString() -> string!
@@ -329,21 +318,21 @@ override ChServerM.Time.MonotonicTimestamp.Equals(object? obj) -> bool
 override ChServerM.Time.MonotonicTimestamp.GetHashCode() -> int
 override ChServerM.Time.MonotonicTimestamp.ToString() -> string!
 static ChServerM.Connections.ConnectionCloseInfo.ClientClosed.get -> ChServerM.Connections.ConnectionCloseInfo
-static ChServerM.Connections.ConnectionCloseInfo.operator !=(ChServerM.Connections.ConnectionCloseInfo left, ChServerM.Connections.ConnectionCloseInfo right) -> bool
-static ChServerM.Connections.ConnectionCloseInfo.operator ==(ChServerM.Connections.ConnectionCloseInfo left, ChServerM.Connections.ConnectionCloseInfo right) -> bool
 static ChServerM.Connections.ConnectionCloseInfo.ProtocolError(ChServerM.Diagnostics.ErrorCode errorCode, string? description = null) -> ChServerM.Connections.ConnectionCloseInfo
 static ChServerM.Connections.ConnectionCloseInfo.ShuttingDown.get -> ChServerM.Connections.ConnectionCloseInfo
+static ChServerM.Connections.ConnectionCloseInfo.operator !=(ChServerM.Connections.ConnectionCloseInfo left, ChServerM.Connections.ConnectionCloseInfo right) -> bool
+static ChServerM.Connections.ConnectionCloseInfo.operator ==(ChServerM.Connections.ConnectionCloseInfo left, ChServerM.Connections.ConnectionCloseInfo right) -> bool
 static ChServerM.CoreAssembly.Instance.get -> System.Reflection.Assembly!
 static ChServerM.Diagnostics.EventId.operator !=(ChServerM.Diagnostics.EventId left, ChServerM.Diagnostics.EventId right) -> bool
 static ChServerM.Diagnostics.EventId.operator ==(ChServerM.Diagnostics.EventId left, ChServerM.Diagnostics.EventId right) -> bool
 static ChServerM.Diagnostics.NullServerLogger.Instance.get -> ChServerM.Diagnostics.NullServerLogger!
-static ChServerM.Framing.FrameDecodeResult.Decoded(in ChServerM.Framing.FrameHeader header, in System.Buffers.ReadOnlySequence<byte> payload, System.SequencePosition consumed) -> ChServerM.Framing.FrameDecodeResult
+static ChServerM.Framing.FrameDecodeResult.Decoded(in ChServerM.Framing.MessageEnvelope envelope, in System.Buffers.ReadOnlySequence<byte> payload, System.SequencePosition consumed) -> ChServerM.Framing.FrameDecodeResult
 static ChServerM.Framing.FrameDecodeResult.Failed(ChServerM.Framing.FrameDecodeStatus status, System.SequencePosition position) -> ChServerM.Framing.FrameDecodeResult
 static ChServerM.Framing.FrameDecodeResult.NeedMoreData(System.SequencePosition consumed, System.SequencePosition examined) -> ChServerM.Framing.FrameDecodeResult
 static ChServerM.Framing.FrameDecodeResult.operator !=(ChServerM.Framing.FrameDecodeResult left, ChServerM.Framing.FrameDecodeResult right) -> bool
 static ChServerM.Framing.FrameDecodeResult.operator ==(ChServerM.Framing.FrameDecodeResult left, ChServerM.Framing.FrameDecodeResult right) -> bool
-static ChServerM.Framing.FrameHeader.operator !=(ChServerM.Framing.FrameHeader left, ChServerM.Framing.FrameHeader right) -> bool
-static ChServerM.Framing.FrameHeader.operator ==(ChServerM.Framing.FrameHeader left, ChServerM.Framing.FrameHeader right) -> bool
+static ChServerM.Framing.MessageEnvelope.operator !=(ChServerM.Framing.MessageEnvelope left, ChServerM.Framing.MessageEnvelope right) -> bool
+static ChServerM.Framing.MessageEnvelope.operator ==(ChServerM.Framing.MessageEnvelope left, ChServerM.Framing.MessageEnvelope right) -> bool
 static ChServerM.Identity.ConnectionId.None.get -> ChServerM.Identity.ConnectionId
 static ChServerM.Identity.ConnectionId.operator !=(ChServerM.Identity.ConnectionId left, ChServerM.Identity.ConnectionId right) -> bool
 static ChServerM.Identity.ConnectionId.operator ==(ChServerM.Identity.ConnectionId left, ChServerM.Identity.ConnectionId right) -> bool

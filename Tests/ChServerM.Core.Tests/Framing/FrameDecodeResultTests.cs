@@ -16,18 +16,18 @@ public sealed class FrameDecodeResultTests
     private static ReadOnlySequence<byte> Buffer(int length) => new(new byte[length]);
 
     [Fact]
-    public void Decoded_IsNotFatal_AndCarriesHeaderAndPayload()
+    public void Decoded_IsNotFatal_AndCarriesEnvelopeAndPayload()
     {
         ReadOnlySequence<byte> buffer = Buffer(64);
-        FrameHeader header = new(new MessageId(7), 16);
-        ReadOnlySequence<byte> payload = buffer.Slice(FrameHeader.Size, 16);
+        MessageEnvelope envelope = new(new MessageId(7), FrameFlags.None, 0);
+        ReadOnlySequence<byte> payload = buffer.Slice(16, 16);
 
-        FrameDecodeResult result = FrameDecodeResult.Decoded(header, payload, buffer.GetPosition(32));
+        FrameDecodeResult result = FrameDecodeResult.Decoded(envelope, payload, buffer.GetPosition(32));
 
         Assert.Equal(FrameDecodeStatus.Decoded, result.Status);
         Assert.True(result.IsDecoded);
         Assert.False(result.IsFatal);
-        Assert.Equal(header, result.Header);
+        Assert.Equal(envelope, result.Envelope);
         Assert.Equal(16, result.Payload.Length);
         Assert.Equal(ErrorCode.None, result.ToErrorCode());
     }

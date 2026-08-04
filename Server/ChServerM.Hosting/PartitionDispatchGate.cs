@@ -79,7 +79,7 @@ internal sealed class PartitionDispatchGate : IPartitionExclusiveWork, IValueTas
         CancellationToken token)
     {
         _source.Reset();
-        _context.BeginFrame(decoded.Header, decoded.Payload, timestamp, token);
+        _context.BeginFrame(decoded.Envelope, decoded.Payload, timestamp, token);
 
         if (!partition.TryEnqueueExclusive(this))
         {

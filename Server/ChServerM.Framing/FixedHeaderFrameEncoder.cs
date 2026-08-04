@@ -55,7 +55,8 @@ public sealed class FixedHeaderFrameEncoder : IFrameEncoder
     }
 
     /// <inheritdoc />
-    public int HeaderSize => FrameHeader.Size;
+    /// <remarks>고정 헤더이므로 상한이 곧 정확한 크기다.</remarks>
+    public int MaxHeaderSize => FrameHeader.Size;
 
     /// <summary>허용하는 최대 페이로드 크기.</summary>
     public int MaxPayloadLength => _maxPayloadLength;
@@ -63,66 +64,39 @@ public sealed class FixedHeaderFrameEncoder : IFrameEncoder
     /// <summary>쓰는 프로토콜 버전.</summary>
     public ushort ProtocolVersion => _protocolVersion;
 
-    /// <summary>이 인코더의 설정에 맞는 헤더를 만든다.</summary>
-    /// <param name="messageId">메시지 타입.</param>
-    /// <param name="payloadLength">페이로드 바이트 수.</param>
-    /// <param name="flags">적용된 변환.</param>
-    /// <param name="sequence">커넥션 내 프레임 일련번호.</param>
-    /// <returns>이 인코더의 프로토콜 버전이 찍힌 헤더.</returns>
-    /// <remarks>
-    /// <para>
-    /// 호출자가 버전을 직접 채우다 틀리는 것을 막는다. 버전은 인코더의 설정이지
-    /// 메시지의 속성이 아니다.
-    /// </para>
-    /// <para>
-    /// <c>flags</c>·<c>sequence</c> 에 기본값을 두지 않는다 — <c>FrameWriter</c> 가 같은
-    /// 이유로 기본값을 제거했는데(CLAUDE.md 8.1 의 RS0026 사례: 압축이 한 번도 실행되지
-    /// 않는 결함, 있는 척하는 필드) 여기 남아 있으면 그 계약의 우회로가 된다
-    /// (2026-08-04 감사).
-    /// </para>
-    /// </remarks>
-    public FrameHeader CreateHeader(
-        Identity.MessageId messageId,
-        int payloadLength,
-        FrameFlags flags,
-        uint sequence) =>
-        new(messageId, payloadLength, flags, sequence, _protocolVersion);
-
     /// <inheritdoc />
     /// <exception cref="ArgumentNullException"><paramref name="writer"/>가 <see langword="null"/>일 때.</exception>
     /// <exception cref="ArgumentOutOfRangeException">
-    /// 페이로드 길이가 <see cref="MaxPayloadLength"/>를 넘을 때.
+    /// 페이로드 길이가 음수이거나 <see cref="MaxPayloadLength"/>를 넘을 때.
     /// </exception>
-    /// <exception cref="ArgumentException">
-    /// 버전이 <see cref="ProtocolVersion"/>과 다르거나, 정의되지 않은 플래그 비트가 켜져 있을 때.
-    /// </exception>
-    public void WriteHeader(IBufferWriter<byte> writer, in FrameHeader header)
+    /// <exception cref="ArgumentException">정의되지 않은 플래그 비트가 켜져 있을 때.</exception>
+    /// <remarks>
+    /// 프로토콜 버전은 여기서 찍는다 — 버전은 인코더의 설정이지 메시지의 속성이
+    /// 아니고(ADR-0010), 호출자가 채우게 두면 틀리는 실수가 가능해진다.
+    /// </remarks>
+    public void WriteHeader(IBufferWriter<byte> writer, in MessageEnvelope envelope, int payloadLength)
     {
         ArgumentNullException.ThrowIfNull(writer);
+        ArgumentOutOfRangeException.ThrowIfNegative(payloadLength);
 
-        if (header.PayloadLength > _maxPayloadLength)
+        if (payloadLength > _maxPayloadLength)
         {
             throw new ArgumentOutOfRangeException(
-                nameof(header),
-                header.PayloadLength,
+                nameof(payloadLength),
+                payloadLength,
                 $"페이로드가 상한({_maxPayloadLength})을 넘는다. 상대가 이 프레임을 거부하고 커넥션을 닫는다.");
         }
 
-        if (header.Version != _protocolVersion)
+        if (!FrameHeaderCodec.AreFlagsKnown(envelope.Flags))
         {
             throw new ArgumentException(
-                $"헤더 버전({header.Version})이 이 인코더의 버전({_protocolVersion})과 다르다. " +
-                $"{nameof(CreateHeader)}를 쓰면 이 실수를 막을 수 있다.",
-                nameof(header));
+                $"정의되지 않은 플래그 비트가 켜져 있다: {envelope.Flags}. " +
+                $"플래그를 추가했다면 {nameof(FrameHeaderCodec)}.{nameof(FrameHeaderCodec.KnownFlags)}도 갱신한다.",
+                nameof(envelope));
         }
 
-        if (!FrameHeaderCodec.AreFlagsKnown(header.Flags))
-        {
-            throw new ArgumentException(
-                $"정의되지 않은 플래그 비트가 켜져 있다: {header.Flags}. " +
-                $"플래그를 추가했다면 {nameof(FrameHeaderCodec)}.{nameof(FrameHeaderCodec.KnownFlags)}도 갱신한다.",
-                nameof(header));
-        }
+        FrameHeader header = new(
+            envelope.MessageId, payloadLength, envelope.Flags, envelope.Sequence, _protocolVersion);
 
         Span<byte> destination = writer.GetSpan(FrameHeader.Size);
         FrameHeaderCodec.Write(destination, header);

@@ -23,13 +23,13 @@ public readonly struct FrameDecodeResult : IEquatable<FrameDecodeResult>
 {
     private FrameDecodeResult(
         FrameDecodeStatus status,
-        in FrameHeader header,
+        in MessageEnvelope envelope,
         in ReadOnlySequence<byte> payload,
         SequencePosition consumed,
         SequencePosition examined)
     {
         Status = status;
-        Header = header;
+        Envelope = envelope;
         Payload = payload;
         Consumed = consumed;
         Examined = examined;
@@ -38,8 +38,12 @@ public readonly struct FrameDecodeResult : IEquatable<FrameDecodeResult>
     /// <summary>디코딩 결과.</summary>
     public FrameDecodeStatus Status { get; }
 
-    /// <summary>읽어낸 헤더. <see cref="Status"/>가 <see cref="FrameDecodeStatus.Decoded"/>일 때만 유효하다.</summary>
-    public FrameHeader Header { get; }
+    /// <summary>읽어낸 논리 엔벨로프. <see cref="Status"/>가 <see cref="FrameDecodeStatus.Decoded"/>일 때만 유효하다.</summary>
+    /// <remarks>
+    /// 와이어 헤더 자체가 아니라 그 <b>투영</b>이다(ADR-0010). 디코더는 자기 와이어
+    /// 포맷을 검증한 뒤, 프레임워크가 소비하는 논리 정보만 여기에 담는다.
+    /// </remarks>
+    public MessageEnvelope Envelope { get; }
 
     /// <summary>읽어낸 페이로드. <see cref="Status"/>가 <see cref="FrameDecodeStatus.Decoded"/>일 때만 유효하다.</summary>
     /// <remarks><c>AdvanceTo</c> 호출 이후에는 접근하면 안 된다.</remarks>
@@ -62,11 +66,11 @@ public readonly struct FrameDecodeResult : IEquatable<FrameDecodeResult>
     public bool IsFatal => Status is not (FrameDecodeStatus.Decoded or FrameDecodeStatus.NeedMoreData);
 
     /// <summary>프레임을 온전히 읽었을 때의 결과를 만든다.</summary>
-    /// <param name="header">읽어낸 헤더.</param>
+    /// <param name="envelope">읽어낸 논리 엔벨로프.</param>
     /// <param name="payload">읽어낸 페이로드.</param>
     /// <param name="consumed">프레임 끝 위치.</param>
-    public static FrameDecodeResult Decoded(in FrameHeader header, in ReadOnlySequence<byte> payload, SequencePosition consumed) =>
-        new(FrameDecodeStatus.Decoded, header, payload, consumed, consumed);
+    public static FrameDecodeResult Decoded(in MessageEnvelope envelope, in ReadOnlySequence<byte> payload, SequencePosition consumed) =>
+        new(FrameDecodeStatus.Decoded, envelope, payload, consumed, consumed);
 
     /// <summary>데이터가 더 필요할 때의 결과를 만든다.</summary>
     /// <param name="consumed">지금까지 소비한 위치. 보통 버퍼 시작이다.</param>
@@ -104,7 +108,7 @@ public readonly struct FrameDecodeResult : IEquatable<FrameDecodeResult>
     /// <inheritdoc />
     public bool Equals(FrameDecodeResult other) =>
         Status == other.Status
-        && Header.Equals(other.Header)
+        && Envelope.Equals(other.Envelope)
         && Payload.Equals(other.Payload)
         && Consumed.Equals(other.Consumed)
         && Examined.Equals(other.Examined);
@@ -113,7 +117,7 @@ public readonly struct FrameDecodeResult : IEquatable<FrameDecodeResult>
     public override bool Equals(object? obj) => obj is FrameDecodeResult other && Equals(other);
 
     /// <inheritdoc />
-    public override int GetHashCode() => HashCode.Combine(Status, Header);
+    public override int GetHashCode() => HashCode.Combine(Status, Envelope);
 
     /// <summary>두 결과가 같은지 비교한다.</summary>
     public static bool operator ==(FrameDecodeResult left, FrameDecodeResult right) => left.Equals(right);
@@ -122,5 +126,5 @@ public readonly struct FrameDecodeResult : IEquatable<FrameDecodeResult>
     public static bool operator !=(FrameDecodeResult left, FrameDecodeResult right) => !left.Equals(right);
 
     /// <inheritdoc />
-    public override string ToString() => IsDecoded ? $"{Status} {Header}" : Status.ToString();
+    public override string ToString() => IsDecoded ? $"{Status} {Envelope}" : Status.ToString();
 }

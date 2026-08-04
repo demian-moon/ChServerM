@@ -270,10 +270,10 @@ public sealed class ConnectionLifecycleRegressionTests
         await FrameWriter.WriteFrameAsync(
             context.Connection.Output,
             new FixedHeaderFrameEncoder(4096),
-            context.Header.MessageId,
+            context.Envelope.MessageId,
             context.Payload,
             FrameFlags.None,
-            context.Header.Sequence,
+            context.Envelope.Sequence,
             context.CancellationToken).ConfigureAwait(false);
 
         return DispatchStatus.Handled;

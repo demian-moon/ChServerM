@@ -55,8 +55,8 @@ internal sealed class TestHarness : IAsyncDisposable
         EndPoint endPoint,
         IServerTransport server,
         IClientTransport client,
-        FixedHeaderFrameEncoder encoder,
-        FixedHeaderFrameDecoder decoder)
+        IFrameEncoder encoder,
+        IFrameDecoder decoder)
     {
         Kind = kind;
         _hub = hub;
@@ -75,9 +75,9 @@ internal sealed class TestHarness : IAsyncDisposable
 
     public IClientTransport Client { get; }
 
-    public FixedHeaderFrameEncoder Encoder { get; }
+    public IFrameEncoder Encoder { get; }
 
-    public FixedHeaderFrameDecoder Decoder { get; }
+    public IFrameDecoder Decoder { get; }
 
     /// <summary>서버가 들고 있는 커넥션 수.</summary>
     /// <remarks>
@@ -105,27 +105,32 @@ internal sealed class TestHarness : IAsyncDisposable
     /// <param name="transportOptions">인메모리 전송 설정.</param>
     /// <param name="tcpOptions">TCP 전송 설정.</param>
     /// <param name="maxPayloadLength">프레임 페이로드 상한.</param>
+    /// <param name="decoder">프레임 디코더. <see langword="null"/>이면 고정 헤더.</param>
+    /// <param name="encoder">프레임 인코더. <see langword="null"/>이면 고정 헤더. 디코더와 같은 와이어여야 한다.</param>
     public static async Task<TestHarness> StartAsync(
         Action<MessageDispatcherBuilder> configure,
         TransportKind kind = TransportKind.InMemory,
         FramedConnectionOptions? connectionOptions = null,
         InMemoryTransportOptions? transportOptions = null,
         TcpTransportOptions? tcpOptions = null,
-        int maxPayloadLength = 4096)
+        int maxPayloadLength = 4096,
+        IFrameDecoder? decoder = null,
+        IFrameEncoder? encoder = null)
     {
         ArgumentNullException.ThrowIfNull(configure);
 
         MessageDispatcherBuilder builder = new();
         configure(builder);
 
+        // 기본은 고정 헤더 쌍. 프레이밍 축 교체 테스트는 varint 쌍을 주입한다.
         FramingOptions framing = new() { MaxPayloadLength = maxPayloadLength };
-        FixedHeaderFrameDecoder decoder = new(framing);
-        FixedHeaderFrameEncoder encoder = new(framing);
+        decoder ??= new FixedHeaderFrameDecoder(framing);
+        encoder ??= new FixedHeaderFrameEncoder(framing);
 
         FramedConnectionHandler handler = new(decoder, builder.Build(), connectionOptions);
 
         (InMemoryTransportHub? hub, EndPoint endPoint, IServerTransport server, IClientTransport client) =
-            await CreateTransportsAsync(kind, handler, transportOptions, tcpOptions, maxPayloadLength)
+            await CreateTransportsAsync(kind, handler, transportOptions, tcpOptions, maxPayloadLength, encoder.MaxHeaderSize)
                 .ConfigureAwait(false);
 
         return new TestHarness(kind, hub, endPoint, server, client, encoder, decoder);
@@ -137,9 +142,9 @@ internal sealed class TestHarness : IAsyncDisposable
     /// 디코더는 부분 프레임을 소비할 수 없고, 버퍼가 차면 쓰기가 멈추기 때문이다.
     /// 조립 검사가 이것을 예외로 잡아주지만, 테스트는 애초에 성립하는 조합을 써야 한다.
     /// </remarks>
-    private static (long Pause, long Resume) BufferThresholdsFor(int maxPayloadLength)
+    private static (long Pause, long Resume) BufferThresholdsFor(int maxPayloadLength, int maxHeaderSize)
     {
-        long minimum = maxPayloadLength + FrameHeader.Size;
+        long minimum = maxPayloadLength + maxHeaderSize;
         long pause = Math.Max(InMemoryTransportOptions.DefaultPauseWriterThreshold, minimum * 2);
 
         return (pause, pause / 2);
@@ -152,9 +157,10 @@ internal sealed class TestHarness : IAsyncDisposable
             IConnectionHandler handler,
             InMemoryTransportOptions? transportOptions,
             TcpTransportOptions? tcpOptions,
-            int maxPayloadLength)
+            int maxPayloadLength,
+            int maxHeaderSize)
     {
-        (long pause, long resume) = BufferThresholdsFor(maxPayloadLength);
+        (long pause, long resume) = BufferThresholdsFor(maxPayloadLength, maxHeaderSize);
 
         if (kind == TransportKind.InMemory)
         {
@@ -202,7 +208,7 @@ internal sealed class TestHarness : IAsyncDisposable
     /// 페이로드를 <c>ToArray()</c> 로 복사한다. 프로덕션 코드였다면 이것이 결함이지만,
     /// 테스트는 <c>AdvanceTo</c> 이후에도 값을 비교해야 하므로 여기서는 의도적이다.
     /// </remarks>
-    public async Task<(FrameHeader Header, byte[] Payload)> ReceiveAsync(
+    public async Task<(MessageEnvelope Envelope, byte[] Payload)> ReceiveAsync(
         IConnection connection,
         CancellationToken cancellationToken = default)
     {
@@ -219,7 +225,7 @@ internal sealed class TestHarness : IAsyncDisposable
             {
                 byte[] payload = decoded.Payload.ToArray();
                 reader.AdvanceTo(decoded.Consumed, decoded.Examined);
-                return (decoded.Header, payload);
+                return (decoded.Envelope, payload);
             }
 
             reader.AdvanceTo(decoded.Consumed, decoded.Examined);
