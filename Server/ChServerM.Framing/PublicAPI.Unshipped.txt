@@ -30,6 +30,15 @@ ChServerM.Framing.FramingOptions.MaxPayloadLength.set -> void
 ChServerM.Framing.FramingOptions.ProtocolVersion.get -> ushort
 ChServerM.Framing.FramingOptions.ProtocolVersion.set -> void
 ChServerM.Framing.FramingOptions.Validate() -> void
+ChServerM.Framing.VarintFrameDecoder
+ChServerM.Framing.VarintFrameDecoder.Decode(in System.Buffers.ReadOnlySequence<byte> buffer) -> ChServerM.Framing.FrameDecodeResult
+ChServerM.Framing.VarintFrameDecoder.MaxPayloadLength.get -> int
+ChServerM.Framing.VarintFrameDecoder.VarintFrameDecoder(int maxPayloadLength = 1048576) -> void
+ChServerM.Framing.VarintFrameEncoder
+ChServerM.Framing.VarintFrameEncoder.MaxHeaderSize.get -> int
+ChServerM.Framing.VarintFrameEncoder.MaxPayloadLength.get -> int
+ChServerM.Framing.VarintFrameEncoder.VarintFrameEncoder(int maxPayloadLength = 1048576) -> void
+ChServerM.Framing.VarintFrameEncoder.WriteHeader(System.Buffers.IBufferWriter<byte>! writer, in ChServerM.Framing.MessageEnvelope envelope, int payloadLength) -> void
 const ChServerM.Framing.FrameHeader.CurrentVersion = 1 -> ushort
 const ChServerM.Framing.FrameHeader.FlagsOffset = 8 -> int
 const ChServerM.Framing.FrameHeader.MessageIdOffset = 2 -> int
