@@ -1,0 +1,19 @@
+// 테스트 전용 메시지. 프레임워크는 스키마를 배포하지 않는다.
+syntax = "proto3";
+
+option csharp_namespace = "ChServerM.Serialization.Protobuf.Tests";
+
+message ProtoChatMessage {
+  string sender = 1;
+  string text = 2;
+  int64 timestamp = 3;
+}
+
+// 스키마 진화 검증용 V2 — 같은 필드 번호는 같은 의미이고, 4번이 추가됐다.
+// 실제 운영에서는 같은 메시지의 다른 세대이지만, 한 어셈블리에 공존시키기 위해 별도 타입으로 둔다.
+message ProtoChatMessageV2 {
+  string sender = 1;
+  string text = 2;
+  int64 timestamp = 3;
+  int32 priority = 4;
+}

@@ -43,6 +43,11 @@ try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $Solution = Join-Path $RepoRoot 'ChServerM.slnx'
 
+# FlatSharp.Compiler(빌드 타임 코드 생성기)는 net9.0 도구라서, global.json 이 고정한
+# .NET 10 SDK 하나만 있는 환경에서는 "런타임 없음"으로 실행이 거부된다.
+# 최신 메이저로 롤포워드시켜 SDK 하나로 로컬·CI 빌드가 동일하게 재현되게 한다 (ADR-0012).
+$env:DOTNET_ROLL_FORWARD = 'LatestMajor'
+
 $script:StepIndex = 0
 function Write-Step {
     param([string]$Name)

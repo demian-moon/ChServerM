@@ -10,9 +10,11 @@ namespace ChServerM.Bench.Framing;
 /// 같은 세 경로를 재서 두 프레이밍의 비용 차이를 비교 가능하게 한다.
 /// </summary>
 /// <remarks>
-/// varint 는 바이트 단위 루프라 고정 헤더의 단일 <c>BinaryPrimitives</c> 읽기보다 느릴
-/// 것으로 예상한다 — 이 프레이밍의 존재 이유는 속도가 아니라 <b>작은 프레임의 헤더
-/// 오버헤드(2바이트 vs 16바이트)</b>다. 예상을 수치로 고정해 둔다(ADR-0010).
+/// 도입 시 예상("varint 바이트 루프가 고정 헤더보다 느릴 것")은 2026-08-05 실측으로
+/// <b>기각됐다</b> — ENV-B 에서 varint 디코드 16ns vs 고정 헤더 34ns. 고정 헤더의
+/// 비용은 16B 읽기가 아니라 버전·플래그·예약 필드 검증이다(BENCHMARKS.md 해당 절).
+/// 이 프레이밍의 존재 이유는 여전히 <b>작은 프레임의 헤더 오버헤드(2바이트 vs
+/// 16바이트)</b>이고, 속도 불이익이 없음까지 확인됐다(ADR-0010).
 /// </remarks>
 [Config(typeof(BenchConfig))]
 public class VarintCodecBenchmarks

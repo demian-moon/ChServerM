@@ -1,0 +1,10 @@
+// 4자 직렬화 벤치마크 전용 메시지 — 네 포맷이 같은 필드 구성을 갖는다.
+attribute "fs_serializer";
+
+namespace ChServerM.Bench.Serialization;
+
+table BenchFbMessage (fs_serializer:"Greedy") {
+  sender: string;
+  text: string;
+  timestamp: int64;
+}

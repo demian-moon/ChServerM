@@ -1,0 +1,9 @@
+// 직렬화 축 교체 테스트 전용 메시지.
+attribute "fs_serializer";
+
+namespace ChServerM.Integration.Tests;
+
+// Greedy: FlatSharp 어댑터의 계약(호출 후 페이로드 무효)이 요구하는 옵션이다.
+table SwapFbMessage (fs_serializer:"Greedy") {
+  text: string;
+}

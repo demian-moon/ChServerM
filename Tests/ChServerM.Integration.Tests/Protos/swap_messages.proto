@@ -1,0 +1,8 @@
+// 직렬화 축 교체 테스트 전용 메시지.
+syntax = "proto3";
+
+option csharp_namespace = "ChServerM.Integration.Tests";
+
+message SwapChatMessage {
+  string text = 1;
+}

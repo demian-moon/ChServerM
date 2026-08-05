@@ -292,6 +292,71 @@ Phase 5 이후 실측으로 대체한다.
 **한계**: 단일 머신 루프백 1회 측정. NIC·커널 경로가 실린 다중 머신 측정,
 지속(soak) 시나리오는 Phase 10/12 의 몫이다.
 
+### 2026-08-05 — ⚠ ADR-0002 잔여 확정 근거: 4자 직렬화 벤치마크
+
+- 환경: **ENV-B**, Release, ServerGC(Concurrent), BenchmarkDotNet 0.15.8
+- 커밋: 이 기록과 같은 커밋의 코드로 측정했다 (Phase 6 어댑터 3종 + 벤치 도입 커밋)
+- 실행: `dotnet run -c Release --project Bench/ChServerM.Bench -- --filter "*SerializationBenchmarks*"`
+- 시나리오: 동일 필드 구성(sender/text/timestamp) 메시지를 네 포맷으로 왕복.
+  MemoryPack·Protobuf·FlatSharp 은 **프로덕션과 같은 어댑터 경로**(`IMessageSerializer`),
+  MessagePack 은 벤치 전용 래퍼(표준 리졸버 IL emit — **JIT 전용 수치**, ADR-0012).
+  small = 채팅 한 줄(~한글 15자), large = 한글 1,024자(UTF-8 ~3KB)
+
+| 구성 | 직렬화 | 역직렬화 | **왕복 합** | 역직렬화 Allocated | 와이어 크기 |
+|---|---:|---:|---:|---:|---:|
+| small · MemoryPack | 42.7 ns | **61.7 ns** | **104.4 ns** | 152 B | 85 B |
+| small · Protobuf | **33.0 ns** | 101.1 ns | 134.1 ns | 160 B | **71 B** |
+| small · FlatSharp | 53.5 ns | 103.3 ns | 156.8 ns | 216 B | 108 B |
+| small · MessagePack | 66.2 ns | 115.2 ns | 181.4 ns | 152 B | 73 B |
+| large · MemoryPack | 805 ns | **1,111 ns** | **1,916 ns** | 2,168 B | 3,112 B |
+| large · Protobuf | 899 ns | 1,507 ns | 2,406 ns | 2,176 B | **3,099 B** |
+| large · FlatSharp | 802 ns | 1,516 ns | 2,318 ns | 2,232 B | 3,136 B |
+| large · MessagePack | **799 ns** | 1,531 ns | 2,330 ns | 2,168 B | 3,101 B |
+
+**읽는 법과 결론**
+
+1. **왕복 기준 MemoryPack 이 두 크기 모두 최속** — small 에서 2위(Protobuf) 대비 22%,
+   역직렬화 단독으로는 39~64% 차이. 서버는 수신(역직렬화)이 지배 경로라 이 항목의
+   가중치가 크다
+2. **직렬화 단독·와이어 크기는 small 에서 Protobuf 가 최속·최소**(33.0ns, 71B).
+   "MemoryPack 이 전 항목 최속"이라는 초기 가설(6절)은 **부분 기각**됐다 —
+   소형 메시지 직렬화는 varint 인코딩이 zero-encoding 의 복사 이점을 상쇄한다
+3. 직렬화 경로는 네 포맷 전부 **할당 0** (어댑터의 `IBufferWriter` 직결이 성립).
+   역직렬화 할당은 메시지 객체+문자열 그 자체로, 포맷 간 차이는 오차 수준
+4. large(페이로드 지배 구간)에서는 네 포맷이 직렬화 ~800ns 로 수렴한다 — UTF-8
+   인코딩 비용이 지배하고 포맷 오버헤드는 상수항이다
+5. FlatSharp 은 Greedy 강제(ADR-0012) 상태의 수치다 — 간판 기능(lazy 접근)을 버린
+   조건이므로, lazy 축이 계약에 들어오면 재측정해야 한다
+
+→ **기본값 판정은 ADR-0013.** 요약: C#↔C# 왕복 최속 = MemoryPack,
+크로스 언어·스키마 진화·와이어 최소 = Protobuf.
+
+### 2026-08-05 — 프레임 코덱: varint vs 고정 16B 헤더 (ENV-B 동일 환경 쌍)
+
+- 환경: **ENV-B**, Release, ServerGC(Concurrent), BenchmarkDotNet 0.15.8
+- 커밋: 이 기록과 같은 커밋의 코드로 측정했다
+- 실행: `--filter "*VarintCodecBenchmarks*"` / `--filter "*FrameCodecBenchmarks*"`
+- 배경: 2026-08-03 의 고정 헤더 수치(~29ns)는 **ENV-A** 라 varint 와 교차 비교가
+  금지된다(환경 프로필 규칙). 그래서 고정 헤더를 ENV-B 에서 재측정해 쌍을 만들었다.
+  varint 잔여 항목("수치 기록만 남음")도 이것으로 해소
+
+PayloadLength 64 기준 (0·1024 도 경향 동일, 할당은 **전 경로 0**):
+
+| 경로 | 고정 16B 헤더 | varint | 비고 |
+|---|---:|---:|---|
+| Decode 빠른 경로 (단일 세그먼트) | 34.4 ns | **16.2 ns** | varint 가 **2.1× 빠름** |
+| Decode 느린 경로 (세그먼트 경계) | 39.9 ns | 23.1 ns | 양쪽 다 경계 비용 +16~42% |
+| 부분 수신 (NeedMoreData) | 23.1 ns | 14.0 ns | |
+| 헤더 쓰기 (WriteHeader) | 5.8 ns | 5.0 ns | 사실상 동률 |
+
+**결론 — 예상 기각.** "varint 바이트 루프는 고정 헤더의 단일 `BinaryPrimitives` 읽기보다
+느릴 것"(VarintCodecBenchmarks 도입 시 주석, ADR-0010 시점 서술)은 틀렸다.
+고정 헤더는 16B 를 읽는 것이 아니라 **버전·플래그·예약 필드·시퀀스 검증까지 수행**하는
+비용이고, varint 는 검증할 필드 자체가 없다 — 기능 차이가 곧 비용 차이다.
+따라서 varint 의 존재 이유(작은 프레임의 헤더 오버헤드 2B vs 16B, 1/8)에 속도 불이익도
+없음이 확인됐다. 단 어느 쪽이든 초당 10만 프레임에 코어 하나의 0.5% 미만이라
+**프레이밍 선택은 속도가 아니라 기능(버전 협상·시퀀스·플래그 필요 여부)으로 정한다.**
+
 ### 미측정 (기준선 없음)
 
 - **파티션당 커넥션 다수(소비 스레드 상시 바쁨)에서의 배타 왕복 비용** — 위 2026-08-04

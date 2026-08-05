@@ -1,0 +1,24 @@
+// 테스트 전용 스키마. 프레임워크는 스키마를 배포하지 않는다.
+attribute "fs_serializer";
+
+namespace ChServerM.Serialization.FlatBuffers.Tests;
+
+// Greedy: 어댑터 계약(호출 후 페이로드 무효)이 요구하는 옵션이다.
+table FbChatMessage (fs_serializer:"Greedy") {
+  sender: string;
+  text: string;
+  timestamp: int64;
+}
+
+// 스키마 진화 검증용 V2 — FlatBuffers 는 vtable 기반이라 뒤에 필드를 추가하면 호환된다.
+table FbChatMessageV2 (fs_serializer:"Greedy") {
+  sender: string;
+  text: string;
+  timestamp: int64;
+  priority: int32;
+}
+
+// 어댑터가 조립 시점에 거부해야 하는 Lazy 직렬화기 검증용.
+table FbLazyMessage (fs_serializer:"Lazy") {
+  text: string;
+}

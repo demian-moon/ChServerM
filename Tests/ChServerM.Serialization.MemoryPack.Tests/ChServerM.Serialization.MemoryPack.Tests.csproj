@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+
+    <!-- 테스트 어셈블리는 AOT 배포 대상이 아니다. 분석기 소음을 줄인다. -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="coverlet.collector" />
+    <!--
+      테스트 메시지 타입에 [MemoryPackable] 소스 제너레이터가 돌아야 한다.
+      제너레이터는 ProjectReference 를 타고 전파되지 않으므로 직접 참조한다.
+    -->
+    <PackageReference Include="MemoryPack" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Server\ChServerM.Serialization.MemoryPack\ChServerM.Serialization.MemoryPack.csproj" />
+  </ItemGroup>
+
+</Project>

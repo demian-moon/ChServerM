@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+
+    <!-- 테스트 어셈블리는 AOT 배포 대상이 아니다. 분석기 소음을 줄인다. -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="coverlet.collector" />
+    <!--
+      fbs 빌드 타임 코드 생성. 런타임에는 FlatSharp.Runtime 만 남는다(어댑터가 전이 제공).
+      ⚠ 이 컴파일러는 net9.0 도구다 — .NET 10 SDK 만 있는 환경(이 저장소 표준)에서는
+      DOTNET_ROLL_FORWARD=LatestMajor 가 필요하다. eng/build.ps1 이 설정해 주므로
+      IDE 단독 빌드가 실패하면 그 환경 변수를 켜라 (ADR-0012).
+    -->
+    <PackageReference Include="FlatSharp.Compiler" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FlatSharpSchema Include="Schemas\test_messages.fbs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Server\ChServerM.Serialization.FlatBuffers\ChServerM.Serialization.FlatBuffers.csproj" />
+  </ItemGroup>
+
+</Project>

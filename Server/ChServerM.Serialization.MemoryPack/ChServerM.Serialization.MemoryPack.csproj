@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.Serialization.MemoryPack</RootNamespace>
+    <Description>ChServerM 직렬화 축의 MemoryPack 어댑터 (ADR-0011).</Description>
+  </PropertyGroup>
+
+  <!--
+    벤더 격리 규약: MemoryPack 타입은 이 어셈블리 밖으로 나가지 않는다.
+    public 표면은 Core 계약(IMessageSerializer / IMessageSerializerProvider)만 노출한다 —
+    이 어셈블리를 지워도 Core 는 컴파일된다.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\ChServerM.Core\ChServerM.Core.csproj" />
+    <PackageReference Include="MemoryPack" />
+  </ItemGroup>
+
+</Project>

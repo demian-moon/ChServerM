@@ -16,6 +16,18 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="coverlet.collector" />
+    <!--
+      직렬화 축 교체 테스트용 메시지 생성기들. 런타임에는 아무것도 남지 않는다.
+      FlatSharp.Compiler 는 net9.0 도구라 DOTNET_ROLL_FORWARD=LatestMajor 가 필요하다
+      (eng/build.ps1 이 설정, ADR-0012).
+    -->
+    <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
+    <PackageReference Include="FlatSharp.Compiler" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="Protos\swap_messages.proto" GrpcServices="None" />
+    <FlatSharpSchema Include="Schemas\swap_messages.fbs" />
   </ItemGroup>
 
   <!--
@@ -26,6 +38,9 @@
     <ProjectReference Include="..\..\Server\ChServerM.Concurrency\ChServerM.Concurrency.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Framing\ChServerM.Framing.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Hosting\ChServerM.Hosting.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Serialization.FlatBuffers\ChServerM.Serialization.FlatBuffers.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Serialization.MemoryPack\ChServerM.Serialization.MemoryPack.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Serialization.Protobuf\ChServerM.Serialization.Protobuf.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Transport.InMemory\ChServerM.Transport.InMemory.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Transport.Tcp\ChServerM.Transport.Tcp.csproj" />
   </ItemGroup>

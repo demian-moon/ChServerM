@@ -1,0 +1,8 @@
+#nullable enable
+ChServerM.Serialization.MemoryPack.MemoryPackMessageSerializer<TMessage>
+ChServerM.Serialization.MemoryPack.MemoryPackMessageSerializer<TMessage>.MemoryPackMessageSerializer() -> void
+ChServerM.Serialization.MemoryPack.MemoryPackMessageSerializer<TMessage>.Serialize(System.Buffers.IBufferWriter<byte>! writer, in TMessage message) -> void
+ChServerM.Serialization.MemoryPack.MemoryPackMessageSerializer<TMessage>.TryDeserialize(in System.Buffers.ReadOnlySequence<byte> payload, out TMessage message) -> bool
+ChServerM.Serialization.MemoryPack.MemoryPackMessageSerializerProvider
+ChServerM.Serialization.MemoryPack.MemoryPackMessageSerializerProvider.Find<TMessage>() -> ChServerM.Serialization.IMessageSerializer<TMessage>?
+static ChServerM.Serialization.MemoryPack.MemoryPackMessageSerializerProvider.Instance.get -> ChServerM.Serialization.MemoryPack.MemoryPackMessageSerializerProvider!

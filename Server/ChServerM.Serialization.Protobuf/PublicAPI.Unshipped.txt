@@ -1,0 +1,9 @@
+#nullable enable
+ChServerM.Serialization.Protobuf.ProtobufMessageSerializer<TMessage>
+ChServerM.Serialization.Protobuf.ProtobufMessageSerializer<TMessage>.ProtobufMessageSerializer() -> void
+ChServerM.Serialization.Protobuf.ProtobufMessageSerializer<TMessage>.Serialize(System.Buffers.IBufferWriter<byte>! writer, in TMessage! message) -> void
+ChServerM.Serialization.Protobuf.ProtobufMessageSerializer<TMessage>.TryDeserialize(in System.Buffers.ReadOnlySequence<byte> payload, out TMessage! message) -> bool
+ChServerM.Serialization.Protobuf.ProtobufMessageSerializerProvider
+ChServerM.Serialization.Protobuf.ProtobufMessageSerializerProvider.ProtobufMessageSerializerProvider() -> void
+ChServerM.Serialization.Protobuf.ProtobufMessageSerializerProvider.Find<TMessage>() -> ChServerM.Serialization.IMessageSerializer<TMessage>?
+ChServerM.Serialization.Protobuf.ProtobufMessageSerializerProvider.Register<TMessage>() -> ChServerM.Serialization.Protobuf.ProtobufMessageSerializerProvider!

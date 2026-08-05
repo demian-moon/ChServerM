@@ -38,10 +38,28 @@
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
   </ItemGroup>
 
+  <ItemGroup Label="Serialization">
+    <!--
+      직렬화 축 어댑터 (Phase 6).
+      MemoryPack: 첫 어댑터(ADR-0011). Google.Protobuf + FlatSharp: 잔여 어댑터(ADR-0012).
+      기본값 확정은 4자 벤치마크 후 별도 ADR — "도입"과 "기본값"은 다른 결정이다.
+    -->
+    <PackageVersion Include="MemoryPack" Version="1.21.4" />
+    <PackageVersion Include="Google.Protobuf" Version="3.35.1" />
+    <PackageVersion Include="FlatSharp.Runtime" Version="7.9.0" />
+    <!-- 빌드 타임 코드 생성기 — 소비 프로젝트에서 PrivateAssets="all" 로 쓴다. -->
+    <PackageVersion Include="Grpc.Tools" Version="2.83.0" />
+    <PackageVersion Include="FlatSharp.Compiler" Version="7.9.0" />
+    <!--
+      MessagePack 은 4자 벤치마크 비교군 전용이다(Bench 만 참조).
+      어댑터 어셈블리는 만들지 않는다 — 근거는 ADR-0012.
+    -->
+    <PackageVersion Include="MessagePack" Version="3.1.8" />
+  </ItemGroup>
+
   <!--
     축 어댑터 패키지는 해당 Phase에 진입할 때 추가한다.
     ADR 없이 여기에 항목을 늘리지 않는다 — docs/DECISIONS.md 참조.
-      Serialization : MemoryPack / Google.Protobuf / FlatSharp
       Transport     : Microsoft.AspNetCore.Connections.Abstractions
       Observability : ZLogger / OpenTelemetry
       Load test     : NBomber

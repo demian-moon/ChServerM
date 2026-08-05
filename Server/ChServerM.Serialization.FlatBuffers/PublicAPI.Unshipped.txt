@@ -1,0 +1,9 @@
+#nullable enable
+ChServerM.Serialization.FlatBuffers.FlatSharpMessageSerializer<TMessage>
+ChServerM.Serialization.FlatBuffers.FlatSharpMessageSerializer<TMessage>.FlatSharpMessageSerializer(FlatSharp.ISerializer<TMessage!>! serializer) -> void
+ChServerM.Serialization.FlatBuffers.FlatSharpMessageSerializer<TMessage>.Serialize(System.Buffers.IBufferWriter<byte>! writer, in TMessage! message) -> void
+ChServerM.Serialization.FlatBuffers.FlatSharpMessageSerializer<TMessage>.TryDeserialize(in System.Buffers.ReadOnlySequence<byte> payload, out TMessage! message) -> bool
+ChServerM.Serialization.FlatBuffers.FlatSharpMessageSerializerProvider
+ChServerM.Serialization.FlatBuffers.FlatSharpMessageSerializerProvider.FlatSharpMessageSerializerProvider() -> void
+ChServerM.Serialization.FlatBuffers.FlatSharpMessageSerializerProvider.Find<TMessage>() -> ChServerM.Serialization.IMessageSerializer<TMessage>?
+ChServerM.Serialization.FlatBuffers.FlatSharpMessageSerializerProvider.Register<TMessage>(FlatSharp.ISerializer<TMessage!>! serializer) -> ChServerM.Serialization.FlatBuffers.FlatSharpMessageSerializerProvider!

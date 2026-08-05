@@ -28,15 +28,34 @@
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" />
+    <!-- 벤치 메시지 타입([MemoryPackable]) 생성기 — 어댑터 참조로는 생성기가 전파되지 않는다. -->
+    <PackageReference Include="MemoryPack" />
+    <!--
+      MessagePack 은 4자 벤치마크 비교군 전용이다(ADR-0012). 어댑터 어셈블리가 없으므로
+      벤치 안의 최소 래퍼로 돌린다 — 표준 리졸버(IL emit) 경로라 JIT 전용이다.
+    -->
+    <PackageReference Include="MessagePack" />
+    <!-- 빌드 타임 코드 생성기. FlatSharp.Compiler 는 DOTNET_ROLL_FORWARD 필요(eng/build.ps1). -->
+    <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
+    <PackageReference Include="FlatSharp.Compiler" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="Serialization\bench_messages.proto" GrpcServices="None" />
+    <FlatSharpSchema Include="Serialization\bench_messages.fbs" />
   </ItemGroup>
 
   <!--
     측정 대상. 벤치마크는 프로덕션 조립과 같은 경로를 써야 의미가 있다 —
     벤치마크용 지름길을 만들면 그 수치는 프로덕션을 대표하지 않는다.
+    직렬화 벤치가 어댑터(IMessageSerializer 구현)를 통해 도는 것도 같은 이유다.
   -->
   <ItemGroup>
     <ProjectReference Include="..\..\Server\ChServerM.Concurrency\ChServerM.Concurrency.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Framing\ChServerM.Framing.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Serialization.FlatBuffers\ChServerM.Serialization.FlatBuffers.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Serialization.MemoryPack\ChServerM.Serialization.MemoryPack.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Serialization.Protobuf\ChServerM.Serialization.Protobuf.csproj" />
   </ItemGroup>
 
 </Project>
