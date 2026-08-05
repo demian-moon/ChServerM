@@ -1,73 +1,60 @@
 # ChServerM — 현재 상태
 
-**최종 갱신**: 2026-08-05 (5차)
-**현재 단계**: **Part II 데이터 경로 게이트 전부 ✅** (Phase 3 게이트 · 4 완결 · 5 완결 · 6 완결 · 7 게이트) — 다음은 Part III 프로덕션 필수
-**진행률**: 78/221 항목 (Phase 0 `13/17` · 1 `12/21` · 2 `7/11` · 3 `4/6` · 4 `10/10` · 5 `12/12` · 6 `7/7` · 7 `5/7` · 8 `8/16`)
+**최종 갱신**: 2026-08-05 (6차)
+**현재 단계**: **Part III — Phase 9 보안 진행 중** (위협 모델 ✅ · ADR-0017 채택 · 전송 보안 축 실동+실측 ✅ / 게이트 잔여: 인증 전 패킷 차단 테스트)
+**진행률**: 83/222 항목 (Phase 0 `13/17` · 1 `13/21` · 2 `7/11` · 3 `4/6` · 4 `10/10` · 5 `12/12` · 6 `7/7` · 7 `5/7` · 8 `8/16` · 9 `4/13`)
 
 ## 완료된 것
 
 - **규약** — `CLAUDE.md`: 하드 룰, 축 12개, 9절 병렬성 규약, 8.1 공개 API 게이트, 8.2 주석 규약
 - **레거시 전수 분석** — 27,300줄 → `docs/legacy/` 14종
-- **Core 추상화** — 무의존 2중 가드. ADR-0010 논리 엔벨로프/와이어 헤더 분리
-- **프레이밍 축 — Phase 4 완결 ✅** — 고정 16B + varint 두 구현(varint 디코드가 오히려 2.1× 빠름).
-  조각 재조립(ADR-0015): 연속성 계약 + 상한, 미완성 만료는 idle timeout 위임(타이머 0)
-- **버퍼 계층 — Phase 3 게이트 ✅ (ADR-0016)** — `PooledBufferWriter` 로 응답 스크래치
-  619ns/8KB → **50ns/0B**. 누수는 파이널라이저 상시 관측(`LeakedBuffers`). 슬랩은 측정 후 보류
-- **전송 축 — 세 실증(InMemory·Tcp·Kestrel 프로토타입), Phase 5 완결 ✅** — ADR-0001 확정:
-  순수 Socket 유지(Kestrel 대결 동률). 1만 접속·에코 146-169k RPS·파이프라이닝 938k RPS.
-  송신 배칭은 실측 판정: 자연 배칭 채택, 벡터드 send 탈락(이득 0, `UseVectoredSend` 기본 끔)
-- **직렬화 축 — 실동 어댑터 3종으로 증명 완료(Phase 6 ✅)** — MemoryPack·Protobuf·FlatSharp 이
-  같은 핸들러 코드로 동작(`SerializerSwapTests`). **기본값 = MemoryPack(ADR-0013)**,
-  4자 벤치·스키마 진화 3포맷 테스트 완료
-- **실행 모델 — ADR-0008 액터형** — 프레임당 할당 ~0B, 물리 코어 효율 95%
-- **디스패치 소스 제너레이터 — Phase 7 게이트 ✅(ADR-0014)** — `[MessageHandler]` 발견 +
-  CHSM1001~1007 컴파일 타임 검증(`docs/DIAGNOSTICS.md`) + `MapGeneratedHandlers` 생성.
-  디스패치 벤치로 switch 직생성 탈락(배열 0.69ns < switch 0.88ns < Dict 1.93ns),
-  생성 경로가 **Native AOT publish + 바이너리 실행 검증**까지 통과
-- 테스트 **398개** 통과, 전체 게이트(-WarnAsError·audit·AOT publish+실행) 통과
+- **Part II 데이터 경로 게이트 전부 ✅** — 프레이밍(고정16B+varint, 조각 재조립 ADR-0015) /
+  버퍼(`PooledBufferWriter` 50ns/0B, ADR-0016) / TCP(순수 Socket 확정 ADR-0001, 1만 접속·169k RPS) /
+  직렬화 3종(기본 MemoryPack, ADR-0013) / 디스패치 소스 제너레이터(ADR-0014, AOT 실증) /
+  실행 모델(ADR-0008, 물리 코어 효율 95%)
+- **위협 모델 ✅** — `docs/THREAT-MODEL.md`: 신뢰 경계 5 · 공격 표면 9 · 위협 22(STRIDE)
+  전 항목 완화책 매핑 + 레거시 결함 14종 역매핑. 버전 협상 요구사항 R-1~R-5 고정
+- **전송 보안 축 실동 ✅ (ADR-0017)** — TLS 1.3(`SslStream`) 위임, 자체 암호 금지.
+  `ITransportSecurity`(Core, 파이프 데코레이터·실패는 상태) → `ChServerM.Security.Tls`(의존 0) →
+  `UseTransportSecurity()`(적용 순서를 조립이 강제). 같은 에코 핸들러가 InMemory/TCP × TLS 동작,
+  평문 거부 후 서버 생존. **실측: RPS −2.5%·p50 +50µs** — "느릴 것" 추정 봉쇄
+- 테스트 **413개** 통과(398 + 신규 15: `ITransportSecurity` 계약 6 · TLS 어댑터 6 · 종단 3),
+  전체 게이트(-WarnAsError·audit·AOT publish+실행) 통과
 
 ## 진행 중
 
-- **Phase 3 잔여 2건(게이트 조건 아님)** — 슬랩 할당기(보류 — 경합 관측 시 재개),
-  스크래치→파이프 복사 1회 제거(프레이밍 계약 변경 필요라 별도 판단)
-- **Phase 7 잔여 2건(게이트 조건 아님)** — 누락 핸들러 검출(메시지 레지스트리 설계 필요),
-  리플렉션 폴백 디스패처(20.5ns+32B 실측 — 프로덕션 비권장 근거 확보됨)
-- **Phase 1 잔여** — `ISessionStore`, `IMetricsSink`, `IPayloadCodec`, `ITransportSecurity` 등
-  → Part III 각 Phase 구현과 함께 확정하는 것이 순서
+- **Phase 9 잔여** — ⚠ 버전 협상 **와이어 구현**(설계는 ADR-0017 확정: TLS 채널 안
+  ClientHello`[min,max]`→ServerHello, 헤더 v1 영구 동결) / 상태별 화이트리스트(T-19,
+  **게이트 조건**) / `IAuthenticator` / `IPayloadCodec`(압축→암호화 순서, T-11·18) /
+  시크릿 관리 / 입력 검증 / Tls 인증서 파일 로딩·회전 운영 경로
+- **Phase 7·8 잔여(게이트 조건 아님)** — 누락 핸들러 검출, 리플렉션 폴백, 코어 제한 재측정
 - **감사 보류분** — `MessageContext` 내부 메서드 public(ADR 후보), ConnectionId 세대 활용(세션 계층)
 
 ## 다음 (우선순위 순)
 
-1. **Part III 진입 — Phase 9 보안**: `docs/THREAT-MODEL.md` 작성부터
-   (legacy/07-security 의 결함 목록 → 위협·완화책 매핑). ⚠ 프로토콜 버전 협상 설계 포함
-   (현행 "불일치 = 종료"는 롤링 배포와 구조적으로 충돌 — 2026-08-04 감사)
-2. **Phase 9 핸드셰이크·키 교환 설계** — 양방향 AEAD(AES-GCM/ChaCha20-Poly1305).
-   위협 모델이 선행돼야 한다
-3. **(병행 후보) Phase 8 잔여** — 실제 코어 제한 재측정(`taskset`/`start /affinity`)
+1. **상태별 패킷 화이트리스트 미들웨어(T-19)** — 기본 거부 + 인증 전 화이트리스트.
+   Phase 9 게이트 조건("인증 전 패킷 차단이 테스트로 확인될 것") 직결
+2. **버전 협상 핸드셰이크 와이어 구현** — `ClientHello/ServerHello` 고정 레이아웃
+   (영구 동결, 직렬화 축 비의존) + `FrameworkMessageIds` + 호스팅 통합
+3. `IAuthenticator` — 레거시 `AuthM`(PasswordHasher) 승계(싱글턴·옵션 명시) +
+   1회용·만료 토큰(크로스 커넥션 리플레이, ADR-0017 결정 4 잔여 몫)
 
 ## 블로커 / 열린 결정
 
 - **레거시 하드코딩 자격증명** — `ServerGlobals.cs:103` (기존 항목 유지)
-- MemoryPack 기본값의 주의 계약(롤링 배포 메시지는 `VersionTolerant` 명시)을
-  Phase 7 제너레이터 진단으로 승격할지 — ADR-0013 부정 항목
+- MemoryPack `VersionTolerant` 주의 계약의 제너레이터 진단 승격 여부 — ADR-0013 부정 항목.
+  버전 협상 와이어 구현과 함께 판단
+- LoadRunner 램프업 무한 루프(죽은 서버 대상 — 고아 프로세스 유발) — Phase 12 항목 추가됨
 
 ## 이번에 배운 것 (같은 실수 반복 방지)
 
-- **스키마 진화는 방향까지 검증한다** — MemoryPack 기본 모드는 구데이터→신리더만 허용.
-  롤링 배포에서 반드시 발생하는 방향(신→구)이 실패 쪽이다. 호환성 주장은 양방향 테스트 없이 적지 않는다
-- **교차 환경 비교 금지가 실제로 오판을 막았다** — 고정 헤더를 ENV-B 로 재측정하니 ENV-A 수치와
-  달랐다(34 vs 29ns). 규칙 없이는 잘못된 비율을 기록했을 것
-- **벤치 대결은 불리한 쪽에 기울여 설계한다** — Kestrel 쪽에 유리한 조건에서도 동률 → 결론이 강하다
-- **빌드 타임 도구의 런타임 요구는 SDK 고정과 충돌한다** — FlatSharp.Compiler(net9) ↔ global.json(10.x).
-  롤포워드를 빌드 스크립트에 고정해 로컬·CI 동일 재현
-- **전역 MSBuild 속성은 참조 그래프 전체에 흐른다** — `--property:PublishAot=true` 가
-  netstandard2.0 제너레이터까지 AOT 대상으로 만들어 게이트가 깨졌다. csproj 선언으로 충분하면 전역을 쓰지 않는다
-- **서드파티 ILC 경고를 억제하면 실행 검증으로 상쇄한다** — 정적으로 증명 못 하는 "그 경로는
-  실행 안 된다"는 바이너리를 돌려 증명한다. AOT 게이트에 publish 후 실행 검증(exit 0)이 추가된 이유다
-- **"만료" 요구는 타이머가 유일한 답이 아니다** — 조각 재조립의 연속성 계약이 "멈춘 재조립"을
-  "무입력 커넥션"과 동치로 만들어 기존 idle timeout 이 만료를 대신한다(9.5). 계약 설계로 메커니즘을 지운다
-- **누수 감지는 Release 에서도 눈이 있어야 한다** — DEBUG 전용 추적은 프로덕션에서 눈이 먼다.
-  파이널라이저-온-리크가 정상 경로 비용 0으로 상시 관측을 준다
+- **TLS 1.3 0.5-RTT** — 서버는 클라이언트의 인증서 검증 전에 확립을 보고할 수 있다.
+  "실패면 양쪽 다 실패" 단언은 플랫폼 의존 — 계약으로 고정할 것은 "매달리지 않는다"뿐
+- **검증된 구현 위임이 1차 완화책이다** — 키 교환·nonce·무결성·브리지 펌프까지, 직접
+  만들면 그것이 감사 대상이 된다. 레거시는 정확히 자체 구현의 길에서 전멸했다
+- **분석기 억제는 계약 명문화와 쌍으로** — CA5359(무조건 true 콜백)를 벤치에서 억제하며
+  같은 패턴의 프로덕션 금지를 옵션 문서 계약으로 남겼다
+- **PowerShell 5.1 + 여러 줄 커밋 메시지 = `git commit -F <파일>`** — 인수 안 `"` 가 깨진다
 
 ## 작업 방식
 
@@ -90,16 +77,17 @@ powershell -File eng/build.ps1 -Configuration Release -WarnAsError
   사용자 로컬(`~\.dotnet`) 설치가 가장 싸다 (이 머신은 `~\.dotnet` 에 10.0.110 —
   비대화형 셸에서는 PATH 앞에 수동으로 얹어야 한다)
 - **FlatSharp.Compiler 는 `DOTNET_ROLL_FORWARD=LatestMajor` 필요** — 빌드 스크립트가
-  설정하므로 IDE 단독 빌드에서만 수동 설정
+  설정하므로 IDE·단독 `dotnet test` 에서만 수동 설정
 - 부하 측정: `dotnet run -c Release --project Bench/ChServerM.Bench.LoadRunner -- server|client ...`
-  (서버 모드 `--transport socket|kestrel` — ADR-0001 재현용)
+  (`--transport socket|kestrel` ADR-0001 재현 / `--tls true|false` ADR-0017 A/B)
 - 측정 환경이 다르면 `BENCHMARKS.md` 에 ENV 프로필을 새로 등록한다(교차 비교 금지)
 
 ## 참조
 
 - 계획: `docs/ROADMAP.md` / 설계 결정: `docs/DECISIONS.md`
-  (ADR-0000·0001·0002·0004~0016 채택 / 0003 폐기 — 미결 ADR 없음)
+  (ADR-0000·0001·0002·0004~0017 채택 / 0003 폐기 — 미결 ADR 없음)
+- 위협 모델: `docs/THREAT-MODEL.md` (Phase 9 의 근거 문서 — 새 축·표면 추가 시 갱신)
 - 진단 규칙: `docs/DIAGNOSTICS.md` (CHSM0xxx 가드 · CHSM1xxx 제너레이터)
 - 성능 수치: `docs/BENCHMARKS.md` (ENV-A: 9900X 12/24 · ENV-B: 7945HX 16/32)
-- 상세 이력: `docs/standup/history/` (오늘: `2026-08-05.md`)
+- 상세 이력: `docs/standup/history/` (오늘: `2026-08-05.md` 1~6차)
 - 레거시 분석: `docs/legacy/00-overview.md`
