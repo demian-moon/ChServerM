@@ -1,8 +1,8 @@
 # ChServerM — 현재 상태
 
-**최종 갱신**: 2026-08-05
-**현재 단계**: Phase 0 ✅ · Phase 5 게이트 ✅ · **Phase 6 ✅ (7/7)** · ADR-0001 확정 — Part I~II 병행 진행 중
-**진행률**: 67/221 항목 (Phase 0 `13/17` · 1 `12/21` · 2 `7/11` · 4 `9/10` · 5 `11/12` · 6 `7/7` · 8 `8/16`)
+**최종 갱신**: 2026-08-05 (2차)
+**현재 단계**: Phase 0 ✅ · Phase 5 게이트 ✅ · Phase 6 ✅ · **Phase 7 착수(3/7)** — Part I~II 병행 진행 중
+**진행률**: 70/221 항목 (Phase 0 `13/17` · 1 `12/21` · 2 `7/11` · 4 `9/10` · 5 `11/12` · 6 `7/7` · 7 `3/7` · 8 `8/16`)
 
 ## 완료된 것
 
@@ -16,10 +16,15 @@
   같은 핸들러 코드로 동작(`SerializerSwapTests`). **기본값 = MemoryPack(ADR-0013)**,
   4자 벤치·스키마 진화 3포맷 테스트 완료
 - **실행 모델 — ADR-0008 액터형** — 프레임당 할당 ~0B, 물리 코어 효율 95%
-- 테스트 **388개** 통과, 전체 게이트(-WarnAsError·audit·AOT) 통과
+- **디스패치 소스 제너레이터 1차 증분(ADR-0014)** — `[MessageHandler]` 발견 +
+  CHSM1001~1007 컴파일 타임 검증(`docs/DIAGNOSTICS.md`) + `MapGeneratedHandlers` 생성.
+  스냅샷·드라이버·통합 종단 테스트로 고정. Roslyn 4.14 고정(호스트 하위호환)
+- 테스트 **398개** 통과, 전체 게이트(-WarnAsError·audit·AOT) 통과
 
 ## 진행 중
 
+- **Phase 7 잔여 4건** — 스위치 문 직생성(벤치 후 판단), 누락 핸들러 검출(메시지 레지스트리
+  설계 필요), 리플렉션 폴백 디스패처, 디스패치 오버헤드 벤치마크
 - **Phase 4 잔여 1건** — 조각 재조립(`Fragmented`/`EndOfMessage`, 재조립 버퍼 상한 필수)
 - **Phase 5 잔여 1건** — 송신 배칭 벡터드 send (실측 동반)
 - **Phase 1 잔여** — `ISessionStore`, `IMetricsSink`, `IPayloadCodec`, `ITransportSecurity` 등
@@ -27,8 +32,8 @@
 
 ## 다음 (우선순위 순)
 
-1. **Phase 7 착수** — `ChServerM.SourceGen` 디스패치 소스 제너레이터 (메시지 ID → 스위치 테이블,
-   중복 ID·누락 핸들러를 빌드 실패로)
+1. **Phase 7 2차 증분** — 디스패치 오버헤드 벤치마크(생성 등록 경유 배열 라우팅 vs 딕셔너리
+   vs 스위치 직생성 프로토타입) → 스위치 문 직생성 여부를 수치로 판단
 2. **Phase 5 마지막 잔여** — 송신 배칭 벡터드 send, 소량-다패킷 실측과 함께
 3. **Phase 2 잔여 결정** — `.UseSerializer()` 전역 등록 여부 (직렬화 축이 실물이 된 지금이 판단 시점)
 
@@ -77,7 +82,8 @@ powershell -File eng/build.ps1 -Configuration Release -WarnAsError
 ## 참조
 
 - 계획: `docs/ROADMAP.md` / 설계 결정: `docs/DECISIONS.md`
-  (ADR-0000·0001·0002·0004~0013 채택 / 0003 폐기 — 미결 ADR 없음)
+  (ADR-0000·0001·0002·0004~0014 채택 / 0003 폐기 — 미결 ADR 없음)
+- 진단 규칙: `docs/DIAGNOSTICS.md` (CHSM0xxx 가드 · CHSM1xxx 제너레이터)
 - 성능 수치: `docs/BENCHMARKS.md` (ENV-A: 9900X 12/24 · ENV-B: 7945HX 16/32)
 - 상세 이력: `docs/standup/history/` (오늘: `2026-08-05.md`)
 - 레거시 분석: `docs/legacy/00-overview.md`
