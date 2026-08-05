@@ -447,6 +447,24 @@ burst(12KB)도 syscall 3회 vs 1회의 차이일 뿐이다 — 절감분이 노�
 제거한다.** 파이프라이닝 875k~938k RPS 는 부수 소득 — 닫힌 루프(169k)의 상한이
 왕복 대기였음을 보여준다(비교 금지: burst 지연은 단건 지연과 다른 지표다).
 
+### 2026-08-05 — 버퍼: 응답 직렬화 스크래치의 요청당 비용 (Phase 3 게이트 근거)
+
+- 환경: **ENV-B**, Release, ServerGC(Concurrent), BenchmarkDotNet 0.15.8
+- 커밋: 이 기록과 같은 커밋의 코드로 측정했다
+- 실행: `--filter "*BufferWriterBenchmarks*"`
+- 시나리오: 4KB 페이로드를 256B 청크 16개로 쓰는 프레임 직렬화 모양의 워크로드.
+  `ArrayBufferWriter` 매번 생성(현행 예제 패턴) vs `PooledBufferWriter` + `Clear()` 재사용
+
+| 구성 | 요청당 | Allocated |
+|---|---:|---:|
+| `ArrayBufferWriter` 매번 생성 | 619.1 ns | 8,056 B |
+| **`PooledBufferWriter` 재사용** | **50.3 ns** | **0 B** |
+
+**결론** — 12.3× 빠르고 요청당 할당이 사라진다. 619ns 의 대부분은 쓰기가 아니라
+할당(초기 256B → 4KB 도달까지의 성장 재할당 포함)과 그 GC 비용이다.
+게이트 조건(정착 왕복 할당 0, 의도적 누수 검출)은 단위 테스트로 별도 고정
+(`PooledBufferWriterTests`). 풀 정책·누수 관측 설계는 ADR-0016.
+
 ### 미측정 (기준선 없음)
 
 - **파티션당 커넥션 다수(소비 스레드 상시 바쁨)에서의 배타 왕복 비용** — 위 2026-08-04

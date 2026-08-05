@@ -51,6 +51,7 @@
     직렬화 벤치가 어댑터(IMessageSerializer 구현)를 통해 도는 것도 같은 이유다.
   -->
   <ItemGroup>
+    <ProjectReference Include="..\..\Server\ChServerM.Buffers\ChServerM.Buffers.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Concurrency\ChServerM.Concurrency.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Framing\ChServerM.Framing.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Hosting\ChServerM.Hosting.csproj" />

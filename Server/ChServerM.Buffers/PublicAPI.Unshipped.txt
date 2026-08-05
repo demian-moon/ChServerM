@@ -1,0 +1,15 @@
+#nullable enable
+ChServerM.Buffers.BufferPoolDiagnostics
+ChServerM.Buffers.PooledBufferWriter
+ChServerM.Buffers.PooledBufferWriter.Advance(int count) -> void
+ChServerM.Buffers.PooledBufferWriter.Clear() -> void
+ChServerM.Buffers.PooledBufferWriter.Dispose() -> void
+ChServerM.Buffers.PooledBufferWriter.GetMemory(int sizeHint = 0) -> System.Memory<byte>
+ChServerM.Buffers.PooledBufferWriter.GetSpan(int sizeHint = 0) -> System.Span<byte>
+ChServerM.Buffers.PooledBufferWriter.PooledBufferWriter(int initialCapacity = 4096) -> void
+ChServerM.Buffers.PooledBufferWriter.WrittenCount.get -> int
+ChServerM.Buffers.PooledBufferWriter.WrittenMemory.get -> System.ReadOnlyMemory<byte>
+ChServerM.Buffers.PooledBufferWriter.WrittenSpan.get -> System.ReadOnlySpan<byte>
+static ChServerM.Buffers.BufferPoolDiagnostics.LeakedBuffers.get -> long
+static ChServerM.Buffers.BufferPoolDiagnostics.RentedBuffers.get -> long
+static ChServerM.Buffers.BufferPoolDiagnostics.ReturnedBuffers.get -> long

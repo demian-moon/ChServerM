@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.Buffers</RootNamespace>
+    <Description>ChServerM 의 버퍼 풀링 유틸 (Phase 3, ADR-0016).</Description>
+  </PropertyGroup>
+
+  <!--
+    의존이 없다 — Core 조차 참조하지 않는다. 버퍼 유틸은 BCL(System.Buffers)만으로
+    성립하고, 참조를 들이는 순간 이 어셈블리를 쓰는 모든 곳이 그것을 끌고 간다.
+  -->
+
+</Project>

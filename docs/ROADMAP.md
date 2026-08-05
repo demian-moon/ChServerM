@@ -164,14 +164,19 @@ Core에 들어간 인터페이스는 되돌리기 비용이 가장 크다 — �
 
 > **레거시에서 승계할 구현이 없다.** `MemoryPoolM`·`StackMemAllocM`·`UnsafeCopyBlock`은 전부 **참조 0 또는 전체 주석**이고, 실사용 풀은 `ObjectPoolM<T>`(32줄, 상한·중복반납 검사 없음) 하나뿐이다. 실제 풀링은 `ArrayPool<byte>.Shared` 직접 호출이며 그것이 반납 누수의 근원이다 ([12-domain-util-discarded](legacy/12-domain-util-discarded.md#-이전-판정-정정--버퍼-풀링은-승계할-구현이-없다)). **처음부터 설계한다.**
 
-- [ ] `ChServerM.Buffers` — 슬랩 할당기, 커넥션당 버퍼 대여
-- [ ] ⚠ `ArrayPool` / `MemoryPool` 래핑 정책 결정 (ADR) — 대여 단위, 반납 책임 소유자, 초과 크기 처리
-- [ ] `IBufferWriter<byte>` 기반 쓰기 경로 — 중간 배열 없이 소켓까지
-- [ ] **풀 누수 감지 진단** — DEBUG 빌드에서 미반납 대여를 추적. 레거시 `IoPipelineSrvM.cs`가 `try/finally` 밖에서 `Return`을 호출해 예외 경로에서 누수됐다. 같은 실수를 구조적으로 막는다
-- [ ] 대여 소유권 규약 문서화 — "누가 반납하는가"를 타입으로 표현 (`ref struct` 스코프 또는 `IMemoryOwner<T>`)
-- [ ] 벤치마크: 대여/반납 처리량, GC Gen0/1/2 수집 횟수, 커넥션당 메모리
+- [ ] `ChServerM.Buffers` — 슬랩 할당기, 커넥션당 버퍼 대여 (진행 중: 어셈블리 신설 완료(무의존). **슬랩 할당기는 보류** — 커넥션 버퍼는 `Pipe` 가 이미 풀링하고 남은 수요(직렬화 스크래치)는 공유 풀로 충분하다. 공유 풀 경합·단편화가 관측되면(Phase 12 프로파일링) 재개한다 — ADR-0016)
+- [x] ⚠ `ArrayPool` / `MemoryPool` 래핑 정책 결정 (ADR) — 2026-08-05 **ADR-0016**: `ArrayPool.Shared` 래핑, 대여 단위는 `PooledBufferWriter`(커넥션당 1개 + `Clear()` 재사용), 반납 책임은 소유자 `Dispose()` 단일, 초과 크기는 2배 대여-복사-반납
+- [ ] `IBufferWriter<byte>` 기반 쓰기 경로 — 중간 배열 없이 소켓까지 (진행 중: `PooledBufferWriter` 로 스크래치 힙 할당은 제거(0B). 남은 것: 스크래치→파이프 복사 1회 — 헤더가 페이로드 길이를 선행 요구하는 구조적 제약이라, 헤더 공간 예약 방식은 프레이밍 계약 변경이 필요해 별도 판단)
+- [x] **풀 누수 감지 진단** — 2026-08-05: ROADMAP 원안(DEBUG 전용)보다 강한 형태로 — 파이널라이저-온-리크가 Release 포함 상시 `BufferPoolDiagnostics.LeakedBuffers` 로 계수하고 버퍼를 회수한다(정상 경로는 `SuppressFinalize` 라 비용 0). 의도적 누수 검출을 게이트 테스트로 고정. Phase 11 이 카운터를 경보로 승격 예정
+- [x] 대여 소유권 규약 문서화 — "만든 자가 `Dispose` 로 반납"을 타입 문서·ADR-0016 에 고정. `ref struct` 스코프는 **async 핸들러에서 쓸 수 없어 탈락**(대안 표), 대신 누수를 관측 가능하게 만들어 위반이 조용히 사라지지 않게 했다
+- [x] 벤치마크: 대여/반납 처리량 — 요청당 619ns/8,056B(`ArrayBufferWriter` 매번) → **50ns/0B**(`PooledBufferWriter` 재사용), 12.3×. BENCHMARKS.md 버퍼 절. 커넥션당 메모리는 Phase 5 실측(~8KB)에 이미 포함
 
 **게이트**: 대여-반납 왕복이 힙 할당 0이고, 누수 감지가 의도적 누수를 잡을 때.
+
+> **✅ 2026-08-05 — 충족.** `PooledBufferWriterTests` 가 두 조건을 고정한다 —
+> 정착 상태 1,000회 왕복 할당 0(`GC.GetAllocatedBytesForCurrentThread` 실측),
+> Dispose 누락 버퍼가 파이널라이저로 검출·계수됨. 남은 항목(슬랩 보류,
+> 파이프 직결)은 게이트 조건이 아니다.
 
 ## Phase 4 — 프레이밍
 

@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/Server/">
+    <Project Path="Server/ChServerM.Buffers/ChServerM.Buffers.csproj" />
     <Project Path="Server/ChServerM.Core/ChServerM.Core.csproj" />
     <Project Path="Server/ChServerM.Framing/ChServerM.Framing.csproj" />
     <Project Path="Server/ChServerM.Concurrency/ChServerM.Concurrency.csproj" />
@@ -19,6 +20,7 @@
     <Project Path="Samples/ChServerM.Samples.EchoServer/ChServerM.Samples.EchoServer.csproj" />
   </Folder>
   <Folder Name="/Tests/">
+    <Project Path="Tests/ChServerM.Buffers.Tests/ChServerM.Buffers.Tests.csproj" />
     <Project Path="Tests/ChServerM.Core.Tests/ChServerM.Core.Tests.csproj" />
     <Project Path="Tests/ChServerM.Framing.Tests/ChServerM.Framing.Tests.csproj" />
     <Project Path="Tests/ChServerM.Integration.Tests/ChServerM.Integration.Tests.csproj" />
