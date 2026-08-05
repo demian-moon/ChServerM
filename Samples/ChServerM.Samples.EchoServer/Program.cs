@@ -8,9 +8,11 @@ using System.Threading.Tasks;
 using ChServerM.Concurrency;
 using ChServerM.Connections;
 using ChServerM.Dispatch;
+using ChServerM.Dispatch.Generated;
 using ChServerM.Framing;
 using ChServerM.Hosting;
 using ChServerM.Identity;
+using ChServerM.Serialization.MemoryPack;
 using ChServerM.Transport.InMemory;
 using ChServerM.Transport.Tcp;
 using ChServerM.Transports;
@@ -130,7 +132,11 @@ internal static class Program
             .UseExecutionModel(new PartitionedExecutionModel())
             .ConfigureDispatcher(dispatcher => dispatcher
                 .MapRaw(EchoProtocol.Echo, echo.HandleEchoAsync)
-                .MapRaw(EchoProtocol.Stats, echo.HandleStatsAsync))
+                .MapRaw(EchoProtocol.Stats, echo.HandleStatsAsync)
+                // [MessageHandler] 선언에서 생성된 등록 — 손으로 쓴 Map 이 아니다(ADR-0014).
+                .MapGeneratedHandlers(
+                    MemoryPackMessageSerializerProvider.Instance,
+                    handler3: new GreetHandler(encoder)))
             .Build();
 
         await server.StartAsync().ConfigureAwait(false);
@@ -229,7 +235,12 @@ internal static class Program
             .UseExecutionModel(executionModel)
             .ConfigureDispatcher(dispatcher => dispatcher
                 .MapRaw(EchoProtocol.Echo, echo.HandleEchoAsync)
-                .MapRaw(EchoProtocol.Stats, echo.HandleStatsAsync))
+                .MapRaw(EchoProtocol.Stats, echo.HandleStatsAsync)
+                // [MessageHandler] 선언에서 생성된 등록 — 이 경로가 AOT publish 를
+                // 통과하는 것이 Phase 7 게이트의 절반이다(ADR-0014).
+                .MapGeneratedHandlers(
+                    MemoryPackMessageSerializerProvider.Instance,
+                    handler3: new GreetHandler(encoder)))
             .Build();
 
         await server.StartAsync().ConfigureAwait(false);
@@ -257,7 +268,8 @@ internal static class Program
             .UseFraming(decoder, encoder)
             .ConfigureDispatcher(dispatcher => dispatcher
                 .MapRaw(EchoProtocol.Echo, context => Capture(context, responses.Writer))
-                .MapRaw(EchoProtocol.Stats, context => Capture(context, responses.Writer)))
+                .MapRaw(EchoProtocol.Stats, context => Capture(context, responses.Writer))
+                .MapRaw(EchoProtocol.Greet, context => Capture(context, responses.Writer)))
             .Build();
 
         ClientSession session = await client.ConnectAsync(target).ConfigureAwait(false);
@@ -268,6 +280,7 @@ internal static class Program
         try
         {
             ok = await RunEchoRoundTripsAsync(session.Connection, encoder, responses.Reader).ConfigureAwait(false);
+            ok &= await RunGeneratedGreetAsync(session.Connection, encoder, responses.Reader).ConfigureAwait(false);
             serverHandled = await ReadStatsAsync(session.Connection, encoder, responses.Reader).ConfigureAwait(false);
         }
         finally
@@ -325,6 +338,30 @@ internal static class Program
         }
 
         return true;
+    }
+
+    /// <summary>소스 제너레이터가 등록한 타입 있는 핸들러를 한 번 왕복시킨다.</summary>
+    /// <remarks>
+    /// 요청은 MemoryPack(기본 직렬화기, ADR-0013)으로 직렬화한 <c>string</c> 이고,
+    /// 서버 쪽 역직렬화·핸들러 등록은 전부 생성 코드다. 이 왕복이 성공하면
+    /// "생성 코드 경로가 동작한다"가 종단으로 실증된다 — AOT publish 에서도 같은 코드가 돈다.
+    /// </remarks>
+    private static async Task<bool> RunGeneratedGreetAsync(
+        IConnection connection,
+        IFrameEncoder encoder,
+        ChannelReader<(uint Sequence, byte[] Payload)> responses)
+    {
+        MemoryPackMessageSerializer<string> serializer = new();
+        ArrayBufferWriter<byte> request = new();
+        serializer.Serialize(request, "세계");
+
+        await FrameWriter.WriteFrameAsync(
+            connection.Output, encoder, EchoProtocol.Greet, request.WrittenSpan,
+            FrameFlags.None, sequence: 0, connection.ConnectionClosed).ConfigureAwait(false);
+
+        (_, byte[] reply) = await responses.ReadAsync(connection.ConnectionClosed).ConfigureAwait(false);
+
+        return Encoding.UTF8.GetString(reply) == "안녕, 세계";
     }
 
     private static async Task<long> ReadStatsAsync(

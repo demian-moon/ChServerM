@@ -20,6 +20,12 @@ internal static class EchoProtocol
 
     /// <summary>서버가 지금까지 처리한 프레임 수를 달라는 요청.</summary>
     public static MessageId Stats => new(2);
+
+    /// <summary><see cref="Greet"/> 의 원시 값. 어트리뷰트 인자는 상수여야 해서 분리한다.</summary>
+    public const ushort GreetId = 3;
+
+    /// <summary>이름을 보내면 인사를 돌려달라는 요청 — 소스 제너레이터 경로.</summary>
+    public static MessageId Greet => new(GreetId);
 }
 
 /// <summary>
@@ -90,5 +96,33 @@ internal sealed class EchoHandler(IFrameEncoder encoder)
             context.CancellationToken).ConfigureAwait(false);
 
         return DispatchStatus.Handled;
+    }
+}
+
+/// <summary>
+/// <c>[MessageHandler]</c> 로 선언된 타입 있는 핸들러 — 디스패치 소스 제너레이터의
+/// Native AOT 실증 대상이다(Phase 7 게이트).
+/// </summary>
+/// <remarks>
+/// 등록 코드는 손으로 쓰지 않는다 — <c>MapGeneratedHandlers</c> 를 제너레이터가 만들고,
+/// 역직렬화는 MemoryPack 어댑터(기본값, ADR-0013)가 제공자 경유로 꽂힌다.
+/// 이 경로가 AOT publish 를 통과하면 "생성 코드 경로가 AOT 에서 동작한다"가 실증된다.
+/// </remarks>
+[MessageHandler(EchoProtocol.GreetId)]
+internal sealed class GreetHandler(IFrameEncoder encoder) : IMessageHandler<string>
+{
+    /// <summary>이름을 받아 인사를 UTF-8 원시 바이트로 돌려보낸다.</summary>
+    public async ValueTask HandleAsync(MessageContext context, string message)
+    {
+        byte[] reply = System.Text.Encoding.UTF8.GetBytes($"안녕, {message}");
+
+        await FrameWriter.WriteFrameAsync(
+            context.Connection.Output,
+            encoder,
+            context.Envelope.MessageId,
+            reply,
+            FrameFlags.None,
+            context.Envelope.Sequence,
+            context.CancellationToken).ConfigureAwait(false);
     }
 }

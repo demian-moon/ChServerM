@@ -318,12 +318,40 @@ else {
 
         foreach ($proj in $aotProjects) {
             Write-Host "AOT publish: $($proj.Name)" -ForegroundColor DarkCyan
+            # PublishAot 를 전역 속성으로 넘기지 않는다 — 전역 속성은 참조 그래프 전체에
+            # 흐르므로, netstandard2.0 프로젝트(소스 제너레이터)가 그래프에 들어오는 순간
+            # NETSDK1207 로 터진다(실제 사례). 선정 기준이 이미 "csproj 에 PublishAot=true
+            # 선언"이므로 프로젝트 자신의 선언에 맡기는 것이 정확하다.
             dotnet publish $proj.FullName `
                 --configuration Release `
-                --property:PublishAot=true `
                 --property:TreatWarningsAsErrors=true
             if ($LASTEXITCODE -ne 0) {
                 Write-Host "AOT 컴파일 실패: $($proj.Name)" -ForegroundColor Red
+                exit $LASTEXITCODE
+            }
+
+            # 링크 성공만으로는 부족하다 — 서드파티(MemoryPack)의 리플렉션 폴백 경고를
+            # 좁게 억제했으므로(샘플 csproj 주석 참조), 그 경로가 정말 실행되지 않는지는
+            # 바이너리를 실제로 돌려 자체 검증(exit 0)으로 증명한다.
+            $baseName = [System.IO.Path]::GetFileNameWithoutExtension($proj.Name)
+            $published = Get-ChildItem -Path (Join-Path $proj.DirectoryName 'bin') -Recurse -File |
+                Where-Object {
+                    $_.Directory.Name -eq 'publish' -and
+                    [System.IO.Path]::GetFileNameWithoutExtension($_.Name) -eq $baseName -and
+                    ($_.Extension -eq '.exe' -or $_.Extension -eq '')
+                } |
+                Sort-Object LastWriteTimeUtc -Descending |
+                Select-Object -First 1
+
+            if (-not $published) {
+                Write-Host "AOT 바이너리를 찾지 못했다: $baseName" -ForegroundColor Red
+                exit 1
+            }
+
+            Write-Host "AOT 바이너리 실행 검증: $($published.FullName)" -ForegroundColor DarkCyan
+            & $published.FullName
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "AOT 바이너리 자체 검증 실패 (exit $LASTEXITCODE): $($proj.Name)" -ForegroundColor Red
                 exit $LASTEXITCODE
             }
         }
