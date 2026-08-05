@@ -217,15 +217,19 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 
 축 교체가 실제로 동작함을 증명하는 단계. **최소 2개 구현이 필수.**
 
-- [ ] `ChServerM.Serialization.MemoryPack`
-- [ ] `ChServerM.Serialization.Protobuf`
-- [ ] `ChServerM.Serialization.FlatBuffers` (FlatSharp)
-- [ ] ⚠ 4자 벤치마크 → `docs/BENCHMARKS.md` + **ADR-0002 남은 부분(페이로드 기본값) 확정**. 레거시가 FlatBuffers 스키마·생성 코드를 운영 중이므로 승계 비용이 변수
-- [ ] 스키마 진화 테스트 — 필드 추가/삭제 시 구버전 클라이언트 호환성
-- [ ] 동일 샘플이 어댑터 교체만으로 동작하는지 검증
-- [ ] 크로스 언어 상호운용 확인 — 클라이언트가 C#이 아닐 가능성에 대한 결론
+- [x] `ChServerM.Serialization.MemoryPack` — 2026-08-05 (ADR-0011). 엄격 소비·null 거부 계약. `IsRegistered` 거짓 음성(정적 생성자 미실행)을 테스트로 재현하고 `RunClassConstructor` 로 해소. 트리밍 억제 2건(IL2091·IL2059)은 근거 주석과 함께
+- [x] `ChServerM.Serialization.Protobuf` — 2026-08-05 (ADR-0012). Google.Protobuf 3.35.1 (protobuf-net 은 IL emit 이라 탈락). `ParseFrom(ReadOnlySequence)`/`WriteTo(IBufferWriter)` 직결. 제공자는 조립 시점 명시 등록 — 제약 있는 제네릭을 리플렉션 없이 못 만든다(AOT)
+- [x] `ChServerM.Serialization.FlatBuffers` (FlatSharp 7.9.0) — 2026-08-05 (ADR-0012). **Greedy 전용** — Lazy/Progressive 는 반환 객체가 페이로드 버퍼를 참조해 계약(호출 후 무효) 위반, 생성자가 조립 시점에 거부. ⚠ FlatSharp.Compiler 가 net9 도구라 `eng/build.ps1` 이 `DOTNET_ROLL_FORWARD=LatestMajor` 설정
+- [x] ⚠ 4자 벤치마크 → `docs/BENCHMARKS.md` + **ADR-0002 남은 부분(페이로드 기본값) 확정** — 2026-08-05 (ENV-B). 왕복 최속 MemoryPack(small 104ns, 역직렬화 39% 우위) / 직렬화 단독·와이어 최소는 Protobuf(33ns·71B — "전 항목 최속" 초기 가설 부분 기각). **기본값 = MemoryPack (ADR-0013)**. MessagePack 은 벤치 비교군 전용, 어댑터 없음(ADR-0012 결정 3)
+- [x] 스키마 진화 테스트 — 필드 추가 시 구버전 호환성 3포맷 고정: protobuf 양방향+모르는 필드 보존 / FlatBuffers 양방향(보존 없음) / **MemoryPack 기본 모드는 단방향**(신데이터→구리더 실패 — 롤링 배포 경계엔 `VersionTolerant` 필수. 초기 가정 "양방향 비호환"은 실측으로 정정)
+- [x] 동일 샘플이 어댑터 교체만으로 동작하는지 검증 — `SerializerSwapTests`: 같은 핸들러 코드 × Utf8/MemoryPack/Protobuf/FlatSharp. `IMessageSerializer`/`IMessageSerializerProvider` 가설 해소(DoD-5)
+- [x] 크로스 언어 상호운용 확인 — 결론을 ADR-0013 에 기록: "클라이언트는 C#" 을 Core 전제로 넣지 않고, 비-C# 요구 시 답은 Protobuf 어댑터 교체(이미 실동). 실제 비-C# 클라이언트와의 와이어 왕복 실증은 그 요구가 확정될 때 수행한다
 
 **게이트**: 두 개 이상의 어댑터가 같은 샘플에서 동작하고 기본값 ADR이 확정됐을 때.
+
+> **✅ 2026-08-05 — 충족.** 실동 어댑터 3종(MemoryPack·Protobuf·FlatSharp)이
+> `SerializerSwapTests` 에서 같은 핸들러 코드로 동작하고, 기본값이 ADR-0013 으로
+> 확정됐다(4자 벤치마크 근거). Phase 6 전 항목 완료 — 커밋 `cd02d6d`.
 
 ## Phase 7 — 디스패치 & 소스 제너레이터
 
