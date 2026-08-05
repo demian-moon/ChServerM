@@ -56,6 +56,7 @@ public sealed class FramedConnectionHandler : IConnectionHandler
 {
     private static readonly EventId ProtocolErrorEvent = new(2000, "ProtocolError");
     private static readonly EventId TruncatedFrameEvent = new(2001, "TruncatedFrame");
+    private static readonly EventId FragmentViolationEvent = new(2002, "FragmentViolation");
     private static readonly EventId DispatchRejectedEvent = new(4003, "DispatchRejected");
 
     private readonly IFrameDecoder _decoder;
@@ -67,6 +68,7 @@ public sealed class FramedConnectionHandler : IConnectionHandler
     private readonly bool _closeOnDeserializationFailure;
     private readonly bool _closeOnPolicyRejection;
     private readonly bool _closeOnHandlerFault;
+    private readonly int _maxAssembledMessageLength;
 
     /// <summary>읽기 루프를 만든다.</summary>
     /// <param name="decoder">프레임 디코더.</param>
@@ -105,6 +107,7 @@ public sealed class FramedConnectionHandler : IConnectionHandler
         _closeOnDeserializationFailure = options.CloseOnDeserializationFailure;
         _closeOnPolicyRejection = options.CloseOnPolicyRejection;
         _closeOnHandlerFault = options.CloseOnHandlerFault;
+        _maxAssembledMessageLength = options.MaxAssembledMessageLength;
     }
 
     /// <inheritdoc />
@@ -127,6 +130,9 @@ public sealed class FramedConnectionHandler : IConnectionHandler
             partition = _executionModel.GetPartition(connection.Id.ToPartitionKey());
             gate = new PartitionDispatchGate(_dispatcher, context);
         }
+
+        // 조각 재조립 상태. 첫 조각이 올 때 만든다 — 조각을 안 쓰는 커넥션은 비용 0(ADR-0015).
+        FragmentAssembler? assembler = null;
 
         try
         {
@@ -173,10 +179,44 @@ public sealed class FramedConnectionHandler : IConnectionHandler
                         break;
                     }
 
-                    DispatchStatus status = gate is null
-                        ? await DispatchFrameAsync(context, decoded, token).ConfigureAwait(false)
-                        : await gate.DispatchExclusiveAsync(
-                            partition!, decoded, MonotonicTimestamp.Now(_timeProvider), token).ConfigureAwait(false);
+                    DispatchStatus status = DispatchStatus.Handled;
+                    FrameFlags frameFlags = decoded.Envelope.Flags;
+
+                    if ((frameFlags & (FrameFlags.Fragmented | FrameFlags.EndOfMessage)) != 0
+                        || assembler is { InProgress: true })
+                    {
+                        // 조각 경로 — 계약 위반이면 closeInfo, 마지막 조각이면 재조립분 디스패치.
+                        bool dispatchAssembled;
+                        (closeInfo, dispatchAssembled) = AccumulateFragment(ref assembler, decoded);
+
+                        if (closeInfo is null && dispatchAssembled)
+                        {
+                            try
+                            {
+                                status = gate is null
+                                    ? await DispatchFrameAsync(
+                                        context, assembler!.AssembledEnvelope, assembler.AssembledPayload, token)
+                                        .ConfigureAwait(false)
+                                    : await gate.DispatchExclusiveAsync(
+                                        partition!, assembler!.AssembledEnvelope, assembler.AssembledPayload,
+                                        MonotonicTimestamp.Now(_timeProvider), token).ConfigureAwait(false);
+                            }
+                            finally
+                            {
+                                // 완성 즉시 반납 — 유휴 커넥션이 재조립 버퍼를 붙들지 않는다.
+                                assembler!.Reset();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        status = gate is null
+                            ? await DispatchFrameAsync(context, decoded.Envelope, decoded.Payload, token)
+                                .ConfigureAwait(false)
+                            : await gate.DispatchExclusiveAsync(
+                                partition!, decoded.Envelope, decoded.Payload,
+                                MonotonicTimestamp.Now(_timeProvider), token).ConfigureAwait(false);
+                    }
 
                     buffer = buffer.Slice(decoded.Consumed);
                     consumed = decoded.Consumed;
@@ -212,6 +252,15 @@ public sealed class FramedConnectionHandler : IConnectionHandler
                             ErrorCode.MalformedFrame,
                             "프레임이 완성되기 전에 상대가 스트림을 닫았다."));
                     }
+                    else if (assembler is { InProgress: true })
+                    {
+                        // 조각 메시지가 완성되기 전에 스트림이 끝났다 — 잘린 프레임과 같은 부류다.
+                        LogFragmentViolation("마지막 조각(EndOfMessage)이 오기 전에 상대가 스트림을 닫았다.");
+                        connection.Abort(new ConnectionCloseInfo(
+                            CloseReason.ProtocolError,
+                            ErrorCode.MalformedFrame,
+                            "조각 메시지가 완성되기 전에 상대가 스트림을 닫았다."));
+                    }
 
                     return;
                 }
@@ -219,18 +268,90 @@ public sealed class FramedConnectionHandler : IConnectionHandler
         }
         finally
         {
+            // 재조립 버퍼는 풀 대여물이다 — 어떤 종료 경로에서도 반납한다.
+            assembler?.Reset();
+
             // 읽기 쪽을 반드시 닫는다. 남겨두면 쓰기 측이 백프레셔로 영원히 대기한다.
             await input.CompleteAsync().ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>조각 프레임 하나를 계약 검사와 함께 누적한다.</summary>
+    /// <returns>
+    /// 계약 위반이면 종료 정보(첫 항목), 마지막 조각이라 재조립분을 디스패치해야 하면
+    /// 둘째 항목이 <see langword="true"/>.
+    /// </returns>
+    /// <remarks>
+    /// 계약(ADR-0015): 조각은 연속이어야 하고(사이에 다른 프레임 금지), 같은
+    /// <c>MessageId</c> 여야 하며, <see cref="FrameFlags.EndOfMessage"/> 는
+    /// <see cref="FrameFlags.Fragmented"/> 와 함께여야 한다. 누적 길이에는 상한이 있다.
+    /// 위반은 전부 커넥션 종료다 — 조각 상태가 어긋난 채 계속하면 재조립 결과가
+    /// 조용히 오염된다(레거시 desync 와 같은 부류).
+    /// </remarks>
+    private (ConnectionCloseInfo? CloseInfo, bool DispatchAssembled) AccumulateFragment(
+        ref FragmentAssembler? assembler, in FrameDecodeResult decoded)
+    {
+        FrameFlags flags = decoded.Envelope.Flags;
+
+        if ((flags & FrameFlags.Fragmented) == 0)
+        {
+            // EndOfMessage 단독이거나, 재조립 중에 비조각 프레임이 끼었다.
+            string reason = (flags & FrameFlags.EndOfMessage) != 0
+                ? "EndOfMessage 는 Fragmented 와 함께여야 한다."
+                : "조각 메시지가 진행 중일 때는 조각 프레임만 올 수 있다.";
+            LogFragmentViolation(reason);
+            return (ConnectionCloseInfo.ProtocolError(ErrorCode.InvalidFrameFlags, reason), false);
+        }
+
+        if (_maxAssembledMessageLength == 0)
+        {
+            const string Reason = "이 서버는 조각 재조립을 받지 않는다(MaxAssembledMessageLength=0).";
+            LogFragmentViolation(Reason);
+            return (ConnectionCloseInfo.ProtocolError(ErrorCode.InvalidFrameFlags, Reason), false);
+        }
+
+        assembler ??= new FragmentAssembler(_maxAssembledMessageLength);
+
+        if (!assembler.TryAppend(decoded.Envelope, decoded.Payload, out FragmentError error))
+        {
+            if (error == FragmentError.TooLarge)
+            {
+                LogFragmentViolation("재조립 상한 초과.");
+                return (new ConnectionCloseInfo(
+                    CloseReason.ResourceLimit,
+                    ErrorCode.FrameTooLarge,
+                    $"조각 재조립 길이가 상한({_maxAssembledMessageLength}B)을 넘었다."), false);
+            }
+
+            LogFragmentViolation("조각 사이에 다른 메시지 식별자가 끼었다.");
+            return (ConnectionCloseInfo.ProtocolError(
+                ErrorCode.InvalidFrameFlags, "조각 사이에 다른 메시지 식별자가 끼었다."), false);
+        }
+
+        return (null, (flags & FrameFlags.EndOfMessage) != 0);
+    }
+
+    private void LogFragmentViolation(string reason)
+    {
+        if (_logger.IsEnabled(LogLevel.Warning))
+        {
+            _logger.Log(
+                LogLevel.Warning,
+                FragmentViolationEvent,
+                reason,
+                null,
+                static (state, _) => $"조각 재조립 계약 위반: {state}");
         }
     }
 
     /// <summary>프레임 하나를 디스패치한다. 페이로드 참조 해제를 <c>finally</c>로 보장한다.</summary>
     private async ValueTask<DispatchStatus> DispatchFrameAsync(
         MessageContext context,
-        FrameDecodeResult decoded,
+        MessageEnvelope envelope,
+        ReadOnlySequence<byte> payload,
         CancellationToken token)
     {
-        context.BeginFrame(decoded.Envelope, decoded.Payload, MonotonicTimestamp.Now(_timeProvider), token);
+        context.BeginFrame(envelope, payload, MonotonicTimestamp.Now(_timeProvider), token);
 
         try
         {

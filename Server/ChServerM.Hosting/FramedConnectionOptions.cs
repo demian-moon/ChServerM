@@ -54,21 +54,30 @@ public sealed class FramedConnectionOptions
     /// </remarks>
     public bool CloseOnHandlerFault { get; set; }
 
+    /// <summary>조각 재조립(<see cref="Framing.FrameFlags.Fragmented"/>) 후 논리 메시지의 최대 길이.</summary>
+    /// <remarks>
+    /// <para>
+    /// 기본값 1 MiB. <b>0 이면 재조립을 끈다</b> — 조각 프레임을 받는 즉시 프로토콜 오류로
+    /// 커넥션을 닫는다. 큰 메시지가 프로토콜에 없는 프로필(무상태 웹 등)은 끄는 것이
+    /// 공격 표면을 줄인다.
+    /// </para>
+    /// <para>
+    /// <b>이 상한이 방어선이다.</b> 마지막 조각을 보내지 않는 상대가 부분 메시지를
+    /// 무한정 키우는 것을 여기서 끊는다(ADR-0015). 커넥션당 이 크기까지 버퍼가 자랄 수
+    /// 있으므로 <c>MaxConnections × 이 값</c>이 최악 재조립 메모리다 — 상한을 올릴 때
+    /// 그 곱을 계산해 볼 것.
+    /// </para>
+    /// </remarks>
+    public int MaxAssembledMessageLength { get; set; } = 1024 * 1024;
+
     /// <summary>설정을 검증한다.</summary>
     /// <exception cref="InvalidOperationException">값이 유효하지 않을 때.</exception>
-    /// <remarks>
-    /// 지금은 검증할 조합이 없다. 옵션이 늘어날 때를 위한 자리이며,
-    /// 호출부(<see cref="FramedConnectionHandler"/>)가 이미 부르고 있으므로
-    /// 나중에 규칙을 추가해도 호출 지점을 찾아다닐 필요가 없다.
-    /// </remarks>
-#pragma warning disable CA1822 // static 으로 바꾸면 옵션 검증의 호출 형태가 달라진다 — 아래 주석 참조.
     public void Validate()
     {
-        // 의도적으로 비어 있다.
-        // static 으로 바꾸라는 분석기 제안을 따르지 않는 이유: 이 메서드는 다른 Options 타입
-        // (FramingOptions, InMemoryTransportOptions)과 같은 인스턴스 메서드 형태여야 한다.
-        // 나중에 검증 규칙이 생겼을 때 호출부 시그니처가 바뀌면, 그 시점에 모든 호출 지점을
-        // 찾아다녀야 한다. 지금 형태를 고정해 두는 편이 싸다.
+        if (MaxAssembledMessageLength < 0)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(MaxAssembledMessageLength)} 는 0(재조립 끔) 이상이어야 한다: {MaxAssembledMessageLength}");
+        }
     }
-#pragma warning restore CA1822
 }

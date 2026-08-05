@@ -73,3 +73,6 @@ static ChServerM.Hosting.FrameWriter.WriteFrameAsync(System.IO.Pipelines.PipeWri
 static ChServerM.Hosting.FrameWriter.WriteFrameAsync(this ChServerM.Connections.IConnection! connection, ChServerM.Framing.IFrameEncoder! encoder, ChServerM.Identity.MessageId messageId, System.ReadOnlySpan<byte> payload, ChServerM.Framing.FrameFlags flags, uint sequence) -> System.Threading.Tasks.ValueTask<System.IO.Pipelines.FlushResult>
 ~override ChServerM.Hosting.ClientSession.Equals(object obj) -> bool
 ~override ChServerM.Hosting.ClientSession.ToString() -> string
+ChServerM.Hosting.FramedConnectionOptions.MaxAssembledMessageLength.get -> int
+ChServerM.Hosting.FramedConnectionOptions.MaxAssembledMessageLength.set -> void
+static ChServerM.Hosting.FrameWriter.WriteFragmentedFrameAsync(System.IO.Pipelines.PipeWriter! writer, ChServerM.Framing.IFrameEncoder! encoder, ChServerM.Identity.MessageId messageId, System.ReadOnlyMemory<byte> payload, int maxFragmentPayloadLength, ChServerM.Framing.FrameFlags flags, uint sequence, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.IO.Pipelines.FlushResult>

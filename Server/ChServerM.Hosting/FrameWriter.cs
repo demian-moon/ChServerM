@@ -164,4 +164,79 @@ public static class FrameWriter
         return WriteFrameAsync(
             connection.Output, encoder, messageId, payload, flags, sequence, connection.ConnectionClosed);
     }
+
+    /// <summary>큰 논리 메시지를 조각(<see cref="FrameFlags.Fragmented"/>)으로 나눠 보낸다.</summary>
+    /// <param name="writer">출력 파이프.</param>
+    /// <param name="encoder">헤더 인코더.</param>
+    /// <param name="messageId">메시지 식별자. 모든 조각이 같은 값을 갖는다.</param>
+    /// <param name="payload">논리 메시지 전체.</param>
+    /// <param name="maxFragmentPayloadLength">조각 하나의 최대 페이로드.
+    /// 프레이밍의 <c>MaxPayloadLength</c> 이하여야 한다.</param>
+    /// <param name="flags">적용된 변환. 조각 플래그는 여기서 붙이므로 넣지 않는다.</param>
+    /// <param name="sequence">첫 조각의 일련번호. 수신 측 재조립 엔벨로프에 실린다.</param>
+    /// <param name="cancellationToken">내보내기 취소 토큰.</param>
+    /// <returns>마지막 조각의 내보내기 결과.</returns>
+    /// <exception cref="ArgumentNullException">인자가 <see langword="null"/>일 때.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxFragmentPayloadLength"/>가 0 이하일 때.</exception>
+    /// <exception cref="ArgumentException"><paramref name="flags"/>에 조각 플래그가 이미 들어 있을 때 —
+    /// 중복 표시는 수신 측 계약 판정을 오염시키므로 조용히 합치지 않는다.</exception>
+    /// <remarks>
+    /// <para>
+    /// 마지막 조각에만 <see cref="FrameFlags.EndOfMessage"/> 가 붙는다. 빈 페이로드는
+    /// 조각 하나(<c>Fragmented|EndOfMessage</c>)로 나간다. 수신 측 계약(연속성·상한)은
+    /// <see cref="FramedConnectionOptions.MaxAssembledMessageLength"/> 와 ADR-0015 참조.
+    /// </para>
+    /// <para>
+    /// <b>조각 사이에 다른 프레임을 끼워 넣으면 안 된다</b> — 수신 측이 프로토콜 오류로
+    /// 닫는다. 이 메서드가 도는 동안 같은 <paramref name="writer"/> 에 쓰지 않는 것은
+    /// <see cref="PipeWriter"/> 단일 소유자 규약(모듈 문서)이 이미 요구하는 바다.
+    /// </para>
+    /// </remarks>
+    public static async ValueTask<FlushResult> WriteFragmentedFrameAsync(
+        PipeWriter writer,
+        IFrameEncoder encoder,
+        Identity.MessageId messageId,
+        ReadOnlyMemory<byte> payload,
+        int maxFragmentPayloadLength,
+        FrameFlags flags,
+        uint sequence,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(writer);
+        ArgumentNullException.ThrowIfNull(encoder);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(maxFragmentPayloadLength, 0);
+
+        if ((flags & (FrameFlags.Fragmented | FrameFlags.EndOfMessage)) != 0)
+        {
+            throw new ArgumentException(
+                "조각 플래그는 이 메서드가 붙인다. flags 에 미리 넣지 않는다.", nameof(flags));
+        }
+
+        int offset = 0;
+        FlushResult result;
+
+        do
+        {
+            int chunk = Math.Min(maxFragmentPayloadLength, payload.Length - offset);
+            bool last = offset + chunk >= payload.Length;
+
+            FrameFlags fragmentFlags = flags | FrameFlags.Fragmented
+                | (last ? FrameFlags.EndOfMessage : FrameFlags.None);
+
+            result = await WriteFrameAsync(
+                writer, encoder, messageId, payload.Span.Slice(offset, chunk),
+                fragmentFlags, sequence, cancellationToken).ConfigureAwait(false);
+
+            offset += chunk;
+
+            if (result.IsCompleted || result.IsCanceled)
+            {
+                // 상대가 닫혔거나 취소됐다 — 나머지 조각을 계속 쓰는 것은 무의미하다.
+                return result;
+            }
+        }
+        while (offset < payload.Length);
+
+        return result;
+    }
 }

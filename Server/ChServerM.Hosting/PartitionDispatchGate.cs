@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Sources;
@@ -68,18 +69,22 @@ internal sealed class PartitionDispatchGate : IPartitionExclusiveWork, IValueTas
 
     /// <summary>프레임 하나를 파티션 배타 구간에서 디스패치하고 완료를 기다린다.</summary>
     /// <param name="partition">이 커넥션이 배정된 파티션.</param>
-    /// <param name="decoded">디코드된 프레임. 완료까지 페이로드가 유효해야 한다.</param>
+    /// <param name="envelope">프레임의 논리 엔벨로프.</param>
+    /// <param name="payload">프레임 페이로드. 완료까지 유효해야 한다.
+    /// (조각 재조립분은 자체 버퍼라 이 조건이 자명하고, 파이프 버퍼는 읽기 루프가
+    /// <c>AdvanceTo</c> 를 완료 이후로 미뤄 보장한다.)</param>
     /// <param name="timestamp">프레임 수신 시각.</param>
     /// <param name="token">커넥션 종료 토큰.</param>
     /// <returns>디스패치 결과. 파티션이 종료 중이면 <see cref="DispatchStatus.Canceled"/>.</returns>
     public ValueTask<DispatchStatus> DispatchExclusiveAsync(
         IExecutionPartition partition,
-        in FrameDecodeResult decoded,
+        in MessageEnvelope envelope,
+        in ReadOnlySequence<byte> payload,
         MonotonicTimestamp timestamp,
         CancellationToken token)
     {
         _source.Reset();
-        _context.BeginFrame(decoded.Envelope, decoded.Payload, timestamp, token);
+        _context.BeginFrame(envelope, payload, timestamp, token);
 
         if (!partition.TryEnqueueExclusive(this))
         {
