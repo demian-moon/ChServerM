@@ -130,6 +130,9 @@ ChServerM.Features.FeatureCollection.Set<TFeature>(TFeature? instance) -> void
 ChServerM.Features.IConnectionEndPointFeature
 ChServerM.Features.IConnectionEndPointFeature.LocalEndPoint.get -> System.Net.EndPoint?
 ChServerM.Features.IConnectionEndPointFeature.RemoteEndPoint.get -> System.Net.EndPoint?
+ChServerM.Features.IConnectionStateFeature
+ChServerM.Features.IConnectionStateFeature.States.get -> uint
+ChServerM.Features.IConnectionStateFeature.States.set -> void
 ChServerM.Features.IFeatureCollection
 ChServerM.Features.IFeatureCollection.Get<TFeature>() -> TFeature?
 ChServerM.Features.IFeatureCollection.Revision.get -> int

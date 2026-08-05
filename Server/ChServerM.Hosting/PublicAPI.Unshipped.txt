@@ -41,6 +41,14 @@ ChServerM.Hosting.Dispatch.MessageDispatcherBuilder.MessageDispatcherBuilder() -
 ChServerM.Hosting.Dispatch.MessageDispatcherBuilder.Use(ChServerM.Dispatch.IServerMiddleware! middleware) -> ChServerM.Hosting.Dispatch.MessageDispatcherBuilder!
 ChServerM.Hosting.Dispatch.MessageDispatcherBuilder.Use(System.Func<ChServerM.Dispatch.MessageDelegate!, ChServerM.Dispatch.MessageDelegate!>! middleware) -> ChServerM.Hosting.Dispatch.MessageDispatcherBuilder!
 ChServerM.Hosting.Dispatch.MessageDispatcherBuilder.UseLogger(ChServerM.Diagnostics.IServerLogger! logger) -> ChServerM.Hosting.Dispatch.MessageDispatcherBuilder!
+ChServerM.Hosting.Dispatch.MessageStateFilterMiddleware
+ChServerM.Hosting.Dispatch.MessageStateFilterMiddleware.InvokeAsync(ChServerM.Dispatch.MessageContext! context, ChServerM.Dispatch.MessageDelegate! next) -> System.Threading.Tasks.ValueTask<ChServerM.Dispatch.DispatchStatus>
+ChServerM.Hosting.Dispatch.MessageStateFilterMiddleware.MessageStateFilterMiddleware(ChServerM.Hosting.Dispatch.MessageStateFilterOptions! options) -> void
+ChServerM.Hosting.Dispatch.MessageStateFilterOptions
+ChServerM.Hosting.Dispatch.MessageStateFilterOptions.Allow(ChServerM.Identity.MessageId messageId, uint states) -> ChServerM.Hosting.Dispatch.MessageStateFilterOptions!
+ChServerM.Hosting.Dispatch.MessageStateFilterOptions.InitialStates.get -> uint
+ChServerM.Hosting.Dispatch.MessageStateFilterOptions.InitialStates.set -> void
+ChServerM.Hosting.Dispatch.MessageStateFilterOptions.MessageStateFilterOptions() -> void
 ChServerM.Hosting.FrameWriter
 ChServerM.Hosting.FramedConnectionHandler
 ChServerM.Hosting.FramedConnectionHandler.FramedConnectionHandler(ChServerM.Framing.IFrameDecoder! decoder, ChServerM.Dispatch.IMessageDispatcher! dispatcher, ChServerM.Hosting.FramedConnectionOptions? options = null, System.TimeProvider? timeProvider = null, ChServerM.Diagnostics.IServerLogger? logger = null, ChServerM.Execution.IExecutionModel? executionModel = null) -> void

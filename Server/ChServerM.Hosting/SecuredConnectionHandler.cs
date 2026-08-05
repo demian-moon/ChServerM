@@ -75,7 +75,9 @@ internal sealed class SecuredConnectionHandler : IConnectionHandler
         ISecureChannel channel = result.Channel!;
         try
         {
+#pragma warning disable CA2000 // SecuredConnection 은 추가 자원이 없는 래퍼다 — 채널은 아래 finally 가, 원본 커넥션은 전송이 정리한다(이중 소유 금지).
             await _inner.RunAsync(new SecuredConnection(connection, channel)).ConfigureAwait(false);
+#pragma warning restore CA2000
         }
         finally
         {
