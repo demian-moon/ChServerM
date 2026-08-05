@@ -378,3 +378,6 @@ static ChServerM.Time.MonotonicTimestamp.operator ==(ChServerM.Time.MonotonicTim
 static ChServerM.Time.MonotonicTimestamp.operator >(ChServerM.Time.MonotonicTimestamp left, ChServerM.Time.MonotonicTimestamp right) -> bool
 static ChServerM.Time.MonotonicTimestamp.operator >=(ChServerM.Time.MonotonicTimestamp left, ChServerM.Time.MonotonicTimestamp right) -> bool
 virtual ChServerM.Dispatch.MessageDelegate.Invoke(ChServerM.Dispatch.MessageContext! context) -> System.Threading.Tasks.ValueTask<ChServerM.Dispatch.DispatchStatus>
+ChServerM.Dispatch.MessageHandlerAttribute
+ChServerM.Dispatch.MessageHandlerAttribute.MessageHandlerAttribute(ushort messageId) -> void
+ChServerM.Dispatch.MessageHandlerAttribute.MessageId.get -> ushort

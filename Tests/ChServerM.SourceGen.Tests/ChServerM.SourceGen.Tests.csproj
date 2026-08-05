@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+
+    <!-- 테스트 어셈블리는 AOT 배포 대상이 아니다. 분석기 소음을 줄인다. -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="coverlet.collector" />
+    <!-- GeneratorDriver 를 테스트 러너 안에서 직접 돌린다. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 생성기는 런타임 타입으로 인스턴스화한다(드라이버 테스트). 분석기 참조가 아니다. -->
+    <ProjectReference Include="..\..\Server\ChServerM.SourceGen\ChServerM.SourceGen.csproj" />
+    <!-- 테스트 컴파일레이션의 메타데이터 참조 원천(Core·Hosting dll 경로). -->
+    <ProjectReference Include="..\..\Server\ChServerM.Hosting\ChServerM.Hosting.csproj" />
+  </ItemGroup>
+
+</Project>

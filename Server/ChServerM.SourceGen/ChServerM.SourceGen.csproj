@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <!--
+      생성기는 SDK 컴파일러 프로세스(및 IDE 분석기 호스트)에 로드된다.
+      호스트 호환의 표준 타깃은 netstandard2.0 이다 — net10.0 으로 올리면
+      일부 호스트에서 로드가 거부된다.
+    -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>ChServerM.SourceGen</RootNamespace>
+    <Description>ChServerM 디스패치 소스 제너레이터 (Phase 7, ADR-0014).</Description>
+
+    <!-- 트리밍 분석은 netstandard2.0 을 지원하지 않는다. 생성기는 배포 대상도 아니다. -->
+    <IsAotCompatible>false</IsAotCompatible>
+
+    <!-- 생성기 저작 규칙(RS1036 등)을 켠다. -->
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+  </PropertyGroup>
+
+  <!--
+    Core 를 참조하지 않는다 — 생성기는 소비 컴파일레이션을 메타데이터 이름 문자열로
+    조사한다. 참조하면 생성기 로드 시 Core dll 해석 문제가 생기고, 버전 결박도 생긴다.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- 진단 릴리스 추적(RS2008) — PublicAPI 승인 파일과 같은 목적의 diff 게이트다. -->
+  <ItemGroup>
+    <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+  </ItemGroup>
+
+</Project>

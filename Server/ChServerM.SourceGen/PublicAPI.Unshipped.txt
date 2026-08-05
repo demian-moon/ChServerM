@@ -1,0 +1,4 @@
+#nullable enable
+ChServerM.SourceGen.MessageHandlerGenerator
+ChServerM.SourceGen.MessageHandlerGenerator.Initialize(Microsoft.CodeAnalysis.IncrementalGeneratorInitializationContext context) -> void
+ChServerM.SourceGen.MessageHandlerGenerator.MessageHandlerGenerator() -> void

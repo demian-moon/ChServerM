@@ -7,6 +7,7 @@
     <Project Path="Server/ChServerM.Serialization.FlatBuffers/ChServerM.Serialization.FlatBuffers.csproj" />
     <Project Path="Server/ChServerM.Serialization.MemoryPack/ChServerM.Serialization.MemoryPack.csproj" />
     <Project Path="Server/ChServerM.Serialization.Protobuf/ChServerM.Serialization.Protobuf.csproj" />
+    <Project Path="Server/ChServerM.SourceGen/ChServerM.SourceGen.csproj" />
     <Project Path="Server/ChServerM.Transport.InMemory/ChServerM.Transport.InMemory.csproj" />
     <Project Path="Server/ChServerM.Transport.Tcp/ChServerM.Transport.Tcp.csproj" />
   </Folder>
@@ -24,5 +25,6 @@
     <Project Path="Tests/ChServerM.Serialization.FlatBuffers.Tests/ChServerM.Serialization.FlatBuffers.Tests.csproj" />
     <Project Path="Tests/ChServerM.Serialization.MemoryPack.Tests/ChServerM.Serialization.MemoryPack.Tests.csproj" />
     <Project Path="Tests/ChServerM.Serialization.Protobuf.Tests/ChServerM.Serialization.Protobuf.Tests.csproj" />
+    <Project Path="Tests/ChServerM.SourceGen.Tests/ChServerM.SourceGen.Tests.csproj" />
   </Folder>
 </Solution>
