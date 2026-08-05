@@ -20,6 +20,7 @@ ChServerM.Hosting.ClientBuilder.UseFraming(ChServerM.Framing.IFrameDecoder! deco
 ChServerM.Hosting.ClientBuilder.UseLogger(ChServerM.Diagnostics.IServerLogger! logger) -> ChServerM.Hosting.ClientBuilder!
 ChServerM.Hosting.ClientBuilder.UseTimeProvider(System.TimeProvider! timeProvider) -> ChServerM.Hosting.ClientBuilder!
 ChServerM.Hosting.ClientBuilder.UseTransport(ChServerM.Transports.IClientTransport! transport) -> ChServerM.Hosting.ClientBuilder!
+ChServerM.Hosting.ClientBuilder.UseTransportSecurity(ChServerM.Security.ITransportSecurity! security) -> ChServerM.Hosting.ClientBuilder!
 ChServerM.Hosting.ClientSession
 ChServerM.Hosting.ClientSession.ClientSession() -> void
 ChServerM.Hosting.ClientSession.ClientSession(ChServerM.Connections.IConnection! Connection, System.Threading.Tasks.Task! Completion) -> void
@@ -65,6 +66,7 @@ ChServerM.Hosting.ServerBuilder.UseFraming(ChServerM.Framing.IFrameDecoder! deco
 ChServerM.Hosting.ServerBuilder.UseLogger(ChServerM.Diagnostics.IServerLogger! logger) -> ChServerM.Hosting.ServerBuilder!
 ChServerM.Hosting.ServerBuilder.UseTimeProvider(System.TimeProvider! timeProvider) -> ChServerM.Hosting.ServerBuilder!
 ChServerM.Hosting.ServerBuilder.UseTransport(ChServerM.Transports.IServerTransport! transport) -> ChServerM.Hosting.ServerBuilder!
+ChServerM.Hosting.ServerBuilder.UseTransportSecurity(ChServerM.Security.ITransportSecurity! security) -> ChServerM.Hosting.ServerBuilder!
 override ChServerM.Hosting.ClientSession.GetHashCode() -> int
 static ChServerM.Hosting.ClientSession.operator !=(ChServerM.Hosting.ClientSession left, ChServerM.Hosting.ClientSession right) -> bool
 static ChServerM.Hosting.ClientSession.operator ==(ChServerM.Hosting.ClientSession left, ChServerM.Hosting.ClientSession right) -> bool

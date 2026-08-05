@@ -1,11 +1,13 @@
 using System;
 using System.Net;
+using System.Security.Authentication;
 using System.Threading;
 using System.Threading.Tasks;
 using ChServerM.Connections;
 using ChServerM.Diagnostics;
 using ChServerM.Framing;
 using ChServerM.Hosting.Dispatch;
+using ChServerM.Security;
 using ChServerM.Transports;
 
 namespace ChServerM.Hosting;
@@ -34,6 +36,7 @@ public sealed class ClientBuilder
     private IClientTransport? _transport;
     private IFrameDecoder? _decoder;
     private IFrameEncoder? _encoder;
+    private ITransportSecurity? _transportSecurity;
     private IServerLogger _logger = NullServerLogger.Instance;
     private TimeProvider _timeProvider = TimeProvider.System;
 
@@ -58,6 +61,23 @@ public sealed class ClientBuilder
 
         _decoder = decoder;
         _encoder = encoder;
+        return this;
+    }
+
+    /// <summary>전송 보안 축을 지정한다.</summary>
+    /// <param name="security">보안 구현. 지정하지 않으면 평문이다.</param>
+    /// <returns>메서드 체이닝을 위한 자기 자신.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="security"/>가 <see langword="null"/>일 때.</exception>
+    /// <remarks>
+    /// 연결 직후·프레이밍 시작 전에 클라이언트 측 핸드셰이크가 수행된다(ADR-0017).
+    /// 실패하면 <see cref="ChServerMClient.ConnectAsync"/>가
+    /// <see cref="AuthenticationException"/>을 던진다 — 클라이언트의 연결 수립은
+    /// 호출자 대면 경로라 상태 반환보다 예외가 자연스럽다(서버 수락 경로와 다른 점).
+    /// </remarks>
+    public ClientBuilder UseTransportSecurity(ITransportSecurity security)
+    {
+        ArgumentNullException.ThrowIfNull(security);
+        _transportSecurity = security;
         return this;
     }
 
@@ -121,7 +141,7 @@ public sealed class ClientBuilder
         FramedConnectionHandler handler = new(
             decoder, _dispatcher.Build(), _connectionOptions, _timeProvider, _logger);
 
-        return new ChServerMClient(transport, handler, encoder);
+        return new ChServerMClient(transport, handler, encoder, _transportSecurity);
     }
 }
 
@@ -137,12 +157,18 @@ public sealed class ChServerMClient : IAsyncDisposable
 {
     private readonly IClientTransport _transport;
     private readonly IConnectionHandler _handler;
+    private readonly ITransportSecurity? _security;
     private int _disposed;
 
-    internal ChServerMClient(IClientTransport transport, IConnectionHandler handler, IFrameEncoder encoder)
+    internal ChServerMClient(
+        IClientTransport transport,
+        IConnectionHandler handler,
+        IFrameEncoder encoder,
+        ITransportSecurity? security)
     {
         _transport = transport;
         _handler = handler;
+        _security = security;
         Encoder = encoder;
     }
 
@@ -154,9 +180,16 @@ public sealed class ChServerMClient : IAsyncDisposable
     /// <param name="cancellationToken">연결 시도의 취소 토큰.</param>
     /// <returns>수립된 커넥션과, 읽기 루프가 끝나면 완료되는 작업.</returns>
     /// <remarks>
+    /// <para>
     /// 읽기 루프 작업을 <b>돌려준다.</b> 감추면 호출자가 루프의 실패를 관측할 수 없고,
     /// 그러면 "연결은 살아 있는데 아무 응답이 없는" 상태를 진단할 방법이 사라진다.
+    /// </para>
+    /// <para>
+    /// 보안 축이 지정됐으면 연결 직후 핸드셰이크가 수행되고, 반환되는 커넥션의
+    /// 바이트 경로는 평문 측 보안 채널이다(ADR-0017).
+    /// </para>
     /// </remarks>
+    /// <exception cref="AuthenticationException">보안 핸드셰이크가 실패했을 때.</exception>
     public async ValueTask<ClientSession> ConnectAsync(
         EndPoint endPoint,
         CancellationToken cancellationToken = default)
@@ -165,7 +198,41 @@ public sealed class ChServerMClient : IAsyncDisposable
 
         IConnection connection = await _transport.ConnectAsync(endPoint, cancellationToken).ConfigureAwait(false);
 
+        if (_security is not null)
+        {
+            connection = await SecureAsync(connection, cancellationToken).ConfigureAwait(false);
+        }
+
         return new ClientSession(connection, _handler.RunAsync(connection));
+    }
+
+    /// <summary>클라이언트 측 핸드셰이크를 수행하고 보안 커넥션으로 감싼다.</summary>
+    private async ValueTask<IConnection> SecureAsync(IConnection connection, CancellationToken cancellationToken)
+    {
+        SecureChannelResult result;
+        using (CancellationTokenSource linked =
+            CancellationTokenSource.CreateLinkedTokenSource(connection.ConnectionClosed, cancellationToken))
+        {
+            result = await _security!
+                .SecureAsClientAsync(new ConnectionDuplexPipe(connection), linked.Token)
+                .ConfigureAwait(false);
+        }
+
+        if (!result.IsEstablished)
+        {
+            // 실패한 원시 커넥션을 반드시 정리한다 — 남겨두면 소켓이 샌다.
+            await connection.DisposeAsync().ConfigureAwait(false);
+
+            if (result.Status == SecureChannelStatus.Canceled)
+            {
+                throw new OperationCanceledException("보안 채널 확립이 취소됐다.");
+            }
+
+            throw new AuthenticationException(
+                "보안 채널 확립에 실패했다. 서버 인증서 신뢰·프로토콜 버전 설정을 확인한다.");
+        }
+
+        return new SecuredConnection(connection, result.Channel!);
     }
 
     /// <inheritdoc />

@@ -5,14 +5,19 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO.Pipelines;
 using System.Net;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
 using ChServerM.Concurrency;
 using ChServerM.Connections;
 using ChServerM.Dispatch;
+using ChServerM.Features;
 using ChServerM.Framing;
 using ChServerM.Hosting;
 using ChServerM.Identity;
+using ChServerM.Security;
+using ChServerM.Security.Tls;
 using ChServerM.Transport.Tcp;
 using ChServerM.Transports;
 
@@ -66,9 +71,11 @@ internal static class Program
         Console.WriteLine("  server --port 15000 [--max-connections 20000] [--partitions N] [--seconds 120]");
         Console.WriteLine("         [--transport socket|kestrel (기본 socket, kestrel 은 ADR-0001 벤치 대결용)]");
         Console.WriteLine("         [--vectored true|false (기본 false, 송신 배칭 A/B 측정용)]");
+        Console.WriteLine("         [--tls true|false (기본 false. 자가서명 인증서로 TLS 1.3, ADR-0017 A/B 측정용)]");
         Console.WriteLine("  client --port 15000 --connections 512 [--payload 128] [--seconds 30]");
         Console.WriteLine("         [--rampup 5] [--active N (기본: 전부)] [--host 127.0.0.1]");
         Console.WriteLine("         [--pipeline P (기본 1=닫힌 루프. P>1 이면 burst P개 송신 후 P개 수신)]");
+        Console.WriteLine("         [--tls true|false (기본 false. 서버와 같게 맞춘다)]");
     }
 
     private static int Fail(string message)
@@ -101,6 +108,7 @@ internal static class Program
         int maxConnections = GetInt(options, "max-connections", 20_000);
         int partitions = GetInt(options, "partitions", Environment.ProcessorCount);
         int seconds = GetInt(options, "seconds", 120);
+        bool tls = options.TryGetValue("tls", out string? tlsValue) && bool.Parse(tlsValue);
 
         FramingOptions framing = new() { MaxPayloadLength = MaxPayloadLength };
         FixedHeaderFrameDecoder decoder = new(framing);
@@ -113,6 +121,11 @@ internal static class Program
 #pragma warning disable CA2000
         IServerTransport transport;
         Func<int> connectionCount;
+
+        if (tls && string.Equals(transportKind, "kestrel", StringComparison.OrdinalIgnoreCase))
+        {
+            return Fail("kestrel 프로토타입은 TLS 조합을 지원하지 않는다 — ADR-0001 재현 전용이다.");
+        }
 
         if (string.Equals(transportKind, "kestrel", StringComparison.OrdinalIgnoreCase))
         {
@@ -148,19 +161,32 @@ internal static class Program
             return DispatchStatus.Handled;
         };
 
-#pragma warning disable CA2007 // await using 선언에는 ConfigureAwait 를 붙일 수 없다. 콘솔 앱 — 컨텍스트 없음.
-        await using ChServerMServer server = new ServerBuilder()
+        ServerBuilder builder = new ServerBuilder()
             .UseTransport(transport)
             .UseFraming(decoder, encoder)
             .UseExecutionModel(new PartitionedExecutionModel(
                 new PartitionedExecutionOptions { PartitionCount = partitions }))
-            .ConfigureDispatcher(d => d.MapRaw(new MessageId(EchoMessageId), echo))
-            .Build();
+            .ConfigureDispatcher(d => d.MapRaw(new MessageId(EchoMessageId), echo));
+
+        // TLS A/B — 실행마다 새 자가서명 인증서. 재는 것은 암호 경로 비용이다(ADR-0017).
+        using X509Certificate2? certificate = tls ? CreateSelfSignedCertificate() : null;
+        if (certificate is not null)
+        {
+            builder.UseTransportSecurity(new TlsTransportSecurity(new TlsSecurityOptions
+            {
+                ServerCertificate = certificate,
+            }));
+        }
+
+#pragma warning disable CA2007 // await using 선언에는 ConfigureAwait 를 붙일 수 없다. 콘솔 앱 — 컨텍스트 없음.
+        await using ChServerMServer server = builder.Build();
 #pragma warning restore CA2007
 #pragma warning restore CA2000
 
         await server.StartAsync().ConfigureAwait(false);
-        Console.WriteLine($"READY port={port} partitions={partitions} max={maxConnections} transport={transportKind}");
+        Console.WriteLine(
+            $"READY port={port} partitions={partitions} max={maxConnections} " +
+            $"transport={transportKind} tls={(tls ? "on" : "off")}");
 
         // 주기적으로 커넥션 수·메모리를 찍는다. "1만 접속에서 안정"의 근거 데이터다.
         using Process self = Process.GetCurrentProcess();
@@ -195,6 +221,20 @@ internal static class Program
         int active = GetInt(options, "active", connections);
         int pipeline = GetInt(options, "pipeline", 1);
         string host = options.TryGetValue("host", out string? h) ? h : "127.0.0.1";
+        bool tls = options.TryGetValue("tls", out string? tlsValue) && bool.Parse(tlsValue);
+
+        // 벤치 전용 신뢰 정책 — 서버 인증서가 실행마다 새로 생기는 자가서명이라 핀 고정이
+        // 불가능하다. 여기서 재는 것은 암호 경로 비용이지 신뢰 검증이 아니다.
+        // 무조건 true 콜백은 프로덕션 금지 패턴이다(TlsSecurityOptions 문서).
+        TlsTransportSecurity? tlsSecurity = tls
+            ? new TlsTransportSecurity(new TlsSecurityOptions
+            {
+                TargetHost = host,
+#pragma warning disable CA5359 // 벤치 전용 — 위 주석 참조. 실행마다 새 자가서명 인증서라 검증할 신뢰 체계가 없다.
+                RemoteCertificateValidation = static (_, _, _, _) => true,
+#pragma warning restore CA5359
+            })
+            : null;
 
         FramingOptions framing = new() { MaxPayloadLength = MaxPayloadLength };
         FixedHeaderFrameDecoder decoder = new(framing);
@@ -221,7 +261,7 @@ internal static class Program
 
             for (int i = 0; i < batch; i++)
             {
-                connecting[i] = clientTransport.ConnectAsync(target).AsTask();
+                connecting[i] = ConnectOneAsync(clientTransport, target, tlsSecurity);
             }
 
             foreach (Task<IConnection> task in connecting)
@@ -320,7 +360,7 @@ internal static class Program
         // ── 보고. BENCHMARKS.md 에 그대로 옮길 수 있는 형태로 찍는다.
         long requests = Interlocked.Read(ref totalRequests);
         Console.WriteLine();
-        Console.WriteLine($"결과 — 커넥션 {all.Count} (활성 {workers.Length}), 페이로드 {payloadLength}B, 파이프라인 {pipeline}, {loadClock.Elapsed.TotalSeconds:F1}s");
+        Console.WriteLine($"결과 — 커넥션 {all.Count} (활성 {workers.Length}), 페이로드 {payloadLength}B, 파이프라인 {pipeline}, tls={(tls ? "on" : "off")}, {loadClock.Elapsed.TotalSeconds:F1}s");
         if (pipeline > 1)
         {
             Console.WriteLine($"  (지연 분위수는 burst {pipeline}개 왕복 기준이다 — 단건 왕복과 비교 금지)");
@@ -337,6 +377,79 @@ internal static class Program
         }
 
         return 0;
+    }
+
+    /// <summary>커넥션 하나를 연결하고, TLS 가 켜져 있으면 핸드셰이크까지 마친다.</summary>
+    /// <remarks>핸드셰이크 실패는 예외로 던져 램프업 루프의 연결 실패 계수에 잡히게 한다.</remarks>
+    private static async Task<IConnection> ConnectOneAsync(
+        TcpClientTransport transport, IPEndPoint target, TlsTransportSecurity? tlsSecurity)
+    {
+        IConnection connection = await transport.ConnectAsync(target).ConfigureAwait(false);
+
+        if (tlsSecurity is null)
+        {
+            return connection;
+        }
+
+        SecureChannelResult result = await tlsSecurity
+            .SecureAsClientAsync(new BenchDuplexPipe(connection), connection.ConnectionClosed)
+            .ConfigureAwait(false);
+
+        if (!result.IsEstablished)
+        {
+            await connection.DisposeAsync().ConfigureAwait(false);
+            throw new InvalidOperationException($"TLS 핸드셰이크 실패: {result.Status}");
+        }
+
+        return new TlsClientConnection(connection, result.Channel!);
+    }
+
+    /// <summary>테스트 전용 자가서명 인증서. Schannel 이 ephemeral 키를 못 쓰므로 PFX 왕복으로 로드한다.</summary>
+    private static X509Certificate2 CreateSelfSignedCertificate()
+    {
+        using ECDsa key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        CertificateRequest request = new("CN=localhost", key, HashAlgorithmName.SHA256);
+        request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(
+            [new Oid("1.3.6.1.5.5.7.3.1")], critical: false)); // serverAuth
+
+        SubjectAlternativeNameBuilder san = new();
+        san.AddDnsName("localhost");
+        request.CertificateExtensions.Add(san.Build());
+
+        using X509Certificate2 ephemeral = request.CreateSelfSigned(
+            DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(7));
+
+        return X509CertificateLoader.LoadPkcs12(ephemeral.Export(X509ContentType.Pfx), password: null);
+    }
+
+    /// <summary>벤치 전용 보안 커넥션 래퍼 — Hosting 의 SecuredConnection 은 internal 이라 최소 사본을 둔다.</summary>
+    private sealed class TlsClientConnection(IConnection inner, ISecureChannel channel) : IConnection
+    {
+        public ConnectionId Id => inner.Id;
+
+        public PipeReader Input => channel.Input;
+
+        public PipeWriter Output => channel.Output;
+
+        public IFeatureCollection Features => inner.Features;
+
+        public CancellationToken ConnectionClosed => inner.ConnectionClosed;
+
+        public void Abort(in ConnectionCloseInfo info) => inner.Abort(info);
+
+        public async ValueTask DisposeAsync()
+        {
+            await channel.DisposeAsync().ConfigureAwait(false);
+            await inner.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    /// <summary><see cref="IConnection"/> 바이트 경로의 <see cref="IDuplexPipe"/> 어댑터.</summary>
+    private sealed class BenchDuplexPipe(IConnection connection) : IDuplexPipe
+    {
+        public PipeReader Input => connection.Input;
+
+        public PipeWriter Output => connection.Output;
     }
 
     /// <summary>프레임 하나가 도착할 때까지 읽는다. (통합 테스트와 같은 요령)</summary>

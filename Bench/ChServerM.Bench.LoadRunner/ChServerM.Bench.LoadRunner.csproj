@@ -29,6 +29,8 @@
     <ProjectReference Include="..\..\Server\ChServerM.Transport.Tcp\ChServerM.Transport.Tcp.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Framing\ChServerM.Framing.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Concurrency\ChServerM.Concurrency.csproj" />
+    <!-- TLS on/off A/B 측정용 (ADR-0017 부정 항목의 실측 의무). -->
+    <ProjectReference Include="..\..\Server\ChServerM.Security.Tls\ChServerM.Security.Tls.csproj" />
   </ItemGroup>
 
   <!--

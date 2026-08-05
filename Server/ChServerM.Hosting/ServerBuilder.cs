@@ -4,6 +4,7 @@ using ChServerM.Diagnostics;
 using ChServerM.Execution;
 using ChServerM.Framing;
 using ChServerM.Hosting.Dispatch;
+using ChServerM.Security;
 using ChServerM.Transports;
 
 namespace ChServerM.Hosting;
@@ -41,6 +42,7 @@ public sealed class ServerBuilder
     private IFrameDecoder? _decoder;
     private IFrameEncoder? _encoder;
     private IExecutionModel? _executionModel;
+    private ITransportSecurity? _transportSecurity;
     private IServerLogger _logger = NullServerLogger.Instance;
     private TimeProvider _timeProvider = TimeProvider.System;
 
@@ -67,6 +69,27 @@ public sealed class ServerBuilder
 
         _decoder = decoder;
         _encoder = encoder;
+        return this;
+    }
+
+    /// <summary>전송 보안 축을 지정한다.</summary>
+    /// <param name="security">보안 구현. 지정하지 않으면 평문이다.</param>
+    /// <returns>메서드 체이닝을 위한 자기 자신.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="security"/>가 <see langword="null"/>일 때.</exception>
+    /// <remarks>
+    /// <para>
+    /// 수락 직후·프레이밍 시작 전에 핸드셰이크가 수행된다(ADR-0017) — 적용 순서는
+    /// 조립이 강제하므로 호출자가 틀릴 수 없다. 핸드셰이크 실패는
+    /// <see cref="ErrorCode.SecureChannelFailed"/>로 커넥션이 닫힌다.
+    /// </para>
+    /// <para>
+    /// TLS 를 내장한 전송(QUIC 등)에는 지정하지 않는다 — 이중 암호화가 된다.
+    /// </para>
+    /// </remarks>
+    public ServerBuilder UseTransportSecurity(ITransportSecurity security)
+    {
+        ArgumentNullException.ThrowIfNull(security);
+        _transportSecurity = security;
         return this;
     }
 
@@ -156,6 +179,12 @@ public sealed class ServerBuilder
         // 실행 모델이 있으면 프레임 디스패치가 파티션 배타 구간에서 실행된다(ADR-0008).
         IConnectionHandler handler = new FramedConnectionHandler(
             decoder, _dispatcher.Build(), _connectionOptions, _timeProvider, _logger, _executionModel);
+
+        // 보안 축이 있으면 수락 직후·프레이밍 전에 핸드셰이크가 끼어든다(ADR-0017).
+        if (_transportSecurity is not null)
+        {
+            handler = new SecuredConnectionHandler(_transportSecurity, handler, _logger);
+        }
 
         return new ChServerMServer(transport, handler, encoder, _executionModel);
     }
