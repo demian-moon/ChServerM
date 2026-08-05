@@ -52,6 +52,7 @@ ChServerM.Diagnostics.ErrorCode.OperationCanceled = 5002 -> ChServerM.Diagnostic
 ChServerM.Diagnostics.ErrorCode.ProtocolVersionMismatch = 2002 -> ChServerM.Diagnostics.ErrorCode
 ChServerM.Diagnostics.ErrorCode.QueueFull = 5000 -> ChServerM.Diagnostics.ErrorCode
 ChServerM.Diagnostics.ErrorCode.RateLimitExceeded = 6003 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Diagnostics.ErrorCode.SecureChannelFailed = 6004 -> ChServerM.Diagnostics.ErrorCode
 ChServerM.Diagnostics.ErrorCode.SendBackpressure = 5001 -> ChServerM.Diagnostics.ErrorCode
 ChServerM.Diagnostics.ErrorCode.SerializationFailed = 3001 -> ChServerM.Diagnostics.ErrorCode
 ChServerM.Diagnostics.ErrorCode.SerializerNotRegistered = 3002 -> ChServerM.Diagnostics.ErrorCode
@@ -226,6 +227,22 @@ ChServerM.Identity.SessionId.SessionId() -> void
 ChServerM.Identity.SessionId.SessionId(ChServerM.Identity.ObjectId value) -> void
 ChServerM.Identity.SessionId.ToPartitionKey() -> ChServerM.Identity.PartitionKey
 ChServerM.Identity.SessionId.Value.get -> ChServerM.Identity.ObjectId
+ChServerM.Security.ISecureChannel
+ChServerM.Security.ITransportSecurity
+ChServerM.Security.ITransportSecurity.SecureAsClientAsync(System.IO.Pipelines.IDuplexPipe! transport, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<ChServerM.Security.SecureChannelResult>
+ChServerM.Security.ITransportSecurity.SecureAsServerAsync(System.IO.Pipelines.IDuplexPipe! transport, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<ChServerM.Security.SecureChannelResult>
+ChServerM.Security.SecureChannelResult
+ChServerM.Security.SecureChannelResult.Channel.get -> ChServerM.Security.ISecureChannel?
+ChServerM.Security.SecureChannelResult.Equals(ChServerM.Security.SecureChannelResult other) -> bool
+ChServerM.Security.SecureChannelResult.IsEstablished.get -> bool
+ChServerM.Security.SecureChannelResult.SecureChannelResult() -> void
+ChServerM.Security.SecureChannelResult.Status.get -> ChServerM.Security.SecureChannelStatus
+ChServerM.Security.SecureChannelResult.ToErrorCode() -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Security.SecureChannelStatus
+ChServerM.Security.SecureChannelStatus.Canceled = 3 -> ChServerM.Security.SecureChannelStatus
+ChServerM.Security.SecureChannelStatus.Established = 1 -> ChServerM.Security.SecureChannelStatus
+ChServerM.Security.SecureChannelStatus.HandshakeFailed = 2 -> ChServerM.Security.SecureChannelStatus
+ChServerM.Security.SecureChannelStatus.None = 0 -> ChServerM.Security.SecureChannelStatus
 ChServerM.Serialization.IMessageSerializer<TMessage>
 ChServerM.Serialization.IMessageSerializer<TMessage>.Serialize(System.Buffers.IBufferWriter<byte>! writer, in TMessage message) -> void
 ChServerM.Serialization.IMessageSerializer<TMessage>.TryDeserialize(in System.Buffers.ReadOnlySequence<byte> payload, out TMessage message) -> bool
@@ -314,6 +331,9 @@ override ChServerM.Identity.PartitionKey.ToString() -> string!
 override ChServerM.Identity.SessionId.Equals(object? obj) -> bool
 override ChServerM.Identity.SessionId.GetHashCode() -> int
 override ChServerM.Identity.SessionId.ToString() -> string!
+override ChServerM.Security.SecureChannelResult.Equals(object? obj) -> bool
+override ChServerM.Security.SecureChannelResult.GetHashCode() -> int
+override ChServerM.Security.SecureChannelResult.ToString() -> string!
 override ChServerM.Time.MonotonicTimestamp.Equals(object? obj) -> bool
 override ChServerM.Time.MonotonicTimestamp.GetHashCode() -> int
 override ChServerM.Time.MonotonicTimestamp.ToString() -> string!
@@ -368,6 +388,10 @@ static ChServerM.Identity.PartitionKey.operator ==(ChServerM.Identity.PartitionK
 static ChServerM.Identity.SessionId.None.get -> ChServerM.Identity.SessionId
 static ChServerM.Identity.SessionId.operator !=(ChServerM.Identity.SessionId left, ChServerM.Identity.SessionId right) -> bool
 static ChServerM.Identity.SessionId.operator ==(ChServerM.Identity.SessionId left, ChServerM.Identity.SessionId right) -> bool
+static ChServerM.Security.SecureChannelResult.Established(ChServerM.Security.ISecureChannel! channel) -> ChServerM.Security.SecureChannelResult
+static ChServerM.Security.SecureChannelResult.Failed(ChServerM.Security.SecureChannelStatus status) -> ChServerM.Security.SecureChannelResult
+static ChServerM.Security.SecureChannelResult.operator !=(ChServerM.Security.SecureChannelResult left, ChServerM.Security.SecureChannelResult right) -> bool
+static ChServerM.Security.SecureChannelResult.operator ==(ChServerM.Security.SecureChannelResult left, ChServerM.Security.SecureChannelResult right) -> bool
 static ChServerM.Time.MonotonicTimestamp.FromRaw(long raw) -> ChServerM.Time.MonotonicTimestamp
 static ChServerM.Time.MonotonicTimestamp.None.get -> ChServerM.Time.MonotonicTimestamp
 static ChServerM.Time.MonotonicTimestamp.Now(System.TimeProvider! timeProvider) -> ChServerM.Time.MonotonicTimestamp

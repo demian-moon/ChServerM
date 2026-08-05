@@ -111,6 +111,9 @@ public enum ErrorCode
     /// <summary>속도 제한에 걸렸다.</summary>
     RateLimitExceeded = 6003,
 
+    /// <summary>보안 채널 핸드셰이크가 실패했다(ADR-0017). 커넥션을 닫는다.</summary>
+    SecureChannelFailed = 6004,
+
     // ── 9000 설정·조립 ─────────────────────────────────────────
 
     /// <summary>옵션 값이 유효하지 않다. 시작 시점에 발견되어야 한다.</summary>
