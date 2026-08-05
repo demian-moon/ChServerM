@@ -65,8 +65,8 @@
 
 ## ADR-0001: raw TCP 전송 구현 방식
 
-- **날짜**: — (2026-07-30 근거 보강)
-- **상태**: 제안 (미결정, Kestrel 쪽으로 기울었음)
+- **날짜**: — (2026-07-30 근거 보강, **2026-08-05 확정**)
+- **상태**: **채택 — 순수 `Socket`+Pipelines 유지** (아래 2026-08-05 절)
 - **영향 범위**: `ChServerM.Transport.Tcp`
 
 ### 배경
@@ -109,6 +109,33 @@ raw TCP 서버의 소켓 계층을 직접 만들 것인지, 검증된 엔진을 
 
 **검증**: `CrossTransportTests` 가 같은 핸들러 코드를 InMemory 와 TCP 양쪽에서 돌린다.
 14개 항목 × 2 전송이 전부 통과한다 — ADR-0004 의 조립 가능성 합격 기준.
+
+### 2026-08-05 — 확정: 순수 `Socket`+Pipelines 를 유지한다
+
+Kestrel 쪽 프로토타입(`SocketTransportFactory` 를 `IServerTransport` 로 감싼
+`KestrelSocketServerTransport`, `Bench/ChServerM.Bench.LoadRunner` 소재)을 만들어
+동일 상위 계층으로 3개 시나리오(16/512 활성, 1만 접속+256 활성)를 대결시켰다.
+수치는 `BENCHMARKS.md` 2026-08-05 절.
+
+**결과는 통계적 동률(전 항목 ±3.2%, 방향 혼재)이고, p99 는 순수 소켓이 두 부하
+시나리오 모두 낮았다.** 프로토타입에는 idle 스윕·거부 통지·상한 판정 등 프로덕션
+기능이 없어 비교가 Kestrel 에 유리하게 기울어 있었는데도 그렇다. 이 워크로드의
+병목은 전송이 아니라 상위 파이프라인이다.
+
+**따라서 순수 `Socket`+Pipelines(`ChServerM.Transport.Tcp`)를 유지한다.** 2026-07-30 의
+"Kestrel 쪽으로 기울었음"은 실측으로 뒤집혔다 — 그 추정은 레거시(`NetworkStream` 노선)
+대비였고, 우리 구현이 이미 같은 계층 수(소켓 직결)에 도달했기 때문이다.
+
+| 대안 | 탈락 이유 |
+|---|---|
+| Kestrel Socket Transport 채택 | 성능 이득 없음(동률). `Microsoft.AspNetCore.App` FrameworkReference 유입 — 어댑터 무의존 규약·Native AOT 배포 크기와 충돌. 이미 구현·검증된 프로덕션 기능(idle 스윕, 거부 통지 40004, MaxConnections, ConnectionId 세대, 종료 상한)을 어댑터 위에 재구현해야 한다 |
+| 양쪽 유지(전송 어댑터 2종) | 기능 동등성 유지 비용 이중화. 이득이 없는 중복이다. 프로토타입은 벤치 도구에 남겨 재현·재검만 가능하게 한다 |
+
+부수 이득: 이 대결로 `IServerTransport` 계약의 세 번째 실증(InMemory·Tcp·Kestrel)이
+생겼다 — HTTP 전송(Phase 16)도 같은 모양으로 들어올 수 있다는 근거다.
+
+재검토 조건: 워크로드가 바뀌어 전송이 병목으로 관측되거나(Phase 11 메트릭),
+Kestrel 전송에 우리가 재현할 수 없는 기능(예: io_uring 지원)이 들어올 때.
 
 ---
 

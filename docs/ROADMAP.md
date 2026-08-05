@@ -192,7 +192,7 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 
 ## Phase 5 — TCP 전송 (첫 실동 구현)
 
-- [ ] ⚠ Kestrel Socket Transport 재사용 vs 순수 `Socket`+Pipelines — 양쪽 프로토타입 벤치마크 후 **ADR-0001 확정**
+- [x] ⚠ Kestrel Socket Transport 재사용 vs 순수 `Socket`+Pipelines — 양쪽 프로토타입 벤치마크 후 **ADR-0001 확정** (2026-08-05 확정: **순수 Socket 유지**. Kestrel 프로토타입(`KestrelSocketServerTransport`, 벤치 전용)과 3개 시나리오 대결 — 전 항목 ±3.2% 통계적 동률, p99 는 순수 소켓 우위. Kestrel 에 유리하게 기운 비교에서도 이득 없음 + FrameworkReference 유입 회피. 수치: BENCHMARKS.md 2026-08-05)
 - [x] `ChServerM.Transport.Tcp` — accept 루프 + 수신/송신 펌프. `TcpClient`/`NetworkStream`을 쓰지 않는다. 수락 루프가 일시적 오류(개별 연결 끊김)와 치명적 오류(수락 소켓 사망)를 구분한다 — 구분하지 않으면 조용히 수용을 멈추거나 CPU를 태운다 (2026-08-04 DoD-3 충족: 에코 146-169k RPS / p50 104µs / p99 162µs~7.5ms — `BENCHMARKS.md` Phase 5 게이트 절)
 - [x] 백프레셔 — pause/resume 임계값을 옵션으로 노출. **최대 프레임보다 커야 한다는 제약을 조립 시점에 검사한다**(ADR-0007). `WaitForDataBeforeAllocating`(0바이트 수신)으로 유휴 커넥션이 버퍼를 붙들지 않게 (2026-08-04 DoD-3 충족: 1만 접속 실측 — 서버 워킹셋 82MB, **커넥션당 약 8KB**. 레거시 방식이었다면 640MB)
 - [x] 커넥션 생명주기 — idle timeout, half-open 감지(keepalive), graceful close, RST 처리 (2026-08-04 완결: `IdleTimeout` 옵션 + **전송당 스윕 타이머 하나**(9.5 — 커넥션당 타이머 금지). 판정 해상도는 스윕 주기(≥1s)만큼 거칠다 — 계층적 타이밍 휠은 Phase 17 타이머 시스템과 함께. 활동 시각은 수신·송신 펌프가 `Volatile` 로 기록)

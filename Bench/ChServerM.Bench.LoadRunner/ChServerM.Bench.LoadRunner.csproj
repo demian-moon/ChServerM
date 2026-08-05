@@ -31,4 +31,13 @@
     <ProjectReference Include="..\..\Server\ChServerM.Concurrency\ChServerM.Concurrency.csproj" />
   </ItemGroup>
 
+  <!--
+    ADR-0001 벤치 대결 전용 — Kestrel Socket Transport(SocketTransportFactory)는
+    NuGet 단독 패키지가 아니라 ASP.NET Core 공유 프레임워크에 있다.
+    이 참조는 벤치 도구에만 있고 제품 어셈블리에는 절대 넣지 않는다(무의존 규약).
+  -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
 </Project>

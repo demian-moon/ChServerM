@@ -14,6 +14,7 @@ using ChServerM.Framing;
 using ChServerM.Hosting;
 using ChServerM.Identity;
 using ChServerM.Transport.Tcp;
+using ChServerM.Transports;
 
 namespace ChServerM.Bench.LoadRunner;
 
@@ -63,6 +64,7 @@ internal static class Program
     {
         Console.WriteLine("사용법:");
         Console.WriteLine("  server --port 15000 [--max-connections 20000] [--partitions N] [--seconds 120]");
+        Console.WriteLine("         [--transport socket|kestrel (기본 socket, kestrel 은 ADR-0001 벤치 대결용)]");
         Console.WriteLine("  client --port 15000 --connections 512 [--payload 128] [--seconds 30]");
         Console.WriteLine("         [--rampup 5] [--active N (기본: 전부)] [--host 127.0.0.1]");
     }
@@ -102,11 +104,30 @@ internal static class Program
         FixedHeaderFrameDecoder decoder = new(framing);
         FixedHeaderFrameEncoder encoder = new(framing);
 
+        string transportKind = options.TryGetValue("transport", out string? kind) ? kind : "socket";
+        IPEndPoint bindPoint = new(IPAddress.Loopback, port);
+
         // CA2000 억제: 전송·실행 모델의 소유권은 ChServerMServer 가 가져간다(빌더 계약).
 #pragma warning disable CA2000
-        TcpServerTransport transport = new(
-            new IPEndPoint(IPAddress.Loopback, port),
-            new TcpTransportOptions { MaxConnections = maxConnections });
+        IServerTransport transport;
+        Func<int> connectionCount;
+
+        if (string.Equals(transportKind, "kestrel", StringComparison.OrdinalIgnoreCase))
+        {
+            // ADR-0001 벤치 대결의 Kestrel 쪽. MaxConnections 상한 등 프로덕션 기능이
+            // 없다 — 공정성 주석은 KestrelSocketServerTransport 모듈 문서 참조.
+            KestrelSocketServerTransport kestrel = new(bindPoint);
+            transport = kestrel;
+            connectionCount = () => kestrel.ConnectionCount;
+        }
+        else
+        {
+            TcpServerTransport socket = new(
+                bindPoint,
+                new TcpTransportOptions { MaxConnections = maxConnections });
+            transport = socket;
+            connectionCount = () => socket.ConnectionCount;
+        }
 
         MessageDelegate echo = async context =>
         {
@@ -134,7 +155,7 @@ internal static class Program
 #pragma warning restore CA2000
 
         await server.StartAsync().ConfigureAwait(false);
-        Console.WriteLine($"READY port={port} partitions={partitions} max={maxConnections}");
+        Console.WriteLine($"READY port={port} partitions={partitions} max={maxConnections} transport={transportKind}");
 
         // 주기적으로 커넥션 수·메모리를 찍는다. "1만 접속에서 안정"의 근거 데이터다.
         using Process self = Process.GetCurrentProcess();
@@ -145,7 +166,7 @@ internal static class Program
             await Task.Delay(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
             self.Refresh();
             Console.WriteLine(
-                $"t={clock.Elapsed.TotalSeconds:F0}s conns={transport.ConnectionCount} " +
+                $"t={clock.Elapsed.TotalSeconds:F0}s conns={connectionCount()} " +
                 $"workingSet={self.WorkingSet64 / (1024 * 1024)}MB " +
                 $"gcHeap={GC.GetTotalMemory(forceFullCollection: false) / (1024 * 1024)}MB gen2={GC.CollectionCount(2)}");
         }
