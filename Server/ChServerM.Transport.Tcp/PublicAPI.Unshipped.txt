@@ -61,3 +61,5 @@ ChServerM.Transport.Tcp.TcpTransportOptions.ReuseAddress.get -> bool
 ChServerM.Transport.Tcp.TcpTransportOptions.ReuseAddress.set -> void
 ChServerM.Transport.Tcp.TcpTransportOptions.RejectionNotice.get -> System.ReadOnlyMemory<byte>
 ChServerM.Transport.Tcp.TcpTransportOptions.RejectionNotice.set -> void
+ChServerM.Transport.Tcp.TcpTransportOptions.UseVectoredSend.get -> bool
+ChServerM.Transport.Tcp.TcpTransportOptions.UseVectoredSend.set -> void

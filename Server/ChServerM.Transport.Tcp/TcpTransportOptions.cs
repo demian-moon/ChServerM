@@ -47,6 +47,24 @@ public sealed class TcpTransportOptions
     /// </remarks>
     public bool NoDelay { get; set; } = true;
 
+    /// <summary>다중 세그먼트 송신을 한 번의 벡터드(gather) syscall 로 보낸다.</summary>
+    /// <remarks>
+    /// <para>
+    /// 송신 파이프에 쌓인 데이터가 4KB 블록 경계를 넘으면 세그먼트가 여러 개가 되는데,
+    /// 기본 경로는 세그먼트마다 syscall 을 한 번씩 쓴다. 이 옵션을 켜면
+    /// <c>Socket.SendAsync(IList&lt;ArraySegment&gt;)</c> 로 한 번에 보낸다.
+    /// </para>
+    /// <para>
+    /// <b>기본값이 꺼진 근거 (2026-08-05 실측, BENCHMARKS.md 송신 배칭 절)</b> —
+    /// 배치를 극대화한 파이프라이닝 시나리오(루프백)에서도 처리량 이득이 0이었고,
+    /// 벡터드 오버로드의 호출당 <c>Task</c> 할당으로 GC 힙만 늘었다(3→9MB).
+    /// <c>Pipe</c> 의 4KB 블록 병합이 만드는 자연 배칭으로 syscall 수가 이미 충분히
+    /// 적기 때문이다. 실 NIC 다중 머신 측정(Phase 12)에서 재검하며, 그때도 지면
+    /// 이 옵션과 경로는 제거된다.
+    /// </para>
+    /// </remarks>
+    public bool UseVectoredSend { get; set; }
+
     /// <summary>TCP keep-alive 를 켠다.</summary>
     /// <remarks>
     /// <para>
@@ -248,6 +266,7 @@ public sealed class TcpTransportOptions
     {
         Backlog = Backlog,
         NoDelay = NoDelay,
+        UseVectoredSend = UseVectoredSend,
         EnableKeepAlive = EnableKeepAlive,
         PauseWriterThreshold = PauseWriterThreshold,
         ResumeWriterThreshold = ResumeWriterThreshold,

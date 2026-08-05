@@ -1,8 +1,10 @@
 using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using ChServerM.Connections;
@@ -58,8 +60,12 @@ public sealed class SocketConnection : IConnection, IConnectionEndPointFeature
     private readonly CancellationTokenSource _closed = new();
     private readonly int _minReceiveBufferSize;
     private readonly bool _waitForData;
+    private readonly bool _useVectoredSend;
     private readonly TimeSpan _shutdownTimeout;
     private readonly IServerLogger _logger;
+
+    /// <summary>벡터드 송신용 재사용 목록. 송신 펌프 단독 소유라 동기화가 없다.</summary>
+    private List<ArraySegment<byte>>? _sendSegments;
 
     private Task _receivePump = Task.CompletedTask;
     private Task _sendPump = Task.CompletedTask;
@@ -79,6 +85,7 @@ public sealed class SocketConnection : IConnection, IConnectionEndPointFeature
         _socket = socket;
         _minReceiveBufferSize = options.MinReceiveBufferSize;
         _waitForData = options.WaitForDataBeforeAllocating;
+        _useVectoredSend = options.UseVectoredSend;
         _shutdownTimeout = options.ShutdownTimeout;
         _logger = logger;
 
@@ -338,6 +345,10 @@ public sealed class SocketConnection : IConnection, IConnectionEndPointFeature
                     {
                         await SendAllAsync(buffer.First).ConfigureAwait(false);
                     }
+                    else if (_useVectoredSend)
+                    {
+                        await SendAllVectoredAsync(buffer).ConfigureAwait(false);
+                    }
                     else
                     {
                         foreach (ReadOnlyMemory<byte> segment in buffer)
@@ -376,6 +387,68 @@ public sealed class SocketConnection : IConnection, IConnectionEndPointFeature
         {
             await CompleteQuietlyAsync(_sendPipe.Reader, failure).ConfigureAwait(false);
             SignalClosed();
+        }
+    }
+
+    /// <summary>다중 세그먼트 버퍼를 벡터드(gather) 송신으로 끝까지 보낸다.</summary>
+    /// <remarks>
+    /// <para>
+    /// 세그먼트마다 syscall 을 쓰는 대신 <see cref="Socket.SendAsync(IList{ArraySegment{byte}}, SocketFlags)"/>
+    /// 한 번으로 보낸다(<see cref="TcpTransportOptions.UseVectoredSend"/>). 부분 전송이면
+    /// 완전히 나간 머리 세그먼트를 제거하고 걸친 세그먼트를 잘라 다시 보낸다 —
+    /// 단일 세그먼트 경로와 같은 "조용히 잘린 프레임 금지" 규약이다.
+    /// </para>
+    /// <para>
+    /// <see cref="Pipe"/> 버퍼는 배열 기반이라 <see cref="MemoryMarshal.TryGetArray{T}"/> 가
+    /// 항상 성공하지만, 계약상 보장은 아니므로 실패 시 세그먼트별 경로로 폴백한다.
+    /// </para>
+    /// </remarks>
+    private async ValueTask SendAllVectoredAsync(ReadOnlySequence<byte> buffer)
+    {
+        List<ArraySegment<byte>> segments = _sendSegments ??= new List<ArraySegment<byte>>(8);
+        segments.Clear();
+
+        foreach (ReadOnlyMemory<byte> memory in buffer)
+        {
+            if (!MemoryMarshal.TryGetArray(memory, out ArraySegment<byte> segment))
+            {
+                // 배열 기반이 아닌 세그먼트 — 벡터드가 성립하지 않는다. 안전 경로로.
+                segments.Clear();
+
+                foreach (ReadOnlyMemory<byte> fallback in buffer)
+                {
+                    await SendAllAsync(fallback).ConfigureAwait(false);
+                }
+
+                return;
+            }
+
+            segments.Add(segment);
+        }
+
+        while (segments.Count > 0)
+        {
+            int sent = await _socket.SendAsync(segments, SocketFlags.None).ConfigureAwait(false);
+
+            if (sent <= 0)
+            {
+                throw new SocketException((int)SocketError.ConnectionReset);
+            }
+
+            // 완전히 나간 머리 세그먼트를 걷어낸다. 부분 전송은 드물어 비용이 문제되지 않는다.
+            int fullySent = 0;
+            while (fullySent < segments.Count && sent >= segments[fullySent].Count)
+            {
+                sent -= segments[fullySent].Count;
+                fullySent++;
+            }
+
+            segments.RemoveRange(0, fullySent);
+
+            if (segments.Count > 0 && sent > 0)
+            {
+                segments[0] = segments[0].Slice(sent);
+            }
         }
     }
 

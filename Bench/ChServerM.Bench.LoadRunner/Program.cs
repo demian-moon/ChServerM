@@ -65,8 +65,10 @@ internal static class Program
         Console.WriteLine("사용법:");
         Console.WriteLine("  server --port 15000 [--max-connections 20000] [--partitions N] [--seconds 120]");
         Console.WriteLine("         [--transport socket|kestrel (기본 socket, kestrel 은 ADR-0001 벤치 대결용)]");
+        Console.WriteLine("         [--vectored true|false (기본 false, 송신 배칭 A/B 측정용)]");
         Console.WriteLine("  client --port 15000 --connections 512 [--payload 128] [--seconds 30]");
         Console.WriteLine("         [--rampup 5] [--active N (기본: 전부)] [--host 127.0.0.1]");
+        Console.WriteLine("         [--pipeline P (기본 1=닫힌 루프. P>1 이면 burst P개 송신 후 P개 수신)]");
     }
 
     private static int Fail(string message)
@@ -122,9 +124,12 @@ internal static class Program
         }
         else
         {
+            bool vectored = options.TryGetValue("vectored", out string? v)
+                && bool.Parse(v);
+
             TcpServerTransport socket = new(
                 bindPoint,
-                new TcpTransportOptions { MaxConnections = maxConnections });
+                new TcpTransportOptions { MaxConnections = maxConnections, UseVectoredSend = vectored });
             transport = socket;
             connectionCount = () => socket.ConnectionCount;
         }
@@ -188,6 +193,7 @@ internal static class Program
         int seconds = GetInt(options, "seconds", 30);
         int rampUpSeconds = GetInt(options, "rampup", 5);
         int active = GetInt(options, "active", connections);
+        int pipeline = GetInt(options, "pipeline", 1);
         string host = options.TryGetValue("host", out string? h) ? h : "127.0.0.1";
 
         FramingOptions framing = new() { MaxPayloadLength = MaxPayloadLength };
@@ -272,13 +278,23 @@ internal static class Program
                     {
                         long start = Stopwatch.GetTimestamp();
 
-                        await connection.WriteFrameAsync(
-                            encoder, new MessageId(EchoMessageId), payload,
-                            FrameFlags.None, sequence: 0).ConfigureAwait(false);
-                        await ReceiveFrameAsync(connection, decoder, stop.Token).ConfigureAwait(false);
+                        // pipeline P — P개를 몰아 보내고 P개를 몰아 받는다. 서버 송신
+                        // 파이프에 응답이 쌓여 다중 세그먼트 배치가 생기는 조건을 만든다
+                        // (송신 배칭 A/B 측정용). 이때 지연은 burst 왕복 시간이다.
+                        for (int p = 0; p < pipeline; p++)
+                        {
+                            await connection.WriteFrameAsync(
+                                encoder, new MessageId(EchoMessageId), payload,
+                                FrameFlags.None, sequence: 0).ConfigureAwait(false);
+                        }
+
+                        for (int p = 0; p < pipeline; p++)
+                        {
+                            await ReceiveFrameAsync(connection, decoder, stop.Token).ConfigureAwait(false);
+                        }
 
                         histogram.Record(Stopwatch.GetElapsedTime(start));
-                        Interlocked.Increment(ref totalRequests);
+                        Interlocked.Add(ref totalRequests, pipeline);
                     }
                 }
                 catch (OperationCanceledException)
@@ -304,7 +320,11 @@ internal static class Program
         // ── 보고. BENCHMARKS.md 에 그대로 옮길 수 있는 형태로 찍는다.
         long requests = Interlocked.Read(ref totalRequests);
         Console.WriteLine();
-        Console.WriteLine($"결과 — 커넥션 {all.Count} (활성 {workers.Length}), 페이로드 {payloadLength}B, {loadClock.Elapsed.TotalSeconds:F1}s");
+        Console.WriteLine($"결과 — 커넥션 {all.Count} (활성 {workers.Length}), 페이로드 {payloadLength}B, 파이프라인 {pipeline}, {loadClock.Elapsed.TotalSeconds:F1}s");
+        if (pipeline > 1)
+        {
+            Console.WriteLine($"  (지연 분위수는 burst {pipeline}개 왕복 기준이다 — 단건 왕복과 비교 금지)");
+        }
         Console.WriteLine($"  요청 수      : {requests:N0}  (오류 {echoErrors})");
         Console.WriteLine($"  RPS          : {requests / loadClock.Elapsed.TotalSeconds:N0}");
         Console.WriteLine($"  p50 / p99 / p999 : {histogram.Percentile(0.50)} / {histogram.Percentile(0.99)} / {histogram.Percentile(0.999)}");
