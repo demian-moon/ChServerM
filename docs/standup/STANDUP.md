@@ -1,8 +1,8 @@
 # ChServerM — 현재 상태
 
-**최종 갱신**: 2026-08-05 (3차)
-**현재 단계**: Phase 0 ✅ · Phase 5 게이트 ✅ · Phase 6 ✅ · **Phase 7 게이트 ✅ (5/7)** — Part I~II 병행 진행 중
-**진행률**: 72/221 항목 (Phase 0 `13/17` · 1 `12/21` · 2 `7/11` · 4 `9/10` · 5 `11/12` · 6 `7/7` · 7 `5/7` · 8 `8/16`)
+**최종 갱신**: 2026-08-05 (4차)
+**현재 단계**: Phase 0 ✅ · **Phase 5 완결 ✅ (12/12)** · Phase 6 ✅ · Phase 7 게이트 ✅ (5/7) — Part I~II 병행 진행 중
+**진행률**: 73/221 항목 (Phase 0 `13/17` · 1 `12/21` · 2 `7/11` · 4 `9/10` · 5 `12/12` · 6 `7/7` · 7 `5/7` · 8 `8/16`)
 
 ## 완료된 것
 
@@ -10,8 +10,9 @@
 - **레거시 전수 분석** — 27,300줄 → `docs/legacy/` 14종
 - **Core 추상화** — 무의존 2중 가드. ADR-0010 논리 엔벨로프/와이어 헤더 분리
 - **프레이밍 축** — 고정 16B + varint 두 구현으로 증명. varint 디코드가 오히려 2.1× 빠름(ENV-B 쌍 측정)
-- **전송 축 — 세 실증(InMemory·Tcp·Kestrel 프로토타입)** — ADR-0001 확정: 순수 Socket 유지
-  (Kestrel 대결 전 항목 ±3.2% 동률, p99 는 순수 소켓 우위). Phase 5 게이트 ✅ (1만 접속, 에코 146-169k RPS)
+- **전송 축 — 세 실증(InMemory·Tcp·Kestrel 프로토타입), Phase 5 완결 ✅** — ADR-0001 확정:
+  순수 Socket 유지(Kestrel 대결 동률). 1만 접속·에코 146-169k RPS·파이프라이닝 938k RPS.
+  송신 배칭은 실측 판정: 자연 배칭 채택, 벡터드 send 탈락(이득 0, `UseVectoredSend` 기본 끔)
 - **직렬화 축 — 실동 어댑터 3종으로 증명 완료(Phase 6 ✅)** — MemoryPack·Protobuf·FlatSharp 이
   같은 핸들러 코드로 동작(`SerializerSwapTests`). **기본값 = MemoryPack(ADR-0013)**,
   4자 벤치·스키마 진화 3포맷 테스트 완료
@@ -27,15 +28,15 @@
 - **Phase 7 잔여 2건(게이트 조건 아님)** — 누락 핸들러 검출(메시지 레지스트리 설계 필요),
   리플렉션 폴백 디스패처(20.5ns+32B 실측 — 프로덕션 비권장 근거 확보됨)
 - **Phase 4 잔여 1건** — 조각 재조립(`Fragmented`/`EndOfMessage`, 재조립 버퍼 상한 필수)
-- **Phase 5 잔여 1건** — 송신 배칭 벡터드 send (실측 동반)
 - **Phase 1 잔여** — `ISessionStore`, `IMetricsSink`, `IPayloadCodec`, `ITransportSecurity` 등
 - **감사 보류분** — `MessageContext` 내부 메서드 public(ADR 후보), ConnectionId 세대 활용(세션 계층)
 
 ## 다음 (우선순위 순)
 
-1. **Phase 5 마지막 잔여** — 송신 배칭 벡터드 send, 소량-다패킷 실측과 함께
-2. **Phase 8 잔여** — 실제 코어 제한 재측정(`taskset`/`start /affinity`), 스케줄러 공정성
-3. **Phase 2 잔여 결정** — `.UseSerializer()` 전역 등록 여부 (직렬화 축이 실물이 된 지금이 판단 시점)
+1. **Phase 4 마지막 잔여** — 조각 재조립(`Fragmented`/`EndOfMessage`). 재조립 버퍼 상한과
+   미완성 조각 만료가 필수다(ADR-0007 미해결 항목 — 없으면 메모리 고갈 공격 경로)
+2. **Phase 3 버퍼 계층 착수(0/6)** — 슬랩 할당기, `ArrayPool` 래핑 정책 ADR, 풀 누수 감지
+3. **Phase 8 잔여** — 실제 코어 제한 재측정(`taskset`/`start /affinity`), 스케줄러 공정성
 
 ## 블로커 / 열린 결정
 
