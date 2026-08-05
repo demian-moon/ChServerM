@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.Security.Tls</RootNamespace>
+    <Description>ChServerM 전송 보안 축의 TLS 1.3(SslStream) 어댑터 (ADR-0017). 자체 암호를 만들지 않는다.</Description>
+  </PropertyGroup>
+
+  <!--
+    이 어댑터의 "벤더"는 BCL 의 System.Net.Security 다 — 패키지 참조가 없다.
+    그래도 별도 어셈블리로 격리하는 이유: 보안 축은 "없음"이 유효한 조립이라
+    (내부망·개발), TLS 를 쓰지 않는 소비자가 SslStream 관련 표면을 끌고 가지 않아야 한다.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\ChServerM.Core\ChServerM.Core.csproj" />
+  </ItemGroup>
+
+</Project>

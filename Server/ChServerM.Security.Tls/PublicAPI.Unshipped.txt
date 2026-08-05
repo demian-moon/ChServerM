@@ -1,0 +1,16 @@
+#nullable enable
+ChServerM.Security.Tls.TlsSecurityOptions
+ChServerM.Security.Tls.TlsSecurityOptions.EnabledProtocols.get -> System.Security.Authentication.SslProtocols
+ChServerM.Security.Tls.TlsSecurityOptions.EnabledProtocols.set -> void
+ChServerM.Security.Tls.TlsSecurityOptions.RemoteCertificateValidation.get -> System.Net.Security.RemoteCertificateValidationCallback?
+ChServerM.Security.Tls.TlsSecurityOptions.RemoteCertificateValidation.set -> void
+ChServerM.Security.Tls.TlsSecurityOptions.ServerCertificate.get -> System.Security.Cryptography.X509Certificates.X509Certificate2?
+ChServerM.Security.Tls.TlsSecurityOptions.ServerCertificate.set -> void
+ChServerM.Security.Tls.TlsSecurityOptions.TargetHost.get -> string?
+ChServerM.Security.Tls.TlsSecurityOptions.TargetHost.set -> void
+ChServerM.Security.Tls.TlsSecurityOptions.TlsSecurityOptions() -> void
+ChServerM.Security.Tls.TlsSecurityOptions.Validate() -> void
+ChServerM.Security.Tls.TlsTransportSecurity
+ChServerM.Security.Tls.TlsTransportSecurity.SecureAsClientAsync(System.IO.Pipelines.IDuplexPipe! transport, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<ChServerM.Security.SecureChannelResult>
+ChServerM.Security.Tls.TlsTransportSecurity.SecureAsServerAsync(System.IO.Pipelines.IDuplexPipe! transport, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<ChServerM.Security.SecureChannelResult>
+ChServerM.Security.Tls.TlsTransportSecurity.TlsTransportSecurity(ChServerM.Security.Tls.TlsSecurityOptions! options) -> void
