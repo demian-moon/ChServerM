@@ -24,7 +24,13 @@ public sealed class FileCertificateOptions
     public string? PfxPath { get; set; }
 
     /// <summary>PFX 암호. 없으면 <see langword="null"/>.</summary>
-    /// <remarks>환경변수/시크릿 저장소에서 읽어 넘긴다 — 리터럴 금지(위 모듈 문서).</remarks>
+    /// <remarks>
+    /// <c>ISecretSource</c>(Core) 경유가 참조 패턴이다 — 리터럴 금지(위 모듈 문서):
+    /// <code>
+    /// ISecretSource secrets = new EnvironmentSecretSource("CHSM_");
+    /// options.PfxPassword = secrets.TryGetSecret("PFX_PASSWORD", out string? pw) ? pw : null;
+    /// </code>
+    /// </remarks>
     public string? PfxPassword { get; set; }
 
     /// <summary>PEM 인증서(체인) 파일 경로. <see cref="PrivateKeyPemPath"/>와 쌍으로 지정한다.</summary>

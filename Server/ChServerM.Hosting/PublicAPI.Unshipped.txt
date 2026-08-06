@@ -117,6 +117,12 @@ ChServerM.Hosting.Dispatch.AuthorizationOptions.Validate() -> void
 ChServerM.Hosting.Dispatch.AuthenticationOptions.CredentialMessageId.get -> ChServerM.Identity.MessageId
 ChServerM.Hosting.Dispatch.AuthenticationOptions.CredentialMessageId.set -> void
 ChServerM.Hosting.Dispatch.AuthenticationOptions.Validate() -> void
+ChServerM.Hosting.DirectorySecretSource
+ChServerM.Hosting.DirectorySecretSource.DirectorySecretSource(string! directoryPath) -> void
+ChServerM.Hosting.DirectorySecretSource.TryGetSecret(string! name, out string? value) -> bool
+ChServerM.Hosting.EnvironmentSecretSource
+ChServerM.Hosting.EnvironmentSecretSource.EnvironmentSecretSource(string! prefix = "") -> void
+ChServerM.Hosting.EnvironmentSecretSource.TryGetSecret(string! name, out string? value) -> bool
 ChServerM.Hosting.InMemoryTokenReplayGuard
 ChServerM.Hosting.InMemoryTokenReplayGuard.Count.get -> int
 ChServerM.Hosting.InMemoryTokenReplayGuard.InMemoryTokenReplayGuard(ChServerM.Hosting.TokenReplayGuardOptions! options, System.TimeProvider? timeProvider = null, ChServerM.Diagnostics.IServerLogger? logger = null) -> void
