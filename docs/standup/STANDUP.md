@@ -1,8 +1,8 @@
 # ChServerM — 현재 상태
 
-**최종 갱신**: 2026-08-05 (7차 — wrap 누락으로 2026-08-06 소급 기록)
-**현재 단계**: **Part III — Phase 9 보안 진행 중** (⚡ **게이트 두 조건 충족** — 위협 모델 전 항목 매핑 + 인증 전 패킷 차단 테스트. 잔여 항목은 게이트와 무관하게 계속)
-**진행률**: 84/222 항목 (Phase 0 `13/17` · 1 `13/21` · 2 `7/11` · 3 `4/6` · 4 `10/10` · 5 `12/12` · 6 `7/7` · 7 `5/7` · 8 `8/16` · 9 `5/13`)
+**최종 갱신**: 2026-08-06
+**현재 단계**: **Part III — Phase 9 보안 진행 중** (게이트 ✅ · 버전 협상 ✅ · 인증 축 ✅ — T-05·19·20 구현+테스트 완결)
+**진행률**: 86/222 항목 (Phase 0 `13/17` · 1 `13/21` · 2 `7/11` · 3 `4/6` · 4 `10/10` · 5 `12/12` · 6 `7/7` · 7 `5/7` · 8 `8/16` · 9 `7/13`)
 
 ## 완료된 것
 
@@ -12,56 +12,61 @@
   버퍼(`PooledBufferWriter` 50ns/0B, ADR-0016) / TCP(순수 Socket 확정 ADR-0001, 1만 접속·169k RPS) /
   직렬화 3종(기본 MemoryPack, ADR-0013) / 디스패치 소스 제너레이터(ADR-0014, AOT 실증) /
   실행 모델(ADR-0008, 물리 코어 효율 95%)
-- **위협 모델 ✅** — `docs/THREAT-MODEL.md`: 신뢰 경계 5 · 공격 표면 9 · 위협 22(STRIDE)
-  전 항목 완화책 매핑 + 레거시 결함 14종 역매핑. 버전 협상 요구사항 R-1~R-5 고정
-- **전송 보안 축 실동 ✅ (ADR-0017)** — TLS 1.3(`SslStream`) 위임, 자체 암호 금지.
-  `ITransportSecurity`(Core) → `ChServerM.Security.Tls`(의존 0) → `UseTransportSecurity()`.
-  같은 에코 핸들러가 InMemory/TCP × TLS 동작. **실측: RPS −2.5%·p50 +50µs**
-- **상태별 화이트리스트 ✅ (T-19, Phase 9 게이트)** — `IConnectionStateFeature`(상태
-  비트마스크, 의미는 앱 정의 — ADR-0004) + `MessageStateFilterMiddleware`(FrozenDictionary
-  + 비트 AND 프레임당 1회, **기본 거부**). 레거시 `AllowedPkState` 기본 전부 허용 결함의 역.
-  인증 전 특권 메시지 = 응답 없이 커넥션 종료(4001)가 2전송 테스트로 확인
-- 테스트 **423개** 통과(413 + 신규 10: 상태 필터 종단 6 · 조립 검증 4),
-  전체 게이트(-WarnAsError·audit·AOT publish+실행) 통과
+- **Phase 9 골격 ✅** — 위협 모델(경계 5·표면 9·위협 22 전 매핑) / 전송 보안 TLS 1.3
+  (ADR-0017, 실측 RPS −2.5%) / 상태별 화이트리스트(T-19, 기본 거부)
+- **버전 협상 ✅ (2026-08-06)** — `VersionHandshakeCodec`(Core, 영구 동결 — R-2:
+  부트스트랩은 어느 축에도 안 얹는다) + `UseVersionNegotiation()`(보안이 바깥 = 협상은
+  TLS 안, R-4). 거부 = 서버 구간 실은 40004(R-3), 무응답 = 타임아웃 절단(T-16)
+- **인증 축 ✅ (2026-08-06)** — `AuthenticationMiddleware`: 실패 = 옵션 무관 6000 종료
+  (전용 `RejectedByAuthentication`, T-20 구조 봉쇄), 성공 = `GrantedStates` 상태 대체
+  전이(T-19 와 한 몸). `ITokenReplayGuard` + 유계·TTL 인메모리(T-05, 검증→클레임 순서
+  계약). 필터→인증 조립 순서 위반은 `Build()` 예외. `ChServerM.Security.AspNetIdentity`
+  (ADR-0018) — 레거시 해시 형식 호환 + 결함 4종 역해소
+- 테스트 **524개** 통과(`dotnet test` 전 스위트 합산 — 집계 기준 오늘부터 이것),
+  전체 게이트(-WarnAsError 클린 빌드·audit·AOT publish+실행) 통과
 
 ## 진행 중
 
-- **Phase 9 잔여(게이트 조건 아님)** — ⚠ 버전 협상 **와이어 구현**(설계는 ADR-0017
-  확정: TLS 채널 안 ClientHello`[min,max]`→ServerHello, 헤더 v1 영구 동결) /
-  `IAuthenticator` / 인가 미들웨어 / `IPayloadCodec`(압축→암호화 순서, T-11·18) /
-  시크릿 관리 / 입력 검증 / Tls 인증서 파일 로딩·회전 운영 경로 / `/security-review`
+- **Phase 9 잔여(게이트 조건 아님)** — 인가 미들웨어(T-21, `IAuthorizationPolicy`) /
+  `IPayloadCodec` 압축(T-11·18) / 시크릿 관리 / 입력 검증 /
+  Tls 인증서 파일 로딩·회전 운영 경로 / `/security-review`
 - **Phase 7·8 잔여(게이트 조건 아님)** — 누락 핸들러 검출, 리플렉션 폴백, 코어 제한 재측정
 - **감사 보류분** — `MessageContext` 내부 메서드 public(ADR 후보), ConnectionId 세대 활용(세션 계층)
+- **의도적 보류** — 인증·버전협상 실패의 클라이언트 와이어 통지(Phase 10 거부 통지
+  체계와 함께) / varint×협상 조립 모순의 조립 시점 검증(Core 프레이밍 계약에 버전
+  표면이 없어 불가 — v2 실존 시 계약 확장과 함께)
 
 ## 다음 (우선순위 순)
 
-1. **버전 협상 핸드셰이크 와이어 구현** — `ClientHello/ServerHello` 고정 레이아웃
-   (영구 동결, 직렬화 축 비의존) + `FrameworkMessageIds` + 호스팅 통합
-2. `IAuthenticator` — 레거시 `AuthM`(PasswordHasher) 승계(싱글턴·옵션 명시) +
-   1회용·만료 토큰(크로스 커넥션 리플레이, ADR-0017 결정 4 잔여 몫)
-3. (후보) `IPayloadCodec` 압축(압축→암호화 순서 고정) 또는 Tls 인증서 운영 경로
+1. **인가 미들웨어(T-21)** — `IAuthorizationPolicy` 계약 + 메시지별 권한 검사.
+   설계 제시 → 승인 → 구현 순서(합의된 작업 방식)
+2. `IPayloadCodec` 압축(LZ4/Zstd) — 압축→암호화 순서 고정(T-11), 해제 출력 상한을
+   계약 인자로(T-18: 구현체가 생략할 수 없게)
+3. (후보) Tls 인증서 파일/저장소 로딩·회전 운영 경로
 
 ## 블로커 / 열린 결정
 
 - **레거시 하드코딩 자격증명** — `ServerGlobals.cs:103` (기존 항목 유지)
-- MemoryPack `VersionTolerant` 주의 계약의 제너레이터 진단 승격 여부 — ADR-0013 부정 항목.
-  버전 협상 와이어 구현과 함께 판단
-- LoadRunner 램프업 무한 루프(죽은 서버 대상 — 고아 프로세스 유발) — Phase 12 항목 추가됨
+- MemoryPack `VersionTolerant` 주의 계약의 제너레이터 진단 승격 여부 — ADR-0013 부정 항목
+- LoadRunner 램프업 무한 루프(죽은 서버 대상) — Phase 12 항목 추가됨
 
 ## 이번에 배운 것 (같은 실수 반복 방지)
 
-- **증분 빌드는 분석기를 건너뛴다** — CA2000 위반이 증분 빌드에서 잠복하다가
-  Rebuild 에서야 드러났다. 분석기 게이트를 믿으려면 클린 빌드가 조건이다
-- **세션을 wrap 없이 닫으면 이력이 샌다** — 7차 세션이 커밋만 남기고 종료돼
-  다음 날 소급 재구성했다. 코드 커밋 직후가 wrap 시점이다
+- **"최선인가?"에는 방어가 아니라 공격으로 답한다** — 설계 재검토에서 중복 인자·
+  수명 위반 경로·가드 포화 DoS·조립 순서 함정 4개를 스스로 찾았다. 전부 구현 후에야
+  드러났을 것들이다
+- **벤더 예외는 어댑터가 값으로 변환한다** — `PasswordHasher` 의 손상 해시
+  `FormatException` 을 테스트가 잡았다. "오염 저장소 = 값 실패"(T-16)는 어댑터 몫
+- **동결 계약의 의도적 중복은 교차 검증 테스트와 쌍으로** — Core/Framing 헤더
+  레이아웃 일치를 테스트가 지킨다
 - **PowerShell 5.1 + 여러 줄 커밋 메시지 = `git commit -F <파일>`** — 인수 안 `"` 가 깨진다
 
 ## 작업 방식
 
 - **코드는 사용자 지시 후에만 작성한다.** 먼저 대상·시그니처·근거를 제시하고 승인받는다.
-  조사·분석·문서는 자율
+  조사·분석·문서는 자율. 설계 결정 지점은 선택지로 물어본다
 - 주석은 한글 4계층(8.2) / public 표면 변경 시 승인 파일 갱신(8.1) / 동시성은 9절 선행
-- 커밋: 코드와 문서 분리. 문서는 `/standup wrap` 에서 `chore(standup)`
+- 커밋: 코드와 문서 분리, 스코프는 어셈블리 축 단위로 쪼갠다. 문서는 `/standup wrap` 에서 `chore(standup)`
 - CI 확인은 `gh` CLI (2.97.0 설치·인증 완료, `C:\Program Files\GitHub CLI\gh.exe`)
 
 ## 다른 환경에서 시작하기
@@ -85,9 +90,9 @@ powershell -File eng/build.ps1 -Configuration Release -WarnAsError
 ## 참조
 
 - 계획: `docs/ROADMAP.md` / 설계 결정: `docs/DECISIONS.md`
-  (ADR-0000·0001·0002·0004~0017 채택 / 0003 폐기 — 미결 ADR 없음)
-- 위협 모델: `docs/THREAT-MODEL.md` (Phase 9 의 근거 문서 — 새 축·표면 추가 시 갱신)
+  (ADR-0000·0001·0002·0004~0018 채택 / 0003 폐기 — 미결 ADR 없음)
+- 위협 모델: `docs/THREAT-MODEL.md` (T-05·06·12~15·17·19·20 ✅ / 새 축·표면 추가 시 갱신)
 - 진단 규칙: `docs/DIAGNOSTICS.md` (CHSM0xxx 가드 · CHSM1xxx 제너레이터)
 - 성능 수치: `docs/BENCHMARKS.md` (ENV-A: 9900X 12/24 · ENV-B: 7945HX 16/32)
-- 상세 이력: `docs/standup/history/` (최근: `2026-08-05.md` 1~7차)
+- 상세 이력: `docs/standup/history/` (최근: `2026-08-06.md`)
 - 레거시 분석: `docs/legacy/00-overview.md`
