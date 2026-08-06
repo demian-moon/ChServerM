@@ -1,0 +1,7 @@
+#nullable enable
+ChServerM.Compression.LZ4.Lz4PayloadCodec
+ChServerM.Compression.LZ4.Lz4PayloadCodec.Encode(System.ReadOnlySpan<byte> source, System.Span<byte> destination) -> int
+ChServerM.Compression.LZ4.Lz4PayloadCodec.Lz4PayloadCodec() -> void
+ChServerM.Compression.LZ4.Lz4PayloadCodec.MaxEncodedLength(int sourceLength) -> int
+ChServerM.Compression.LZ4.Lz4PayloadCodec.TryDecode(in System.Buffers.ReadOnlySequence<byte> source, System.Buffers.IBufferWriter<byte>! destination, int maxDecodedLength, out int decodedLength) -> bool
+const ChServerM.Compression.LZ4.Lz4PayloadCodec.HeaderSize = 4 -> int

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.Compression.LZ4</RootNamespace>
+    <Description>ChServerM 압축 축(IPayloadCodec)의 LZ4(K4os) 어댑터 (ADR-0019). 자기서술 블롭 + 해제 상한 강제.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ChServerM.Core\ChServerM.Core.csproj" />
+  </ItemGroup>
+
+  <!-- 벤더(K4os.Compression.LZ4)는 이 어셈블리에만 존재한다. 삭제해도 Core 는 컴파일된다. -->
+  <ItemGroup>
+    <PackageReference Include="K4os.Compression.LZ4" />
+  </ItemGroup>
+
+</Project>
