@@ -432,6 +432,8 @@ ChServerM.Security.IAuthorizationPolicy
 ChServerM.Security.IAuthorizationPolicy.AuthorizeAsync(ChServerM.Dispatch.MessageContext! context) -> System.Threading.Tasks.ValueTask<ChServerM.Security.AuthorizationDecision>
 ChServerM.Security.IPasswordHasher
 ChServerM.Security.IPasswordHasher.Hash(string! password) -> string!
+ChServerM.Security.ISecretSource
+ChServerM.Security.ISecretSource.TryGetSecret(string! name, out string? value) -> bool
 ChServerM.Security.IPasswordHasher.Verify(string! hashedPassword, string! providedPassword) -> ChServerM.Security.PasswordVerification
 ChServerM.Security.ITokenReplayGuard
 ChServerM.Security.ITokenReplayGuard.TryClaim(System.ReadOnlySpan<byte> token) -> bool
