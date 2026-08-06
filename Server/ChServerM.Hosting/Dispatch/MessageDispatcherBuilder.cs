@@ -167,20 +167,28 @@ public sealed class MessageDispatcherBuilder
 
     /// <summary>프레임워크 미들웨어 사이의 순서 모순을 조립 시점에 잡는다.</summary>
     /// <exception cref="InvalidOperationException">
-    /// 인증(<see cref="AuthenticationMiddleware"/>)이 상태 필터
-    /// (<see cref="MessageStateFilterMiddleware"/>)보다 먼저 등록됐을 때.
+    /// 필터(<see cref="MessageStateFilterMiddleware"/>) → 인증(<see cref="AuthenticationMiddleware"/>)
+    /// → 인가(<see cref="AuthorizationMiddleware"/>) 순서가 뒤집혀 등록됐을 때.
     /// </exception>
     /// <remarks>
-    /// 순서가 뒤집히면 인증 성공 직후 전이된 상태에서 필터가 그 자격 메시지를 검사한다 —
-    /// 전이 후 화이트리스트에 자격 메시지가 없으면(재로그인 차단의 정석 구성)
-    /// <b>인증에 성공한 커넥션이 곧바로 닫히는</b> 혼란스러운 런타임 실패가 된다.
-    /// 죽은 조립은 조립 시점 예외가 옳다. 필터 부재 자체는 막지 않는다 —
-    /// 화이트리스트 없는 선택 인증 워크로드가 정당하다(ADR-0004).
+    /// <para>정당한 순서는 <b>필터 → 인증 → 인가</b>다(존재하는 것끼리만 비교한다 —
+    /// 일부만 조립하는 워크로드가 정당하다, ADR-0004).</para>
+    /// <list type="bullet">
+    ///   <item><description>인증이 필터보다 바깥: 인증 성공 직후 전이된 상태에서 필터가
+    ///   그 자격 메시지를 검사한다 — 전이 후 화이트리스트에 자격 메시지가 없으면(재로그인
+    ///   차단의 정석 구성) <b>인증에 성공한 커넥션이 곧바로 닫히는</b> 런타임 미스터리가 된다</description></item>
+    ///   <item><description>인가가 인증보다 바깥: 인가 정책이 읽는 신원 피처가 아직 등록되지
+    ///   않아 자격 메시지의 인가가 신원 없이 판정된다</description></item>
+    ///   <item><description>인가가 필터보다 바깥: 화이트리스트 밖 메시지가 정책을 먼저
+    ///   두드린다 — 기본 거부 경계가 흐려진다</description></item>
+    /// </list>
+    /// <para>죽은 조립은 조립 시점 예외가 옳다.</para>
     /// </remarks>
     private void EnsureKnownMiddlewareOrder()
     {
         int stateFilterIndex = -1;
         int authenticationIndex = -1;
+        int authorizationIndex = -1;
 
         for (int i = 0; i < _middlewareInstances.Count; i++)
         {
@@ -193,14 +201,36 @@ public sealed class MessageDispatcherBuilder
             {
                 authenticationIndex = i;
             }
+
+            if (authorizationIndex < 0 && _middlewareInstances[i] is AuthorizationMiddleware)
+            {
+                authorizationIndex = i;
+            }
         }
 
-        if (stateFilterIndex >= 0 && authenticationIndex >= 0 && authenticationIndex < stateFilterIndex)
+        ThrowIfOutOfOrder(
+            stateFilterIndex, authenticationIndex,
+            nameof(MessageStateFilterMiddleware), nameof(AuthenticationMiddleware),
+            "순서가 뒤집히면 인증 성공 직후 전이된 상태에서 필터가 자격 메시지를 거부해 커넥션이 닫힌다.");
+
+        ThrowIfOutOfOrder(
+            authenticationIndex, authorizationIndex,
+            nameof(AuthenticationMiddleware), nameof(AuthorizationMiddleware),
+            "인가 정책은 인증기가 등록한 신원 피처를 읽는다 — 인증 앞에서는 신원 없이 판정된다.");
+
+        ThrowIfOutOfOrder(
+            stateFilterIndex, authorizationIndex,
+            nameof(MessageStateFilterMiddleware), nameof(AuthorizationMiddleware),
+            "화이트리스트 밖 메시지가 정책을 먼저 두드린다 — 기본 거부 경계가 흐려진다.");
+    }
+
+    /// <summary>둘 다 등록됐는데 앞뒤가 바뀌었으면 조립 예외를 던진다.</summary>
+    private static void ThrowIfOutOfOrder(int outerIndex, int innerIndex, string outer, string inner, string why)
+    {
+        if (outerIndex >= 0 && innerIndex >= 0 && innerIndex < outerIndex)
         {
             throw new InvalidOperationException(
-                $"{nameof(AuthenticationMiddleware)} 가 {nameof(MessageStateFilterMiddleware)} 보다 " +
-                "먼저(바깥에) 등록됐다. 상태 필터를 먼저 등록한다 — 순서가 뒤집히면 인증 성공 직후 " +
-                "전이된 상태에서 필터가 자격 메시지를 거부해 커넥션이 닫힌다.");
+                $"{inner} 가 {outer} 보다 먼저(바깥에) 등록됐다. {outer} 를 먼저 등록한다 — {why}");
         }
     }
 

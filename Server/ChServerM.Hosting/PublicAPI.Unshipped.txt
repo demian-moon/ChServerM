@@ -107,6 +107,13 @@ ChServerM.Hosting.Dispatch.AuthenticationMiddleware.AuthenticationMiddleware(ChS
 ChServerM.Hosting.Dispatch.AuthenticationMiddleware.InvokeAsync(ChServerM.Dispatch.MessageContext! context, ChServerM.Dispatch.MessageDelegate! next) -> System.Threading.Tasks.ValueTask<ChServerM.Dispatch.DispatchStatus>
 ChServerM.Hosting.Dispatch.AuthenticationOptions
 ChServerM.Hosting.Dispatch.AuthenticationOptions.AuthenticationOptions() -> void
+ChServerM.Hosting.Dispatch.AuthorizationMiddleware
+ChServerM.Hosting.Dispatch.AuthorizationMiddleware.AuthorizationMiddleware(ChServerM.Hosting.Dispatch.AuthorizationOptions! options, ChServerM.Security.IAuthorizationPolicy! policy, ChServerM.Diagnostics.IServerLogger? logger = null) -> void
+ChServerM.Hosting.Dispatch.AuthorizationMiddleware.InvokeAsync(ChServerM.Dispatch.MessageContext! context, ChServerM.Dispatch.MessageDelegate! next) -> System.Threading.Tasks.ValueTask<ChServerM.Dispatch.DispatchStatus>
+ChServerM.Hosting.Dispatch.AuthorizationOptions
+ChServerM.Hosting.Dispatch.AuthorizationOptions.AuthorizationOptions() -> void
+ChServerM.Hosting.Dispatch.AuthorizationOptions.Protect(ChServerM.Identity.MessageId messageId) -> ChServerM.Hosting.Dispatch.AuthorizationOptions!
+ChServerM.Hosting.Dispatch.AuthorizationOptions.Validate() -> void
 ChServerM.Hosting.Dispatch.AuthenticationOptions.CredentialMessageId.get -> ChServerM.Identity.MessageId
 ChServerM.Hosting.Dispatch.AuthenticationOptions.CredentialMessageId.set -> void
 ChServerM.Hosting.Dispatch.AuthenticationOptions.Validate() -> void
