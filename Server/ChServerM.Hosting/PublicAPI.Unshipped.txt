@@ -102,3 +102,23 @@ ChServerM.Hosting.VersionNegotiationOptions.SupportedVersions.set -> void
 ChServerM.Hosting.VersionNegotiationOptions.Validate() -> void
 ChServerM.Hosting.VersionNegotiationOptions.VersionNegotiationOptions() -> void
 static readonly ChServerM.Hosting.VersionNegotiationOptions.DefaultHandshakeTimeout -> System.TimeSpan
+ChServerM.Hosting.Dispatch.AuthenticationMiddleware
+ChServerM.Hosting.Dispatch.AuthenticationMiddleware.AuthenticationMiddleware(ChServerM.Hosting.Dispatch.AuthenticationOptions! options, ChServerM.Security.IAuthenticator! authenticator, ChServerM.Diagnostics.IServerLogger? logger = null) -> void
+ChServerM.Hosting.Dispatch.AuthenticationMiddleware.InvokeAsync(ChServerM.Dispatch.MessageContext! context, ChServerM.Dispatch.MessageDelegate! next) -> System.Threading.Tasks.ValueTask<ChServerM.Dispatch.DispatchStatus>
+ChServerM.Hosting.Dispatch.AuthenticationOptions
+ChServerM.Hosting.Dispatch.AuthenticationOptions.AuthenticationOptions() -> void
+ChServerM.Hosting.Dispatch.AuthenticationOptions.CredentialMessageId.get -> ChServerM.Identity.MessageId
+ChServerM.Hosting.Dispatch.AuthenticationOptions.CredentialMessageId.set -> void
+ChServerM.Hosting.Dispatch.AuthenticationOptions.Validate() -> void
+ChServerM.Hosting.InMemoryTokenReplayGuard
+ChServerM.Hosting.InMemoryTokenReplayGuard.Count.get -> int
+ChServerM.Hosting.InMemoryTokenReplayGuard.InMemoryTokenReplayGuard(ChServerM.Hosting.TokenReplayGuardOptions! options, System.TimeProvider? timeProvider = null, ChServerM.Diagnostics.IServerLogger? logger = null) -> void
+ChServerM.Hosting.InMemoryTokenReplayGuard.TryClaim(System.ReadOnlySpan<byte> token) -> bool
+ChServerM.Hosting.TokenReplayGuardOptions
+ChServerM.Hosting.TokenReplayGuardOptions.MaxEntries.get -> int
+ChServerM.Hosting.TokenReplayGuardOptions.MaxEntries.set -> void
+ChServerM.Hosting.TokenReplayGuardOptions.TokenReplayGuardOptions() -> void
+ChServerM.Hosting.TokenReplayGuardOptions.Ttl.get -> System.TimeSpan
+ChServerM.Hosting.TokenReplayGuardOptions.Ttl.set -> void
+ChServerM.Hosting.TokenReplayGuardOptions.Validate() -> void
+const ChServerM.Hosting.TokenReplayGuardOptions.DefaultMaxEntries = 100000 -> int

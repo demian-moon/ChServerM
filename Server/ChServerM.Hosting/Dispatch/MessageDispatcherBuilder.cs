@@ -34,6 +34,11 @@ public sealed class MessageDispatcherBuilder
 
     private readonly Dictionary<ushort, MessageDelegate> _routes = [];
     private readonly List<Func<MessageDelegate, MessageDelegate>> _middleware = [];
+
+    // 인터페이스로 등록된 미들웨어의 인스턴스 목록(등록 순서 유지) — Build 의 조립 검증용.
+    // 델리게이트 미들웨어는 타입을 알 수 없으므로 여기 없다.
+    private readonly List<IServerMiddleware> _middlewareInstances = [];
+
     private IServerLogger _logger = NullServerLogger.Instance;
 
     /// <summary>진단 로거를 지정한다.</summary>
@@ -56,6 +61,7 @@ public sealed class MessageDispatcherBuilder
 
         // 조립 시점에 한 번만 클로저를 만든다. 프레임마다 만들면 그게 곧 할당이다.
         _middleware.Add(next => context => middleware.InvokeAsync(context, next));
+        _middlewareInstances.Add(middleware);
         return this;
     }
 
@@ -144,6 +150,8 @@ public sealed class MessageDispatcherBuilder
     /// </remarks>
     public MessageDispatcher Build()
     {
+        EnsureKnownMiddlewareOrder();
+
         MessageDelegate[] routes = BuildRoutingTable(out MessageDelegate notFound);
         MessageDelegate pipeline = BuildRoutingTerminal(routes, notFound);
 
@@ -155,6 +163,45 @@ public sealed class MessageDispatcherBuilder
         }
 
         return new MessageDispatcher(pipeline, _logger);
+    }
+
+    /// <summary>프레임워크 미들웨어 사이의 순서 모순을 조립 시점에 잡는다.</summary>
+    /// <exception cref="InvalidOperationException">
+    /// 인증(<see cref="AuthenticationMiddleware"/>)이 상태 필터
+    /// (<see cref="MessageStateFilterMiddleware"/>)보다 먼저 등록됐을 때.
+    /// </exception>
+    /// <remarks>
+    /// 순서가 뒤집히면 인증 성공 직후 전이된 상태에서 필터가 그 자격 메시지를 검사한다 —
+    /// 전이 후 화이트리스트에 자격 메시지가 없으면(재로그인 차단의 정석 구성)
+    /// <b>인증에 성공한 커넥션이 곧바로 닫히는</b> 혼란스러운 런타임 실패가 된다.
+    /// 죽은 조립은 조립 시점 예외가 옳다. 필터 부재 자체는 막지 않는다 —
+    /// 화이트리스트 없는 선택 인증 워크로드가 정당하다(ADR-0004).
+    /// </remarks>
+    private void EnsureKnownMiddlewareOrder()
+    {
+        int stateFilterIndex = -1;
+        int authenticationIndex = -1;
+
+        for (int i = 0; i < _middlewareInstances.Count; i++)
+        {
+            if (stateFilterIndex < 0 && _middlewareInstances[i] is MessageStateFilterMiddleware)
+            {
+                stateFilterIndex = i;
+            }
+
+            if (authenticationIndex < 0 && _middlewareInstances[i] is AuthenticationMiddleware)
+            {
+                authenticationIndex = i;
+            }
+        }
+
+        if (stateFilterIndex >= 0 && authenticationIndex >= 0 && authenticationIndex < stateFilterIndex)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(AuthenticationMiddleware)} 가 {nameof(MessageStateFilterMiddleware)} 보다 " +
+                "먼저(바깥에) 등록됐다. 상태 필터를 먼저 등록한다 — 순서가 뒤집히면 인증 성공 직후 " +
+                "전이된 상태에서 필터가 자격 메시지를 거부해 커넥션이 닫힌다.");
+        }
     }
 
     private void AddRoute(MessageId messageId, MessageDelegate handler)

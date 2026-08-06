@@ -410,6 +410,10 @@ public sealed class FramedConnectionHandler : IConnectionHandler
             DispatchStatus.RejectedByState =>
                 new ConnectionCloseInfo(CloseReason.ProtocolError, ErrorCode.MessageNotAllowedInState),
 
+            // 옵션 게이트가 없다 — 인증 실패 = 즉시 종료는 정책이 아니라 불변이다(T-20).
+            DispatchStatus.RejectedByAuthentication =>
+                new ConnectionCloseInfo(CloseReason.ApplicationError, ErrorCode.AuthenticationFailed),
+
             DispatchStatus.Faulted when _closeOnHandlerFault =>
                 new ConnectionCloseInfo(CloseReason.ApplicationError, ErrorCode.HandlerFaulted),
 
