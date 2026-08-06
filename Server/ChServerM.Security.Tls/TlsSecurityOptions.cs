@@ -26,12 +26,21 @@ namespace ChServerM.Security.Tls;
 /// </remarks>
 public sealed class TlsSecurityOptions
 {
-    /// <summary>서버 측 핸드셰이크에 제시할 인증서(개인키 포함). 서버 역할이면 필수다.</summary>
+    /// <summary>서버 측 핸드셰이크에 제시할 고정 인증서(개인키 포함).
+    /// <see cref="ServerCertificateSource"/>와 상호 배타 — 서버 역할이면 둘 중 하나가 필수다.</summary>
     /// <remarks>
     /// 인증서 수명은 호출자가 소유한다 — 이 옵션은 참조만 보관하며 폐기하지 않는다.
-    /// 회전(rotation)은 새 옵션으로 새 <see cref="TlsTransportSecurity"/>를 만들어 교체하는 것이 계약이다.
+    /// 고정 인스턴스는 회전이 없다 — 프로덕션 회전 경로는 <see cref="ServerCertificateSource"/>
+    /// (예: <see cref="FileCertificateSource"/>)를 쓴다.
     /// </remarks>
     public X509Certificate2? ServerCertificate { get; set; }
+
+    /// <summary>서버 인증서의 원천 — 핸드셰이크마다 해석되므로 회전이 재시작 없이 반영된다.</summary>
+    /// <remarks>
+    /// <see cref="ServerCertificate"/>와 상호 배타(<see cref="Validate"/>가 거부).
+    /// 원천의 수명은 조립하는 쪽이 소유한다 — 서버 종료 시 함께 <c>Dispose</c> 한다.
+    /// </remarks>
+    public IServerCertificateSource? ServerCertificateSource { get; set; }
 
     /// <summary>클라이언트 측이 검증할 서버 호스트명. 클라이언트 역할이면 필수다.</summary>
     public string? TargetHost { get; set; }
@@ -57,10 +66,18 @@ public sealed class TlsSecurityOptions
                 "기본값은 시점·플랫폼에 따라 달라져 조립 결과가 재현되지 않는다.");
         }
 
-        if (ServerCertificate is null && string.IsNullOrEmpty(TargetHost))
+        if (ServerCertificate is not null && ServerCertificateSource is not null)
         {
             throw new InvalidOperationException(
-                $"{nameof(ServerCertificate)}(서버 역할)와 {nameof(TargetHost)}(클라이언트 역할) 둘 다 비어 있다. " +
+                $"{nameof(ServerCertificate)}와 {nameof(ServerCertificateSource)}가 함께 지정됐다 — " +
+                "어느 쪽이 진짜인지 모호하다. 고정 인스턴스 또는 원천 중 하나만 쓴다.");
+        }
+
+        if (ServerCertificate is null && ServerCertificateSource is null && string.IsNullOrEmpty(TargetHost))
+        {
+            throw new InvalidOperationException(
+                $"{nameof(ServerCertificate)}/{nameof(ServerCertificateSource)}(서버 역할)와 " +
+                $"{nameof(TargetHost)}(클라이언트 역할) 전부 비어 있다. " +
                 "어느 방향의 핸드셰이크도 수행할 수 없는 설정이다.");
         }
     }

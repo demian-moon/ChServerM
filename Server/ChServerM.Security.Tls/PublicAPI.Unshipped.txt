@@ -1,5 +1,27 @@
 #nullable enable
+ChServerM.Security.Tls.FileCertificateOptions
+ChServerM.Security.Tls.FileCertificateOptions.CertificatePemPath.get -> string?
+ChServerM.Security.Tls.FileCertificateOptions.CertificatePemPath.set -> void
+ChServerM.Security.Tls.FileCertificateOptions.FileCertificateOptions() -> void
+ChServerM.Security.Tls.FileCertificateOptions.PfxPassword.get -> string?
+ChServerM.Security.Tls.FileCertificateOptions.PfxPassword.set -> void
+ChServerM.Security.Tls.FileCertificateOptions.PfxPath.get -> string?
+ChServerM.Security.Tls.FileCertificateOptions.PfxPath.set -> void
+ChServerM.Security.Tls.FileCertificateOptions.PrivateKeyPemPath.get -> string?
+ChServerM.Security.Tls.FileCertificateOptions.PrivateKeyPemPath.set -> void
+ChServerM.Security.Tls.FileCertificateOptions.ReloadCheckInterval.get -> System.TimeSpan
+ChServerM.Security.Tls.FileCertificateOptions.ReloadCheckInterval.set -> void
+ChServerM.Security.Tls.FileCertificateOptions.Validate() -> void
+ChServerM.Security.Tls.FileCertificateSource
+ChServerM.Security.Tls.FileCertificateSource.Dispose() -> void
+ChServerM.Security.Tls.FileCertificateSource.FileCertificateSource(ChServerM.Security.Tls.FileCertificateOptions! options, System.TimeProvider? timeProvider = null, ChServerM.Diagnostics.IServerLogger? logger = null) -> void
+ChServerM.Security.Tls.FileCertificateSource.GetCertificate() -> System.Security.Cryptography.X509Certificates.X509Certificate2!
+ChServerM.Security.Tls.FileCertificateSource.Reload() -> void
+ChServerM.Security.Tls.IServerCertificateSource
+ChServerM.Security.Tls.IServerCertificateSource.GetCertificate() -> System.Security.Cryptography.X509Certificates.X509Certificate2!
 ChServerM.Security.Tls.TlsSecurityOptions
+ChServerM.Security.Tls.TlsSecurityOptions.ServerCertificateSource.get -> ChServerM.Security.Tls.IServerCertificateSource?
+ChServerM.Security.Tls.TlsSecurityOptions.ServerCertificateSource.set -> void
 ChServerM.Security.Tls.TlsSecurityOptions.EnabledProtocols.get -> System.Security.Authentication.SslProtocols
 ChServerM.Security.Tls.TlsSecurityOptions.EnabledProtocols.set -> void
 ChServerM.Security.Tls.TlsSecurityOptions.RemoteCertificateValidation.get -> System.Net.Security.RemoteCertificateValidationCallback?

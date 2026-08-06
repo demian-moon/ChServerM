@@ -19,7 +19,15 @@ namespace ChServerM.Security.Tls.Tests;
 internal static class TestCertificates
 {
     /// <summary>7일 유효한 localhost 자가서명 인증서를 만든다. 호출자가 폐기한다.</summary>
-    public static X509Certificate2 CreateSelfSigned()
+    public static X509Certificate2 CreateSelfSigned() =>
+        X509CertificateLoader.LoadPkcs12(CreateFileMaterial().PfxBytes, password: null);
+
+    /// <summary>파일 원천 테스트용 소재 — PFX 바이트와 PEM 쌍을 원본 키에서 직접 뽑는다.</summary>
+    /// <remarks>
+    /// 로드를 거친 인증서의 개인키는 키 저장소 정책에 따라 <b>재수출이 불가</b>할 수 있다
+    /// (Windows 기본) — 파일에 쓸 바이트는 로드 전의 ephemeral 원본에서 만들어야 한다.
+    /// </remarks>
+    public static (string Thumbprint, byte[] PfxBytes, string CertificatePem, string PrivateKeyPem) CreateFileMaterial()
     {
         using ECDsa key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         CertificateRequest request = new("CN=localhost", key, HashAlgorithmName.SHA256);
@@ -36,6 +44,10 @@ internal static class TestCertificates
         using X509Certificate2 ephemeral = request.CreateSelfSigned(
             DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(7));
 
-        return X509CertificateLoader.LoadPkcs12(ephemeral.Export(X509ContentType.Pfx), password: null);
+        return (
+            ephemeral.Thumbprint,
+            ephemeral.Export(X509ContentType.Pfx),
+            ephemeral.ExportCertificatePem(),
+            key.ExportPkcs8PrivateKeyPem());
     }
 }

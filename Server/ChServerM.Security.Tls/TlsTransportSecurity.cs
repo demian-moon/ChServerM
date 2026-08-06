@@ -38,6 +38,7 @@ namespace ChServerM.Security.Tls;
 public sealed class TlsTransportSecurity : ITransportSecurity
 {
     private readonly X509Certificate2? _serverCertificate;
+    private readonly IServerCertificateSource? _certificateSource;
     private readonly string? _targetHost;
     private readonly SslProtocols _enabledProtocols;
     private readonly RemoteCertificateValidationCallback? _remoteCertificateValidation;
@@ -52,6 +53,7 @@ public sealed class TlsTransportSecurity : ITransportSecurity
         options.Validate();
 
         _serverCertificate = options.ServerCertificate;
+        _certificateSource = options.ServerCertificateSource;
         _targetHost = options.TargetHost;
         _enabledProtocols = options.EnabledProtocols;
         _remoteCertificateValidation = options.RemoteCertificateValidation;
@@ -62,10 +64,13 @@ public sealed class TlsTransportSecurity : ITransportSecurity
     {
         ArgumentNullException.ThrowIfNull(transport);
 
-        if (_serverCertificate is null)
+        // 원천이 있으면 핸드셰이크마다 해석한다 — 회전이 새 핸드셰이크부터 즉시 반영된다.
+        X509Certificate2? certificate = _certificateSource?.GetCertificate() ?? _serverCertificate;
+        if (certificate is null)
         {
             throw new InvalidOperationException(
-                $"서버 역할에는 {nameof(TlsSecurityOptions.ServerCertificate)}가 필요하다. 조립 설정을 확인한다.");
+                $"서버 역할에는 {nameof(TlsSecurityOptions.ServerCertificate)} 또는 " +
+                $"{nameof(TlsSecurityOptions.ServerCertificateSource)}가 필요하다. 조립 설정을 확인한다.");
         }
 
         SslStream ssl = new(new DuplexPipeStream(transport), leaveInnerStreamOpen: false);
@@ -73,7 +78,7 @@ public sealed class TlsTransportSecurity : ITransportSecurity
         {
             SslServerAuthenticationOptions authOptions = new()
             {
-                ServerCertificate = _serverCertificate,
+                ServerCertificate = certificate,
                 EnabledSslProtocols = _enabledProtocols,
                 // 클라이언트 인증서는 쓰지 않는다 — 클라이언트 인증은 IAuthenticator(토큰)의 몫이다.
                 ClientCertificateRequired = false,
