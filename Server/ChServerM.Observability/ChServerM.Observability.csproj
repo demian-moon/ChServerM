@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.Observability</RootNamespace>
+    <Description>ChServerM 관측 축(IMetricsSink)의 System.Diagnostics.Metrics 어댑터 (ADR-0020). BCL Meter 위임 — dotnet-counters 즉시, OTel 은 Meter 구독으로 얹는다.</Description>
+  </PropertyGroup>
+
+  <!--
+    이 어댑터의 "벤더"는 BCL 의 System.Diagnostics.Metrics 다 — 패키지 참조가 없다.
+    그래도 별도 어셈블리로 격리하는 이유: 관측 축은 "없음"(NullMetricsSink)이 유효한
+    조립이라, 메트릭을 쓰지 않는 소비자가 Meter 관련 표면을 끌고 가지 않아야 한다.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\ChServerM.Core\ChServerM.Core.csproj" />
+  </ItemGroup>
+
+</Project>
