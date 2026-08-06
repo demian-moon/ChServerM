@@ -408,6 +408,10 @@ virtual ChServerM.Dispatch.MessageDelegate.Invoke(ChServerM.Dispatch.MessageCont
 ChServerM.Dispatch.MessageHandlerAttribute
 ChServerM.Dispatch.MessageHandlerAttribute.MessageHandlerAttribute(ushort messageId) -> void
 ChServerM.Dispatch.MessageHandlerAttribute.MessageId.get -> ushort
+ChServerM.Compression.IPayloadCodec
+ChServerM.Compression.IPayloadCodec.Encode(System.ReadOnlySpan<byte> source, System.Span<byte> destination) -> int
+ChServerM.Compression.IPayloadCodec.MaxEncodedLength(int sourceLength) -> int
+ChServerM.Compression.IPayloadCodec.TryDecode(in System.Buffers.ReadOnlySequence<byte> source, System.Buffers.IBufferWriter<byte>! destination, int maxDecodedLength, out int decodedLength) -> bool
 ChServerM.Dispatch.DispatchStatus.RejectedByAuthentication = 8 -> ChServerM.Dispatch.DispatchStatus
 ChServerM.Features.IProtocolVersionFeature
 ChServerM.Features.IProtocolVersionFeature.NegotiatedVersion.get -> ushort
