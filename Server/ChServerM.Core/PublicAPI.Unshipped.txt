@@ -412,6 +412,20 @@ ChServerM.Compression.IPayloadCodec
 ChServerM.Compression.IPayloadCodec.Encode(System.ReadOnlySpan<byte> source, System.Span<byte> destination) -> int
 ChServerM.Compression.IPayloadCodec.MaxEncodedLength(int sourceLength) -> int
 ChServerM.Compression.IPayloadCodec.TryDecode(in System.Buffers.ReadOnlySequence<byte> source, System.Buffers.IBufferWriter<byte>! destination, int maxDecodedLength, out int decodedLength) -> bool
+ChServerM.Diagnostics.IMetricsSink
+ChServerM.Diagnostics.IMetricsSink.AdjustGauge(string! name, long delta, System.ReadOnlySpan<ChServerM.Diagnostics.MetricTag> tags) -> void
+ChServerM.Diagnostics.IMetricsSink.Count(string! name, long delta, System.ReadOnlySpan<ChServerM.Diagnostics.MetricTag> tags) -> void
+ChServerM.Diagnostics.IMetricsSink.Record(string! name, double value, System.ReadOnlySpan<ChServerM.Diagnostics.MetricTag> tags) -> void
+ChServerM.Diagnostics.MetricTag
+ChServerM.Diagnostics.MetricTag.Equals(ChServerM.Diagnostics.MetricTag other) -> bool
+ChServerM.Diagnostics.MetricTag.MetricTag() -> void
+ChServerM.Diagnostics.MetricTag.MetricTag(string! name, string! value) -> void
+ChServerM.Diagnostics.MetricTag.Name.get -> string!
+ChServerM.Diagnostics.MetricTag.Value.get -> string?
+ChServerM.Diagnostics.NullMetricsSink
+ChServerM.Diagnostics.NullMetricsSink.AdjustGauge(string! name, long delta, System.ReadOnlySpan<ChServerM.Diagnostics.MetricTag> tags) -> void
+ChServerM.Diagnostics.NullMetricsSink.Count(string! name, long delta, System.ReadOnlySpan<ChServerM.Diagnostics.MetricTag> tags) -> void
+ChServerM.Diagnostics.NullMetricsSink.Record(string! name, double value, System.ReadOnlySpan<ChServerM.Diagnostics.MetricTag> tags) -> void
 ChServerM.Dispatch.DispatchStatus.RejectedByAuthentication = 8 -> ChServerM.Dispatch.DispatchStatus
 ChServerM.Dispatch.IMessageValidator<TMessage>
 ChServerM.Dispatch.IMessageValidator<TMessage>.Validate(in TMessage message) -> bool
@@ -486,6 +500,8 @@ const ChServerM.Handshake.VersionHandshakeCodec.RejectionPayloadSize = 6 -> int
 const ChServerM.Handshake.VersionHandshakeCodec.RejectReasonVersionMismatch = 2002 -> ushort
 const ChServerM.Handshake.VersionHandshakeCodec.ServerHelloFrameSize = 18 -> int
 const ChServerM.Handshake.VersionHandshakeCodec.ServerHelloPayloadSize = 2 -> int
+override ChServerM.Diagnostics.MetricTag.Equals(object? obj) -> bool
+override ChServerM.Diagnostics.MetricTag.GetHashCode() -> int
 override ChServerM.Handshake.ProtocolVersionRange.Equals(object? obj) -> bool
 override ChServerM.Handshake.ProtocolVersionRange.GetHashCode() -> int
 override ChServerM.Handshake.ProtocolVersionRange.ToString() -> string!
@@ -493,6 +509,9 @@ override ChServerM.Handshake.VersionHandshakeResponse.Equals(object? obj) -> boo
 override ChServerM.Handshake.VersionHandshakeResponse.GetHashCode() -> int
 static ChServerM.Handshake.VersionHandshakeResponse.operator !=(ChServerM.Handshake.VersionHandshakeResponse left, ChServerM.Handshake.VersionHandshakeResponse right) -> bool
 static ChServerM.Handshake.VersionHandshakeResponse.operator ==(ChServerM.Handshake.VersionHandshakeResponse left, ChServerM.Handshake.VersionHandshakeResponse right) -> bool
+static ChServerM.Diagnostics.MetricTag.operator !=(ChServerM.Diagnostics.MetricTag left, ChServerM.Diagnostics.MetricTag right) -> bool
+static ChServerM.Diagnostics.MetricTag.operator ==(ChServerM.Diagnostics.MetricTag left, ChServerM.Diagnostics.MetricTag right) -> bool
+static ChServerM.Diagnostics.NullMetricsSink.Instance.get -> ChServerM.Diagnostics.NullMetricsSink!
 static ChServerM.Handshake.ProtocolVersionRange.operator !=(ChServerM.Handshake.ProtocolVersionRange left, ChServerM.Handshake.ProtocolVersionRange right) -> bool
 static ChServerM.Handshake.ProtocolVersionRange.operator ==(ChServerM.Handshake.ProtocolVersionRange left, ChServerM.Handshake.ProtocolVersionRange right) -> bool
 static ChServerM.Handshake.ProtocolVersionRange.TrySelect(ChServerM.Handshake.ProtocolVersionRange local, ChServerM.Handshake.ProtocolVersionRange remote, out ushort selected) -> bool
