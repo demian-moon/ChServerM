@@ -44,4 +44,15 @@ public enum DispatchStatus : byte
 
     /// <summary>처리 중 취소됐다(커넥션 종료·서버 종료).</summary>
     Canceled = 7,
+
+    /// <summary>자격 검증에 실패했다. <b>커넥션은 무조건 닫힌다</b> — 옵션이 아니다.</summary>
+    /// <remarks>
+    /// <see cref="RejectedByPolicy"/> 와 구분하는 이유: 그쪽은 <c>CloseOnPolicyRejection</c>
+    /// 옵션에 걸려 있어, 재사용하면 옵션 하나로 인증 실패가 종료 없이 통과하는 구멍이
+    /// 생긴다. 레거시가 정확히 "검증은 하는데 결과를 버리는" 형태로 죽었으므로(T-20),
+    /// 인증 실패 = 즉시 종료는 정책이 아니라 불변으로 둔다 —
+    /// <see cref="RejectedByState"/>(T-19)와 같은 급이다. 관측에서도 인증(6000)과
+    /// 인가(6001)가 구분된다(T-07).
+    /// </remarks>
+    RejectedByAuthentication = 8,
 }

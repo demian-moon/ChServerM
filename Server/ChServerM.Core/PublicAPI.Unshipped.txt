@@ -408,8 +408,33 @@ virtual ChServerM.Dispatch.MessageDelegate.Invoke(ChServerM.Dispatch.MessageCont
 ChServerM.Dispatch.MessageHandlerAttribute
 ChServerM.Dispatch.MessageHandlerAttribute.MessageHandlerAttribute(ushort messageId) -> void
 ChServerM.Dispatch.MessageHandlerAttribute.MessageId.get -> ushort
+ChServerM.Dispatch.DispatchStatus.RejectedByAuthentication = 8 -> ChServerM.Dispatch.DispatchStatus
 ChServerM.Features.IProtocolVersionFeature
 ChServerM.Features.IProtocolVersionFeature.NegotiatedVersion.get -> ushort
+ChServerM.Security.AuthenticationResult
+ChServerM.Security.AuthenticationResult.Equals(ChServerM.Security.AuthenticationResult other) -> bool
+ChServerM.Security.AuthenticationResult.FailureDescription.get -> string?
+ChServerM.Security.AuthenticationResult.GrantedStates.get -> uint
+ChServerM.Security.AuthenticationResult.IsAuthenticated.get -> bool
+ChServerM.Security.AuthenticationResult.AuthenticationResult() -> void
+ChServerM.Security.IAuthenticator
+ChServerM.Security.IAuthenticator.AuthenticateAsync(ChServerM.Dispatch.MessageContext! context) -> System.Threading.Tasks.ValueTask<ChServerM.Security.AuthenticationResult>
+ChServerM.Security.IPasswordHasher
+ChServerM.Security.IPasswordHasher.Hash(string! password) -> string!
+ChServerM.Security.IPasswordHasher.Verify(string! hashedPassword, string! providedPassword) -> ChServerM.Security.PasswordVerification
+ChServerM.Security.ITokenReplayGuard
+ChServerM.Security.ITokenReplayGuard.TryClaim(System.ReadOnlySpan<byte> token) -> bool
+ChServerM.Security.PasswordVerification
+ChServerM.Security.PasswordVerification.Failed = 1 -> ChServerM.Security.PasswordVerification
+ChServerM.Security.PasswordVerification.None = 0 -> ChServerM.Security.PasswordVerification
+ChServerM.Security.PasswordVerification.Success = 2 -> ChServerM.Security.PasswordVerification
+ChServerM.Security.PasswordVerification.SuccessRehashNeeded = 3 -> ChServerM.Security.PasswordVerification
+override ChServerM.Security.AuthenticationResult.Equals(object? obj) -> bool
+override ChServerM.Security.AuthenticationResult.GetHashCode() -> int
+static ChServerM.Security.AuthenticationResult.Failure(string? description = null) -> ChServerM.Security.AuthenticationResult
+static ChServerM.Security.AuthenticationResult.Success(uint grantedStates) -> ChServerM.Security.AuthenticationResult
+static ChServerM.Security.AuthenticationResult.operator !=(ChServerM.Security.AuthenticationResult left, ChServerM.Security.AuthenticationResult right) -> bool
+static ChServerM.Security.AuthenticationResult.operator ==(ChServerM.Security.AuthenticationResult left, ChServerM.Security.AuthenticationResult right) -> bool
 ChServerM.Handshake.ProtocolVersionRange
 ChServerM.Handshake.ProtocolVersionRange.Contains(ushort version) -> bool
 ChServerM.Handshake.ProtocolVersionRange.Equals(ChServerM.Handshake.ProtocolVersionRange other) -> bool
