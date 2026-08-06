@@ -413,6 +413,8 @@ ChServerM.Compression.IPayloadCodec.Encode(System.ReadOnlySpan<byte> source, Sys
 ChServerM.Compression.IPayloadCodec.MaxEncodedLength(int sourceLength) -> int
 ChServerM.Compression.IPayloadCodec.TryDecode(in System.Buffers.ReadOnlySequence<byte> source, System.Buffers.IBufferWriter<byte>! destination, int maxDecodedLength, out int decodedLength) -> bool
 ChServerM.Dispatch.DispatchStatus.RejectedByAuthentication = 8 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.IMessageValidator<TMessage>
+ChServerM.Dispatch.IMessageValidator<TMessage>.Validate(in TMessage message) -> bool
 ChServerM.Features.IProtocolVersionFeature
 ChServerM.Features.IProtocolVersionFeature.NegotiatedVersion.get -> ushort
 ChServerM.Security.AuthenticationResult

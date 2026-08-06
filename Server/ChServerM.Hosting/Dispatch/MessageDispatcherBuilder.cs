@@ -138,6 +138,78 @@ public sealed class MessageDispatcherBuilder
         return this;
     }
 
+    /// <summary>역직렬화 + <b>범위 검증</b>까지 거치는 타입 있는 핸들러를 등록한다.</summary>
+    /// <typeparam name="TMessage">메시지 타입.</typeparam>
+    /// <param name="messageId">이 핸들러가 받을 메시지 식별자.</param>
+    /// <param name="serializer">페이로드 역직렬화기.</param>
+    /// <param name="validator">필드 범위·의미 검증기. 역직렬화 직후·핸들러 전에 실행된다.</param>
+    /// <param name="handler">처리기. 검증 실패 시 실행되지 않는다.</param>
+    /// <returns>메서드 체이닝을 위한 자기 자신.</returns>
+    /// <exception cref="ArgumentNullException">인자가 <see langword="null"/>일 때.</exception>
+    /// <exception cref="ArgumentException">같은 식별자가 이미 등록돼 있을 때.</exception>
+    /// <remarks>
+    /// <para>
+    /// <b>역직렬화 성공 ≠ 유효한 값</b>(<see cref="IMessageValidator{TMessage}"/> 문서).
+    /// 검증 실패는 역직렬화 실패와 같은 부류로 처리된다 —
+    /// <see cref="DispatchStatus.DeserializationFailed"/> 반환, 종료 여부는
+    /// <c>CloseOnDeserializationFailure</c> 정책(기본 종료). 핸들러가 검증을 빠뜨릴 수
+    /// 있는 구조를 없애는 것이 이 오버로드의 존재 이유다.
+    /// </para>
+    /// <para>옵션 매개변수가 아니라 별도 오버로드인 이유: 기본값 있는 검증기 인자는
+    /// "아무도 안 넣는 검증"이 된다(RS0026 원칙 — 기본값이 조용한 실패 지점과 겹치면 필수로).</para>
+    /// </remarks>
+    public MessageDispatcherBuilder Map<TMessage>(
+        MessageId messageId,
+        IMessageSerializer<TMessage> serializer,
+        IMessageValidator<TMessage> validator,
+        IMessageHandler<TMessage> handler)
+    {
+        ArgumentNullException.ThrowIfNull(serializer);
+        ArgumentNullException.ThrowIfNull(validator);
+        ArgumentNullException.ThrowIfNull(handler);
+
+        IServerLogger logger = _logger;
+
+        AddRoute(messageId, async context =>
+        {
+            if (!serializer.TryDeserialize(context.Payload, out TMessage? message))
+            {
+                if (logger.IsEnabled(LogLevel.Warning))
+                {
+                    logger.Log(
+                        LogLevel.Warning,
+                        DeserializationFailedEvent,
+                        messageId.Value,
+                        null,
+                        static (id, _) => $"메시지 {id} 페이로드를 역직렬화할 수 없다.");
+                }
+
+                return DispatchStatus.DeserializationFailed;
+            }
+
+            if (!validator.Validate(in message))
+            {
+                // 범위 밖 값 = 스키마 어긋남과 같은 부류(버그거나 조작) — 같은 상태로 수렴한다.
+                if (logger.IsEnabled(LogLevel.Warning))
+                {
+                    logger.Log(
+                        LogLevel.Warning,
+                        DeserializationFailedEvent,
+                        messageId.Value,
+                        null,
+                        static (id, _) => $"메시지 {id} 페이로드가 범위 검증에 실패했다.");
+                }
+
+                return DispatchStatus.DeserializationFailed;
+            }
+
+            await handler.HandleAsync(context, message).ConfigureAwait(false);
+            return DispatchStatus.Handled;
+        });
+
+        return this;
+    }
+
     /// <summary>등록된 내용으로 디스패처를 만든다.</summary>
     /// <returns>조립이 끝난 디스패처.</returns>
     /// <remarks>

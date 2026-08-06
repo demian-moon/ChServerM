@@ -36,6 +36,7 @@ ChServerM.Hosting.Dispatch.MessageDispatcher.MessageDispatcher(ChServerM.Dispatc
 ChServerM.Hosting.Dispatch.MessageDispatcherBuilder
 ChServerM.Hosting.Dispatch.MessageDispatcherBuilder.Build() -> ChServerM.Hosting.Dispatch.MessageDispatcher!
 ChServerM.Hosting.Dispatch.MessageDispatcherBuilder.Map<TMessage>(ChServerM.Identity.MessageId messageId, ChServerM.Serialization.IMessageSerializer<TMessage>! serializer, ChServerM.Dispatch.IMessageHandler<TMessage>! handler) -> ChServerM.Hosting.Dispatch.MessageDispatcherBuilder!
+ChServerM.Hosting.Dispatch.MessageDispatcherBuilder.Map<TMessage>(ChServerM.Identity.MessageId messageId, ChServerM.Serialization.IMessageSerializer<TMessage>! serializer, ChServerM.Dispatch.IMessageValidator<TMessage>! validator, ChServerM.Dispatch.IMessageHandler<TMessage>! handler) -> ChServerM.Hosting.Dispatch.MessageDispatcherBuilder!
 ChServerM.Hosting.Dispatch.MessageDispatcherBuilder.MapRaw(ChServerM.Identity.MessageId messageId, ChServerM.Dispatch.MessageDelegate! handler) -> ChServerM.Hosting.Dispatch.MessageDispatcherBuilder!
 ChServerM.Hosting.Dispatch.MessageDispatcherBuilder.MessageDispatcherBuilder() -> void
 ChServerM.Hosting.Dispatch.MessageDispatcherBuilder.Use(ChServerM.Dispatch.IServerMiddleware! middleware) -> ChServerM.Hosting.Dispatch.MessageDispatcherBuilder!
