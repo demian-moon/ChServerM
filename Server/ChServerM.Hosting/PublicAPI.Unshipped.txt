@@ -53,6 +53,19 @@ ChServerM.Hosting.Dispatch.MessageStateFilterOptions.MessageStateFilterOptions()
 ChServerM.Hosting.Dispatch.MetricsMiddleware
 ChServerM.Hosting.Dispatch.MetricsMiddleware.InvokeAsync(ChServerM.Dispatch.MessageContext! context, ChServerM.Dispatch.MessageDelegate! next) -> System.Threading.Tasks.ValueTask<ChServerM.Dispatch.DispatchStatus>
 ChServerM.Hosting.Dispatch.MetricsMiddleware.MetricsMiddleware(ChServerM.Diagnostics.IMetricsSink! sink, System.TimeProvider? timeProvider = null) -> void
+ChServerM.Hosting.Dispatch.PerConnectionRateLimitOptions
+ChServerM.Hosting.Dispatch.PerConnectionRateLimitOptions.BurstCapacity.get -> int
+ChServerM.Hosting.Dispatch.PerConnectionRateLimitOptions.BurstCapacity.set -> void
+ChServerM.Hosting.Dispatch.PerConnectionRateLimitOptions.PerConnectionRateLimitOptions() -> void
+ChServerM.Hosting.Dispatch.PerConnectionRateLimitOptions.PermitsPerSecond.get -> double
+ChServerM.Hosting.Dispatch.PerConnectionRateLimitOptions.PermitsPerSecond.set -> void
+ChServerM.Hosting.Dispatch.PerConnectionRateLimitOptions.Validate() -> void
+ChServerM.Hosting.Dispatch.PerConnectionRateLimiter
+ChServerM.Hosting.Dispatch.PerConnectionRateLimiter.PerConnectionRateLimiter(ChServerM.Hosting.Dispatch.PerConnectionRateLimitOptions! options, System.TimeProvider? timeProvider = null) -> void
+ChServerM.Hosting.Dispatch.PerConnectionRateLimiter.TryAcquire(ChServerM.Dispatch.MessageContext! context) -> bool
+ChServerM.Hosting.Dispatch.RateLimitMiddleware
+ChServerM.Hosting.Dispatch.RateLimitMiddleware.InvokeAsync(ChServerM.Dispatch.MessageContext! context, ChServerM.Dispatch.MessageDelegate! next) -> System.Threading.Tasks.ValueTask<ChServerM.Dispatch.DispatchStatus>
+ChServerM.Hosting.Dispatch.RateLimitMiddleware.RateLimitMiddleware(ChServerM.Resilience.IRateLimiter! rateLimiter) -> void
 ChServerM.Hosting.FrameWriter
 ChServerM.Hosting.FramedConnectionHandler
 ChServerM.Hosting.FramedConnectionHandler.FramedConnectionHandler(ChServerM.Framing.IFrameDecoder! decoder, ChServerM.Dispatch.IMessageDispatcher! dispatcher, ChServerM.Hosting.FramedConnectionOptions? options = null, System.TimeProvider? timeProvider = null, ChServerM.Diagnostics.IServerLogger? logger = null, ChServerM.Execution.IExecutionModel? executionModel = null, ChServerM.Compression.IPayloadCodec? payloadCodec = null) -> void

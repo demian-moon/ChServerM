@@ -590,6 +590,11 @@ public sealed class FramedConnectionHandler : IConnectionHandler
             DispatchStatus.RejectedByBackpressure =>
                 new ConnectionCloseInfo(CloseReason.ResourceLimit, ErrorCode.QueueFull),
 
+            // 속도 제한은 커넥션을 닫지 않는다(불변) — 일시적 제한이라 종료하면 재접속
+            // 폭풍이 된다. 프레임만 버리고 로그·메트릭으로 관측된다(위 로그 + 상위
+            // MetricsMiddleware 의 DispatchFailures). null 은 "계속"을 뜻한다.
+            DispatchStatus.RejectedByRateLimit => null,
+
             _ => null,
         };
     }
