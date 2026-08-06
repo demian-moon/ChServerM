@@ -1,0 +1,6 @@
+#nullable enable
+ChServerM.Security.AspNetIdentity.AspNetIdentityPasswordHasher
+ChServerM.Security.AspNetIdentity.AspNetIdentityPasswordHasher.AspNetIdentityPasswordHasher(int iterationCount = 600000) -> void
+ChServerM.Security.AspNetIdentity.AspNetIdentityPasswordHasher.Hash(string! password) -> string!
+ChServerM.Security.AspNetIdentity.AspNetIdentityPasswordHasher.Verify(string! hashedPassword, string! providedPassword) -> ChServerM.Security.PasswordVerification
+const ChServerM.Security.AspNetIdentity.AspNetIdentityPasswordHasher.DefaultIterationCount = 600000 -> int

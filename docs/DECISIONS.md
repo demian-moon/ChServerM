@@ -1225,3 +1225,52 @@ publish 가 함께 검증한다.
   개발·테스트 경로는 자가서명 헬퍼로 낮춘다
 - 부정: 핸드셰이크 1왕복만큼 접속 지연이 는다(TLS 1.3 1-RTT + 협상 1-RTT).
   0-RTT(early data)는 리플레이 표면을 여는 기능이라 채택하지 않는다
+
+---
+
+## ADR-0018: 비밀번호 해싱은 ASP.NET Core Identity PasswordHasher 위임
+
+- **날짜**: 2026-08-06
+- **상태**: 채택
+- **영향 범위**: Core(`IPasswordHasher` 계약) / `ChServerM.Security.AspNetIdentity`(신설 어댑터) / 신규 의존 `Microsoft.Extensions.Identity.Core`
+
+### 배경
+
+- Phase 9 인증 축(`IAuthenticator`, T-20)의 구현 재료로 비밀번호 해싱이 필요하다.
+- 레거시 판정([legacy/07-security](legacy/07-security.md))이 `AuthM` 의 `PasswordHasher<T>`
+  채택을 **레거시 보안 코드 중 유일한 승계 자산(🟢 Phase 9)**으로 지정했다.
+  단, 네 가지 결함과 함께다: 호출마다 해셔 생성(#2), 파라미터 미명시(#4),
+  `internal` 격리(#3), 그리고 호출부의 결과 무시(#1 — 이것은 T-20 으로 미들웨어가 해소).
+
+### 결정
+
+1. **Core 에 `IPasswordHasher` 계약**(무의존), 구현은 신설 어댑터
+   `ChServerM.Security.AspNetIdentity` 에 격리한다 — 벤더(`Microsoft.Extensions.Identity.Core`)는
+   이 어셈블리에만 존재하고, 삭제해도 Core 는 컴파일된다.
+2. **구현은 `PasswordHasher<T>`(V3) 위임.** PBKDF2-HMAC-SHA256 + 비밀번호별 랜덤 솔트 +
+   반복 횟수·버전 태그 내장 형식 — 검증된 구현을 위임하는 것이 1차 완화책이다(ADR-0017 과
+   같은 원칙). **레거시와 같은 라이브러리·형식이므로 기존 계정 해시가 그대로 검증된다** —
+   계정 이전 경로가 살아 있고, 이것이 직접 구현 대비 결정적 이점이다.
+3. **레거시 결함을 계약으로 해소한다.** 해셔는 1회 생성 재사용(#2), 반복 횟수는 생성자
+   명시 + 기본값 OWASP 600,000(#4 — 라이브러리 기본 100,000 은 정책 부재의 연장이다),
+   재해싱 신호(`SuccessRehashNeeded`)를 enum 으로 표면화. 손상 해시의 `FormatException` 은
+   어댑터가 `Failed` 값으로 변환한다(저장소 오염이 인증 경로의 예외 비용으로 증폭되지 않게, T-16).
+
+### 대안과 탈락 이유
+
+| 대안 | 탈락 이유 |
+|---|---|
+| BCL `Rfc2898DeriveBytes` 로 직접 형식 정의 | PBKDF2 자체는 같지만 솔트·반복 횟수·버전을 담는 저장 형식과 업그레이드 경로를 재발명해야 한다. 레거시 해시 형식 호환도 잃는다 — 얻는 것은 의존 하나 줄이는 것뿐 |
+| Argon2id (권장 최신 KDF) | .NET 표준 구현이 없어 서드파티(Konscious 등) 검증 부담 + 레거시 해시 이전 시 전 계정 강제 재설정. 형식에 버전 태그가 있으므로 필요 시 어댑터 추가로 점진 전환 가능 — 지금 문을 닫는 결정이 아니다 |
+| `Microsoft.AspNetCore.Cryptography.KeyDerivation` 직접 사용 | `PasswordHasher` 가 그 위에 얹은 형식·버저닝이 정확히 우리가 필요한 부분이다. 아래 계층으로 내려가면 형식 재발명(첫 번째 대안과 동일) |
+| Core 에 구현까지 포함 | Core 무의존 하드 룰 위반. 논외 |
+
+### 결과
+
+- 긍정: 레거시 계정 DB 이전 경로 유지(형식 호환 테스트로 고정). 반복 횟수 상향이
+  기존 해시를 깨지 않고 재해싱 신호로 흡수된다
+- 긍정: T-20 완화가 완결된다 — 검증(이 ADR) + 결과 강제(`AuthenticationMiddleware`)
+- 부정: Microsoft.Extensions 계열 신규 의존 1개. 단 어댑터에 격리되어 있어 계약만 두고
+  구현을 교체(Argon2id 등)하는 비용이 낮다
+- 부정: 기본 600,000 회는 로그인당 수십 ms CPU 다 — 의도된 비용이며, 워크로드별 조정은
+  생성자 인자로 열려 있다(값은 항상 코드에 드러난다)

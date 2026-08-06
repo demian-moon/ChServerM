@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.Security.AspNetIdentity</RootNamespace>
+    <Description>ChServerM 비밀번호 해싱 계약의 ASP.NET Core Identity(PBKDF2) 어댑터 (ADR-0018). 레거시 AuthM 의 해시 형식과 호환된다.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ChServerM.Core\ChServerM.Core.csproj" />
+  </ItemGroup>
+
+  <!-- 벤더(Microsoft.Extensions.Identity.Core)는 이 어셈블리에만 존재한다. 삭제해도 Core 는 컴파일된다. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Identity.Core" />
+  </ItemGroup>
+
+</Project>

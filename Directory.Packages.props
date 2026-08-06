@@ -68,6 +68,15 @@
     <PackageVersion Include="MessagePack" Version="3.1.8" />
   </ItemGroup>
 
+  <ItemGroup Label="Security">
+    <!--
+      비밀번호 해싱 어댑터 (Phase 9, ADR-0018).
+      PasswordHasher<T> = PBKDF2-HMAC-SHA256 + 비밀번호별 랜덤 솔트 + 버전 태그 형식.
+      레거시 AuthM 이 쓰던 것과 같은 라이브러리라 기존 계정 해시와 형식 호환된다.
+    -->
+    <PackageVersion Include="Microsoft.Extensions.Identity.Core" Version="10.0.10" />
+  </ItemGroup>
+
   <!--
     축 어댑터 패키지는 해당 Phase에 진입할 때 추가한다.
     ADR 없이 여기에 항목을 늘리지 않는다 — docs/DECISIONS.md 참조.
