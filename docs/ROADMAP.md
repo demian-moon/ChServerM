@@ -121,7 +121,7 @@ Core에 들어간 인터페이스는 되돌리기 비용이 가장 크다 — �
 - [x] ⚠ **`IExecutionModel` — 유저별 순서 보장을 *표현할 수 있어야* 한다**. 계약이 이 전략을 강제하는 것이 아니라, 필요한 프로필이 선택할 수 있어야 한다는 뜻이다. `realtime-stateful`은 이 전략을 쓰고 `stateless-web`은 병렬 실행을 쓴다 — **하나의 계약이 양쪽을 수용해야 한다.** 근거: 레거시 `UserM.MemPkActionBlock`(TPL Dataflow, 유저 단위 직렬) vs `NetworkM.gMemPkActionBlock`(글로벌) ([01-network-transport](legacy/01-network-transport.md#sendpacketgroupm))
 - [ ] `ISessionStore` / `ISession` — 상태 저장 추상화
 - [ ] `IServerLogger` / `IMetricsSink` — 관측 추상화 (진행 중: `IServerLogger` 완료. `IMetricsSink` 미착수 — 이름 상수는 이미 있다)
-- [ ] `IPayloadCodec` — 압축 계약
+- [x] `IPayloadCodec` — 압축 계약 (2026-08-06, ADR-0019 — 해제 상한 필수 인자·자기서술 블롭·실패는 값. 구현체 `ChServerM.Compression.LZ4`)
 - [x] `ITransportSecurity` — 전송 보안 계약 (2026-08-05, ADR-0017: 커넥션 파이프 데코레이터 — 전송 중립이라 인메모리에서도 보안 경로가 테스트된다. 실패는 예외가 아니라 상태(핸드셰이크 폭주 = 공격 시나리오 T-16), 기본값 센티넬은 비확립. TLS 어댑터 + 호스팅 통합까지 실동 — `4d8810f`·`e35a9ff`·`42659bc`)
 - [x] `IAuthenticator` / `IAuthorizationPolicy` — 인증·인가 계약 (Phase 9에서 구현) (2026-08-06 완료: `IAuthenticator` = `aff7942`, `IAuthorizationPolicy` = `792ea9c` — 실패는 값(T-16)·default 는 가장 제한적·페이로드 수명 계약 명시. 구현체는 Hosting 미들웨어 2종)
 - [ ] `IRateLimiter` / `IAdmissionControl` — 과부하 제어 계약 (Phase 10에서 구현)
@@ -293,7 +293,7 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
   (2026-08-05 완료 `2842d2d`: 신뢰 경계 5 · 공격 표면 9 · 위협 22(STRIDE) **전 항목 완화책 매핑** + 레거시 결함 14종 역매핑 표. 게이트의 매핑 조건 충족 — 남은 게이트 조건은 "인증 전 패킷 차단 테스트"뿐)
 - [ ] `ChServerM.Security.Tls` — `SslStream` 기반 전송 보안. 인증서 로딩·검증·회전 (진행 중: 어댑터(`e35a9ff`) + 빌더 통합 `UseTransportSecurity`(`42659bc`) + 종단 테스트(같은 에코 핸들러가 InMemory/TCP × TLS 동작, 평문 거부 후 서버 생존) + **TLS on/off 실측 완료** — RPS −2.5%·p50 +50µs(BENCHMARKS.md). 남은 것: 인증서 파일/저장소 로딩·회전 운영 경로)
 - [x] ⚠ **핸드셰이크·키 교환 설계** — 레거시는 `FbsEncryptKey`(key/iv)로 교환하고 서버→클라 XOR, 클라→서버 AES256을 썼다. **XOR은 암호화가 아니다.** 양방향 AEAD(AES-GCM / ChaCha20-Poly1305)로 재설계한다 (2026-08-05 **ADR-0017 로 확정: 자체 재설계 대신 TLS 1.3(`SslStream`) 위임** — 키 교환·양방향 AEAD·nonce·다운그레이드 방지를 검증된 구현이 담당한다. 자체 ECDHE+AEAD·Noise 의 탈락 근거는 ADR 대안 표)
-- [ ] `IPayloadCodec` 구현 — 압축(LZ4/Zstd). 레거시 정책(1024B 미만 무압축) 참고. **압축 후 암호화 순서 고정** (역순은 CRIME류 취약점)
+- [x] `IPayloadCodec` 구현 — 압축(LZ4/Zstd). 레거시 정책(1024B 미만 무압축) 참고. **압축 후 암호화 순서 고정** (역순은 CRIME류 취약점) (2026-08-06 완료 `c04644b`+`3507b0e`+`b9bd2d0`+`2030489`, ADR-0019: 계약은 해제 상한 **필수 인자**(T-18 생략 불가) + 자기서술 블롭(버퍼 확보 전 선언 검증, T-12 역). 첫 어댑터 LZ4(K4os) — Brotli 대비 비압축성 최악 경로 11~35× 실측 우위. 순서 고정은 구조 보장(압축=페이로드 수준, TLS=스트림 수준) + 비밀 문맥 `DoNotCompress`(T-11). 송신은 플래그 자동 부착(표시-변환 불일치 불가), 수신은 재조립→해제, 미조립+압축 프레임 = 종료. 1GiB 폭탄 = 할당 0 거부 종단 고정. "압축이 실제로 실행됨" 테스트 — 레거시 무동작의 역)
 - [x] 리플레이 방지 — 패킷 시퀀스/nonce 검증. 레거시 `pid`(패킷 아이디) 개념 승계 (2026-08-05 **ADR-0017 결정 4 로 재배치 — `pid` 승계 안 함**: 커넥션 내 와이어 리플레이는 TLS 레코드 계층이 차단하므로 앱 시퀀스를 중복 구현하지 않는다. 크로스 커넥션 토큰 재사용은 `IAuthenticator`(1회용·만료 토큰) 항목의 몫. 보안 축 "없음" 조립은 무보호임을 계약 문서에 명시)
 - [x] 무결성 검증 — AEAD 태그로 대체 (레거시의 단순 체크섬은 공격자에게 무의미) (2026-08-05: TLS 1.3 레코드 AEAD 가 담당(ADR-0017) — 구현·종단 테스트·실측까지 완료. 헤더에 가짜 무결성 장치가 없음은 Phase 4 에서 이미 확정(체크섬 필드 제거))
 - [x] **상태별 패킷 화이트리스트** — 인증 전에 인증 후 패킷을 받지 않는다. 레거시 `AllowedPacketM` 승계 (2026-08-05 완료 `1b3fc20`: `IConnectionStateFeature`(Core, 상태 비트마스크 — 의미는 앱 정의, ADR-0004) + `MessageStateFilterMiddleware`(FrozenDictionary + 비트 AND, **기본 거부는 옵션이 아님** — 레거시 `AllowedPkState` 기본 전부 허용 결함의 역). 거부 = 커넥션 종료(4001) + 경고 로그. 게이트 테스트: 인증 전 특권 메시지 = 응답 없이 종료(InMemory/TCP 2전송) 포함 +10)
