@@ -52,6 +52,7 @@
   -->
   <ItemGroup>
     <ProjectReference Include="..\..\Server\ChServerM.Buffers\ChServerM.Buffers.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Compression.LZ4\ChServerM.Compression.LZ4.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Concurrency\ChServerM.Concurrency.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Framing\ChServerM.Framing.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Hosting\ChServerM.Hosting.csproj" />
