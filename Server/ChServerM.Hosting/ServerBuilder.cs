@@ -46,6 +46,7 @@ public sealed class ServerBuilder
     private ITransportSecurity? _transportSecurity;
     private VersionNegotiationOptions? _versionNegotiation;
     private IPayloadCodec? _payloadCodec;
+    private IMetricsSink? _metricsSink;
     private IServerLogger _logger = NullServerLogger.Instance;
     private TimeProvider _timeProvider = TimeProvider.System;
 
@@ -158,6 +159,30 @@ public sealed class ServerBuilder
         return this;
     }
 
+    /// <summary>관측 축(메트릭)을 켠다 (Phase 11).</summary>
+    /// <param name="sink">메트릭 싱크. 지정하지 않으면 메트릭을 수집하지 않는다(<see cref="NullMetricsSink"/>).</param>
+    /// <returns>메서드 체이닝을 위한 자기 자신.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sink"/>가 <see langword="null"/>일 때.</exception>
+    /// <remarks>
+    /// <para>
+    /// 한 번의 호출로 커넥션 생명주기(수립·활성 수)와 디스패치(지연·처리량·실패)를 모두
+    /// 배선한다 — 커넥션 데코레이터(<see cref="MetricsConnectionHandler"/>)와 디스패치
+    /// 미들웨어(<see cref="Dispatch.MetricsMiddleware"/>)를 프레임워크가 올바른 순서로 끼운다.
+    /// 사용자가 계측 코드를 핸들러에 넣을 필요가 없다(횡단 관심사는 데코레이터, CLAUDE.md 4).
+    /// </para>
+    /// <para>
+    /// 메트릭 이름은 <see cref="MetricNames"/> 계약을 따른다. 첫 어댑터로
+    /// <c>ChServerM.Observability.MeterMetricsSink</c>(BCL <c>Meter</c>)를 넘기면
+    /// <c>dotnet-counters</c> 가 즉시 읽는다(ADR-0020).
+    /// </para>
+    /// </remarks>
+    public ServerBuilder UseMetrics(IMetricsSink sink)
+    {
+        ArgumentNullException.ThrowIfNull(sink);
+        _metricsSink = sink;
+        return this;
+    }
+
     /// <summary>진단 로거를 지정한다.</summary>
     /// <param name="logger">로거.</param>
     /// <returns>메서드 체이닝을 위한 자기 자신.</returns>
@@ -226,6 +251,13 @@ public sealed class ServerBuilder
         // 축 하나하나가 유효해도 조합이 성립하지 않을 수 있다.
         CompositionGuard.EnsureFrameFitsInTransportBuffer(transport, decoder, encoder);
 
+        // 관측 축이 있으면 디스패치 지연·처리량·실패 미들웨어를 파이프라인 가장 바깥에
+        // 끼운다(빌드 전에 — 지연이 파이프라인 전체를 감싸야 의미가 있다, Phase 11).
+        if (_metricsSink is not null)
+        {
+            _dispatcher.PrependMiddleware(new MetricsMiddleware(_metricsSink, _timeProvider));
+        }
+
         // 실행 모델이 있으면 프레임 디스패치가 파티션 배타 구간에서 실행된다(ADR-0008).
         IConnectionHandler handler = new FramedConnectionHandler(
             decoder, _dispatcher.Build(), _connectionOptions, _timeProvider, _logger, _executionModel,
@@ -243,6 +275,13 @@ public sealed class ServerBuilder
         if (_transportSecurity is not null)
         {
             handler = new SecuredConnectionHandler(_transportSecurity, handler, _logger);
+        }
+
+        // 관측 커넥션 데코레이터는 가장 바깥이다 — TLS·협상에 실패한 커넥션도 "수락됐다"는
+        // 사실은 세야 하고, 활성 게이지도 그 전 생애를 덮어야 한다(Phase 11).
+        if (_metricsSink is not null)
+        {
+            handler = new MetricsConnectionHandler(handler, _metricsSink);
         }
 
         return new ChServerMServer(transport, handler, encoder, _executionModel);

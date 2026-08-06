@@ -1331,3 +1331,59 @@ publish 가 함께 검증한다.
 - 부정: 신규 의존 1개(K4os). 어댑터 격리로 교체 비용 낮음
 - 부정: 해제 경로에 커넥션당 해제 버퍼 상한(`MaxDecompressedMessageLength`, 기본 1MiB)
   만큼의 최악 메모리가 추가된다 — `MaxConnections × 상한` 계산은 옵션 문서에 명시
+
+---
+
+## ADR-0020: 관측 축 첫 어댑터는 `System.Diagnostics.Metrics`(BCL Meter), 계측은 데코레이터
+
+- **날짜**: 2026-08-06
+- **상태**: 채택
+- **영향 범위**: Core(`IMetricsSink`·`MetricTag` 계약) / `ChServerM.Observability`(신설 어댑터, BCL 전용 — 새 의존 0) / Hosting(데코레이터 배선)
+
+### 배경
+
+- Phase 11 목표는 "**실패가 관측되는가**"다. 레거시는 메트릭이 하나도 없어 조용한 실패
+  (압축 미실행·재시도 무효·만료 미동작)를 아무도 몰랐다([09-observability](legacy/09-observability.md)).
+- 메트릭 **이름 계약**은 이미 있다(`DiagnosticNames`/`MetricNames`/`TagNames` — 2026-08-04
+  정비). 없던 것은 축 계약(`IMetricsSink`)과 어댑터.
+- Phase 9 가 조용한 실패 지점마다 `EventId` 로그 이벤트를 이미 깔아뒀다(리플레이·인증
+  실패·포화·압축 위반·인증서 재적재). 관측 루프를 닫는 한계 비용이 낮은 시점이다.
+
+### 결정
+
+1. **Core 에 `IMetricsSink` 계약**(무의존): `Count`(카운터)/`Record`(히스토그램)/
+   `AdjustGauge`(up-down). 태그는 중립 `MetricTag`(문자열 값 전용 — 값 타입 박싱과
+   커넥션 ID 카디널리티 사고를 타입이 막는다)의 `ReadOnlySpan` 으로 받아 핫패스 무할당.
+   기본은 `NullMetricsSink`(로거와 같은 null 없는 구조).
+2. **첫 어댑터는 `System.Diagnostics.Metrics`(BCL `Meter`).** `dotnet-counters`/
+   `dotnet-monitor` 가 즉시 읽고, **OpenTelemetry 메트릭 SDK 는 이 `Meter` 를 구독**하는
+   얇은 설정 계층이라 나중에 OTel 을 얹어도 재계측이 아니라 배선만 추가하면 된다.
+   새 패키지 의존이 0인 것도 이 선택의 몫이다. `Counter.Add` 는 구독자가 없으면 거의
+   무비용이라 게이트에도 유리하다.
+3. **계측은 데코레이터로**(CLAUDE.md 4 — 횡단 관심사는 코어 로직을 오염시키지 않는다).
+   커넥션 생명주기는 `MetricsConnectionHandler`(가장 바깥 — TLS·협상 실패도 "수락됐다"는
+   세고 활성 게이지가 전 생애를 덮는다, 감소는 `finally`), 디스패치 지연·처리량·실패는
+   `MetricsMiddleware`(파이프라인 가장 바깥 — 지연이 전체를 감싼다). `UseMetrics()` 한
+   번이 둘을 올바른 순서로 배선한다.
+4. **첫 증분은 좁게.** 축 계약 + Meter 어댑터 + 커넥션·디스패치 데코레이터 + 오버헤드
+   벤치(게이트). 트레이싱(`ActivitySource`)·헬스체크·ZLogger·런타임 로그 레벨·프레임당
+   바이트 카운터(읽기 루프 계측)는 후속 증분 — "Core 인터페이스 → 참조 구현 → 벤치" 규칙.
+
+### 대안과 탈락 이유
+
+| 대안 | 탈락 이유 |
+|---|---|
+| OpenTelemetry SDK 직접 첫 어댑터 | OTLP 익스포터까지 한 번에 가지만 새 패키지 의존 여럿 + 핵심 계측과 익스포트 설정이 한 증분에 섞여 벤치 게이트가 복잡해진다. OTel 이 어차피 `Meter` 를 구독하므로 BCL 을 먼저 깔면 OTel 은 나중에 배선만 |
+| `IMetricsSink` 없이 `Meter` 직접 사용 | 관측은 교체 가능한 축(축 표 "관측")이다. Core 에 BCL 계측 타입을 노출하면 무의존·교체 가능성이 깨진다 |
+| 태그를 `object?` 값으로 | 값 타입 태그가 프레임마다 박싱된다. 문자열 전용 + 스팬 전달로 핫패스 할당 0 |
+| 프레임당 바이트 카운터를 이번에 | 읽기 루프 직접 계측이라 데코레이터로 안 된다 — 코어 로직 오염. 좁은 첫 증분에서 제외, 후속 |
+| 계측을 읽기 루프·핸들러에 직접 | 코어 로직이 관측 코드로 오염된다(레거시가 `Debug.WriteLine` 을 곳곳에 흩뿌린 것과 같은 부류) |
+
+### 결과
+
+- 긍정: `UseMetrics(new MeterMetricsSink())` 한 줄로 `dotnet-counters` 가 즉시 읽는다.
+  OTel·Prometheus 는 나중에 `MeterProvider` 구독 설정만 추가(재계측 없음)
+- 긍정: 관측 없는 조립(`NullMetricsSink` 기본)의 핫패스 비용이 0에 가깝다(벤치로 방어)
+- 부정: 트레이싱·헬스체크·바이트 카운터가 아직 없다 — 후속 증분. Phase 11 은 다증분이다
+- 부정: 데코레이터는 커넥션·디스패치 경계의 신호만 본다. 프레이밍 내부(바이트·프레임
+  드롭)는 읽기 루프 계측이 필요해 다음 증분으로 미뤘다

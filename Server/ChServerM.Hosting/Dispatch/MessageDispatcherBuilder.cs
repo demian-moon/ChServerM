@@ -65,6 +65,22 @@ public sealed class MessageDispatcherBuilder
         return this;
     }
 
+    /// <summary>미들웨어를 파이프라인의 <b>가장 바깥</b>(첫 단계)에 끼운다.</summary>
+    /// <param name="middleware">추가할 미들웨어.</param>
+    /// <remarks>
+    /// 프레임워크가 자동 배선하는 관측 미들웨어(<see cref="MetricsMiddleware"/>)를 사용자
+    /// 미들웨어보다 앞에 두기 위한 내부 훅이다 — 지연 측정이 파이프라인 전체를 감싸야
+    /// 의미가 있다. 순서 게이트(<see cref="EnsureKnownMiddlewareOrder"/>)는 필터·인증·인가
+    /// 사이만 검사하므로 이 앞에 끼우는 미들웨어에 영향받지 않는다.
+    /// </remarks>
+    internal void PrependMiddleware(IServerMiddleware middleware)
+    {
+        ArgumentNullException.ThrowIfNull(middleware);
+
+        _middleware.Insert(0, next => context => middleware.InvokeAsync(context, next));
+        _middlewareInstances.Insert(0, middleware);
+    }
+
     /// <summary>델리게이트 형태의 미들웨어를 추가한다.</summary>
     /// <param name="middleware">다음 단계를 받아 새 단계를 만드는 함수.</param>
     /// <returns>메서드 체이닝을 위한 자기 자신.</returns>

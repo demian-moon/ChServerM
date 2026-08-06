@@ -50,6 +50,9 @@ ChServerM.Hosting.Dispatch.MessageStateFilterOptions.Allow(ChServerM.Identity.Me
 ChServerM.Hosting.Dispatch.MessageStateFilterOptions.InitialStates.get -> uint
 ChServerM.Hosting.Dispatch.MessageStateFilterOptions.InitialStates.set -> void
 ChServerM.Hosting.Dispatch.MessageStateFilterOptions.MessageStateFilterOptions() -> void
+ChServerM.Hosting.Dispatch.MetricsMiddleware
+ChServerM.Hosting.Dispatch.MetricsMiddleware.InvokeAsync(ChServerM.Dispatch.MessageContext! context, ChServerM.Dispatch.MessageDelegate! next) -> System.Threading.Tasks.ValueTask<ChServerM.Dispatch.DispatchStatus>
+ChServerM.Hosting.Dispatch.MetricsMiddleware.MetricsMiddleware(ChServerM.Diagnostics.IMetricsSink! sink, System.TimeProvider? timeProvider = null) -> void
 ChServerM.Hosting.FrameWriter
 ChServerM.Hosting.FramedConnectionHandler
 ChServerM.Hosting.FramedConnectionHandler.FramedConnectionHandler(ChServerM.Framing.IFrameDecoder! decoder, ChServerM.Dispatch.IMessageDispatcher! dispatcher, ChServerM.Hosting.FramedConnectionOptions? options = null, System.TimeProvider? timeProvider = null, ChServerM.Diagnostics.IServerLogger? logger = null, ChServerM.Execution.IExecutionModel? executionModel = null, ChServerM.Compression.IPayloadCodec? payloadCodec = null) -> void
@@ -75,6 +78,7 @@ ChServerM.Hosting.ServerBuilder.UseFraming(ChServerM.Framing.IFrameDecoder! deco
 ChServerM.Hosting.ServerBuilder.UseLogger(ChServerM.Diagnostics.IServerLogger! logger) -> ChServerM.Hosting.ServerBuilder!
 ChServerM.Hosting.ServerBuilder.UseTimeProvider(System.TimeProvider! timeProvider) -> ChServerM.Hosting.ServerBuilder!
 ChServerM.Hosting.ServerBuilder.UseTransport(ChServerM.Transports.IServerTransport! transport) -> ChServerM.Hosting.ServerBuilder!
+ChServerM.Hosting.ServerBuilder.UseMetrics(ChServerM.Diagnostics.IMetricsSink! sink) -> ChServerM.Hosting.ServerBuilder!
 ChServerM.Hosting.ServerBuilder.UseTransportSecurity(ChServerM.Security.ITransportSecurity! security) -> ChServerM.Hosting.ServerBuilder!
 override ChServerM.Hosting.ClientSession.GetHashCode() -> int
 static ChServerM.Hosting.ClientSession.operator !=(ChServerM.Hosting.ClientSession left, ChServerM.Hosting.ClientSession right) -> bool

@@ -6,6 +6,7 @@
     <Project Path="Server/ChServerM.Compression.LZ4/ChServerM.Compression.LZ4.csproj" />
     <Project Path="Server/ChServerM.Concurrency/ChServerM.Concurrency.csproj" />
     <Project Path="Server/ChServerM.Hosting/ChServerM.Hosting.csproj" />
+    <Project Path="Server/ChServerM.Observability/ChServerM.Observability.csproj" />
     <Project Path="Server/ChServerM.Security.AspNetIdentity/ChServerM.Security.AspNetIdentity.csproj" />
     <Project Path="Server/ChServerM.Security.Tls/ChServerM.Security.Tls.csproj" />
     <Project Path="Server/ChServerM.Serialization.FlatBuffers/ChServerM.Serialization.FlatBuffers.csproj" />
@@ -28,6 +29,7 @@
     <Project Path="Tests/ChServerM.Core.Tests/ChServerM.Core.Tests.csproj" />
     <Project Path="Tests/ChServerM.Framing.Tests/ChServerM.Framing.Tests.csproj" />
     <Project Path="Tests/ChServerM.Integration.Tests/ChServerM.Integration.Tests.csproj" />
+    <Project Path="Tests/ChServerM.Observability.Tests/ChServerM.Observability.Tests.csproj" />
     <Project Path="Tests/ChServerM.Security.AspNetIdentity.Tests/ChServerM.Security.AspNetIdentity.Tests.csproj" />
     <Project Path="Tests/ChServerM.Security.Tls.Tests/ChServerM.Security.Tls.Tests.csproj" />
     <Project Path="Tests/ChServerM.Serialization.FlatBuffers.Tests/ChServerM.Serialization.FlatBuffers.Tests.csproj" />
