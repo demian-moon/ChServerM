@@ -309,9 +309,9 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 ## Phase 10 — 복원력 & 과부하 제어
 
 - [ ] `IRateLimiter` 구현 — IP별 / 세션별 / 메시지 타입별. `System.Threading.RateLimiting` 활용
-- [ ] `IAdmissionControl` — 과부하 시 신규 연결 거부. **거부가 붕괴보다 낫다**
-- [ ] 리소스 상한 — 최대 커넥션 수, 커넥션당 메모리 상한, 전체 메모리 워터마크
-- [ ] 연결 폭주 방어 — accept 큐 관리, SYN 폭주 대응, 핸드셰이크 타임아웃
+- [x] `IAdmissionControl` — 과부하 시 신규 연결 거부. **거부가 붕괴보다 낫다** (2026-08-06 완료 `f8bbf5b`+`1faca86`, ADR-0021: `IAdmissionControl`(Core, `TryAdmit(EndPoint?)`) + 전송 옵션 주입 + 첫 구현 `ConnectionRateAdmissionControl`(신규 연결 토큰 버킷 — 정적 상한 안의 연결 폭주 방어, T-16) + `CompositeAdmissionControl`(AND·단락). 거부는 전송이 `ConnectionsRejected` 메트릭으로 방출(사유 태그). 종단 11종. IP별·워터마크는 후속 구현)
+- [ ] 리소스 상한 — 최대 커넥션 수, 커넥션당 메모리 상한, 전체 메모리 워터마크 (진행 중: 최대 커넥션 수(정적 `MaxConnections`)·커넥션당 메모리(Phase 5 실측 ~8KB)는 있음. 전체 메모리 워터마크 기반 수용 거부는 `IAdmissionControl` 후속 구현)
+- [ ] 연결 폭주 방어 — accept 큐 관리, SYN 폭주 대응, 핸드셰이크 타임아웃 (진행 중: SYN·재접속 폭주는 `ConnectionRateAdmissionControl`(2026-08-06)이 신규 연결 속도 제한으로 방어. 핸드셰이크 타임아웃은 버전 협상·TLS 에 있음. accept 큐(backlog) 튜닝은 후속)
 - [ ] 서킷 브레이커 / 재시도 미들웨어 — 외부 의존(DB/Redis) 장애 격리
 - [ ] Bulkhead — 한 기능의 장애가 전체를 마비시키지 않게 격리
 - [ ] 우아한 열화(graceful degradation) — 부하 시 비필수 기능 차단 순서 정의

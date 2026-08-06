@@ -1,8 +1,8 @@
 # ChServerM — 현재 상태
 
-**최종 갱신**: 2026-08-06 (8차)
-**현재 단계**: **Part III — Phase 11 관측 진행 중** (메트릭 축 첫 증분 ✅ · 오버헤드 게이트 충족). Phase 9 보안 ✅ 완료
-**진행률**: 98/222 항목 (Phase 0 `13/17` · 1 `15/21` · 2 `7/11` · 3 `4/6` · 4 `10/10` · 5 `12/12` · 6 `7/7` · 7 `5/7` · 8 `8/16` · 9 `13/13` · 11 `4/9`)
+**최종 갱신**: 2026-08-06 (9차)
+**현재 단계**: **Part III — Phase 10 복원력 진행 중** (수용 제어 축 첫 증분 ✅). Phase 9 보안 ✅ / Phase 11 관측 메트릭 축 ✅(게이트 충족)
+**진행률**: 99/222 항목 (Phase 0 `13/17` · 1 `15/21` · 2 `7/11` · 3 `4/6` · 4 `10/10` · 5 `12/12` · 6 `7/7` · 7 `5/7` · 8 `8/16` · 9 `13/13` · 10 `1/10` · 11 `4/9`)
 
 ## 완료된 것
 
@@ -17,23 +17,31 @@
   + `MeterMetricsSink`(BCL `System.Diagnostics.Metrics` — dotnet-counters 즉시, OTel 은 Meter
   구독으로). `UseMetrics()` 한 줄이 커넥션 생명주기·디스패치 지연·처리량·실패를 데코레이터로
   배선. **오버헤드 게이트 충족**: 켠 ~72ns/프레임·**할당 0**, 끈(NullMetricsSink) 6ns
-- 테스트 **611개** 통과, 전체 게이트(-WarnAsError 클린 빌드·audit·AOT publish+실행) 통과
+- **Phase 10 복원력 — 수용 제어 축 첫 증분 ✅ (2026-08-06 9차, ADR-0021)** — `IAdmissionControl`
+  (Core) + `ConnectionRateAdmissionControl`(신규 연결 토큰 버킷 — 정적 상한 안의 연결 폭주
+  방어, T-14·16) + `CompositeAdmissionControl`(AND). 전송 옵션 주입, 거부는 전송이
+  `ConnectionsRejected` 메트릭으로 방출(Phase 11 토대 활용)
+- 테스트 **634개** 통과, 전체 게이트(-WarnAsError 클린 빌드·audit·AOT publish+실행) 통과
 
 ## 진행 중
 
-- **Phase 11 후속(게이트 조건 아님)** — 분산 트레이싱(`ActivitySource`, 이름 계약은 있음) /
-  프레임당 바이트·파티션 큐 깊이·풀 사용률 카운터(읽기 루프/파티션 계측) / ZLogger 어댑터 /
-  헬스체크·라이브 진단 엔드포인트 / 런타임 로그 레벨 변경
-- **후속 최적화 후보** — 디스패치 데코레이터 async 래퍼가 계측 자체보다 비싸다(Null 싱크
+- **Phase 10 후속** — `IRateLimiter`(메시지 수준, RateLimiting+ADR, `RateLimitExceeded`
+  6003 생산) / 백프레셔 생산 배선(`RejectedByBackpressure`) / 서킷 브레이커·Bulkhead /
+  IP별·워터마크 수용 제어 / **24h soak 하네스**(게이트 후반부 "메모리 평탄")
+- **Phase 11 후속** — 분산 트레이싱(`ActivitySource`) / 프레임당 바이트·큐 깊이·풀 카운터 /
+  ZLogger / 헬스체크 엔드포인트 / 런타임 로그 레벨
+- **후속 최적화 후보** — 디스패치 데코레이터 async 래퍼가 계측보다 비싸다(Null 싱크
   6→43ns). `next` 동기 완료 시 async 회피 fast-path — 트레이싱 증분에서 함께 판단
 
 ## 다음 (우선순위 순)
 
-1. **Phase 10 복원력 착수** (추천) — 관측 토대가 생겼으니 과부하 거부·soak 를 측정
-   가능하게 만들 수 있다. `IRateLimiter`·`IAdmissionControl`(과부하 시 신규 연결 거부,
-   "거부가 붕괴보다 낫다") + 서킷 브레이커·Bulkhead + 24h soak. 게이트: 과부하에서
-   거부하며 생존 + 24h 메모리 평탄. 설계 제시 → 승인 → 구현
-2. (대안) **Phase 11 후속 증분** — 트레이싱·헬스체크·바이트/큐/풀 카운터를 더 쌓는다
+1. **Phase 10 후속 증분** — 셋 중 사용자와 함께 순서 결정:
+   (a) `IRateLimiter`(메시지 수준 속도 제한, RateLimiting+ADR, 6003 생산) —
+   수용 제어(연결 수준)와 짝을 이루는 메시지 수준 방어
+   (b) 백프레셔 생산 배선(`RejectedByBackpressure` — 정의만 있고 미배선)
+   (c) **24h soak 하네스** — 게이트 후반부("메모리 평탄"). Phase 11 메트릭 활용,
+   장시간 실행 도구·CI 고려
+2. (대안) **Phase 11 후속** — 트레이싱·헬스체크·바이트/큐/풀 카운터
 3. (대안) **Part II 잔여** — Phase 7(누락 핸들러 검출) / Phase 8(코어 제한 재측정)
 
 ## 블로커 / 열린 결정
@@ -50,10 +58,14 @@
   복원력을 만들 뻔했다. 게이트 조건을 읽고 로드맵 의존 순서를 뒤집는 판단
 - **데코레이터 async 래퍼가 계측보다 비싸다** — Null 싱크에서도 6→43ns. 인터페이스 가상
   호출 + async 상태 머신. 트레이싱 증분에서도 재등장할 비용
-- **이름 계약을 미리 깔아둔 값** — 2026-08-04 메트릭 이름 정비 덕에 이번 증분은 축 계약과
-  배선만. 오타 하나가 대시보드 계약을 깨는 것을 막음
-- **PowerShell 5.1 은 heredoc(`<<`)이 없다** — 여러 줄 커밋은 `git commit -F <파일>`
-  (또 밟았다). UTF-8 파일 내용 수정은 Edit/Write 로만
+- **이름 계약을 미리 깔아둔 값** — 2026-08-04 메트릭 이름 정비 덕에 관측·수용 제어 증분이
+  축 계약과 배선만으로 끝났다. 오타 하나가 대시보드 계약을 깨는 것을 막음
+- **저빈도 경로는 락이 옳다** — 9.1 락 금지는 핫패스(프레임당) 대상. 커넥션당 1회 토큰
+  버킷은 락이 CAS 재시도보다 명백히 정확·가독. 규칙을 맥락 없이 적용하지 않는다
+- **raw `dotnet build -warnaserror` 는 게이트보다 엄격** — CA5398(Tls13 하드코드)이 raw
+  에선 에러, `eng/build.ps1`·plain build 에선 editorconfig 로 억제됨. 게이트가 authority
+- **PowerShell 5.1 은 heredoc(`<<`)이 없다** — 여러 줄 커밋은 `git commit -F <파일>`.
+  UTF-8 파일 내용 수정은 Edit/Write 로만
 
 ## 작업 방식
 
@@ -83,9 +95,9 @@ powershell -File eng/build.ps1 -Configuration Release -WarnAsError
 ## 참조
 
 - 계획: `docs/ROADMAP.md` / 설계 결정: `docs/DECISIONS.md`
-  (ADR-0000·0001·0002·0004~0020 채택 / 0003 폐기 — 미결 ADR 없음)
-- 위협 모델: `docs/THREAT-MODEL.md` (T-04·05·06·08~22 대부분 ✅)
+  (ADR-0000·0001·0002·0004~0021 채택 / 0003 폐기 — 미결 ADR 없음)
+- 위협 모델: `docs/THREAT-MODEL.md` (T-04·05·06·08~22 대부분 ✅ — T-14·16 도 2026-08-06)
 - 진단 규칙: `docs/DIAGNOSTICS.md` / 메트릭 이름: `DiagnosticNames`/`MetricNames`/`TagNames`
 - 성능 수치: `docs/BENCHMARKS.md` (ENV-A: 9900X 12/24 · ENV-B: 7945HX 16/32)
-- 상세 이력: `docs/standup/history/` (최근: `2026-08-06.md` 1~8차)
+- 상세 이력: `docs/standup/history/` (최근: `2026-08-06.md` 1~9차)
 - 레거시 분석: `docs/legacy/00-overview.md`
