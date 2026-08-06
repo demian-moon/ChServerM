@@ -299,7 +299,7 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 - [x] **상태별 패킷 화이트리스트** — 인증 전에 인증 후 패킷을 받지 않는다. 레거시 `AllowedPacketM` 승계 (2026-08-05 완료 `1b3fc20`: `IConnectionStateFeature`(Core, 상태 비트마스크 — 의미는 앱 정의, ADR-0004) + `MessageStateFilterMiddleware`(FrozenDictionary + 비트 AND, **기본 거부는 옵션이 아님** — 레거시 `AllowedPkState` 기본 전부 허용 결함의 역). 거부 = 커넥션 종료(4001) + 경고 로그. 게이트 테스트: 인증 전 특권 메시지 = 응답 없이 종료(InMemory/TCP 2전송) 포함 +10)
 - [x] `IAuthenticator` 구현 — 토큰 검증. 레거시 `BasicLibM/AuthM` 판정 필요 (2026-08-06 완료 `aff7942`+`9a7297d`+`f47967b`: 미들웨어 방식 — 실패 = `next` 미호출 + **옵션 무관** 6000 종료(전용 `RejectedByAuthentication`, T-20 구조 봉쇄), 성공 = `GrantedStates` 상태 대체 전이(T-19 필터와 한 몸, 별도 "인증됨" 플래그 없음). 조립 순서(필터→인증) 위반은 `Build()` 예외. `ITokenReplayGuard` + 유계·TTL 인메모리 구현(T-05, 검증→클레임 순서 계약). `AuthM` 판정 이행: `PasswordHasher` 위임 어댑터 `ChServerM.Security.AspNetIdentity`(ADR-0018, 레거시 해시 형식 호환·결함 4종 역해소). 종단 16종·2전송 + 해셔 7종)
 - [x] 인가 미들웨어 — 메시지별 권한 검사 (2026-08-06 완료 `792ea9c`+`83a8d76`: 2단 구조 — 메시지 수준은 T-19 필터+`GrantedStates` 기본 거부가 담당, 자원 수준(페이로드 의존 소유자 검사·동적 정책)은 `AuthorizationMiddleware` 보호 목록+`IAuthorizationPolicy`. 거부 = 6001+`CloseOnPolicyRejection` 옵션(인증과 의도적 비대칭). 조립 순서 필터→인증→인가 `Build()` 검증. 종단 11종·2전송)
-- [ ] 시크릿 관리 — 설정 파일에 키를 두지 않는다. 환경변수/시크릿 저장소
+- [x] 시크릿 관리 — 설정 파일에 키를 두지 않는다. 환경변수/시크릿 저장소 (2026-08-06 완료 `3225133`+`6e22fcd`: `ISecretSource`(Core — 미래 KeyVault류 어댑터의 의존 방향) + `EnvironmentSecretSource`(12-factor)/`DirectorySecretSource`(k8s 마운트, 캐시 없음 = 회전 즉시, 경로 탈출 방어). **빈 값 = 부재**(빈 암호로 조용히 진행 금지). 가짜 메모리 보안 타입은 만들지 않음(SecureString류 = 가짜 체크섬의 재판 — T-10 현실 완화는 문서 계약). 레거시 하드코딩 자격증명(`ServerGlobals.cs:103`) 판정: 커밋 시점에 유출 간주, 재사용됐다면 폐기·교체 권고 — 레거시 트리는 참조 전용이라 코드 불변)
 - [ ] 입력 검증 — 모든 페이로드 필드 범위 검사. 퍼징 확대
 - [ ] `/security-review` 실행 + 결과 반영
 
