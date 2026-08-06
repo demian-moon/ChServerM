@@ -86,3 +86,19 @@ static ChServerM.Hosting.FrameWriter.WriteFrameAsync(this ChServerM.Connections.
 ChServerM.Hosting.FramedConnectionOptions.MaxAssembledMessageLength.get -> int
 ChServerM.Hosting.FramedConnectionOptions.MaxAssembledMessageLength.set -> void
 static ChServerM.Hosting.FrameWriter.WriteFragmentedFrameAsync(System.IO.Pipelines.PipeWriter! writer, ChServerM.Framing.IFrameEncoder! encoder, ChServerM.Identity.MessageId messageId, System.ReadOnlyMemory<byte> payload, int maxFragmentPayloadLength, ChServerM.Framing.FrameFlags flags, uint sequence, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.IO.Pipelines.FlushResult>
+ChServerM.Hosting.ClientBuilder.UseVersionNegotiation(ChServerM.Hosting.VersionNegotiationOptions! options) -> ChServerM.Hosting.ClientBuilder!
+ChServerM.Hosting.ServerBuilder.UseVersionNegotiation(ChServerM.Hosting.VersionNegotiationOptions! options) -> ChServerM.Hosting.ServerBuilder!
+ChServerM.Hosting.VersionNegotiationException
+ChServerM.Hosting.VersionNegotiationException.ServerSupportedVersions.get -> ChServerM.Handshake.ProtocolVersionRange?
+ChServerM.Hosting.VersionNegotiationException.VersionNegotiationException() -> void
+ChServerM.Hosting.VersionNegotiationException.VersionNegotiationException(string! message) -> void
+ChServerM.Hosting.VersionNegotiationException.VersionNegotiationException(string! message, ChServerM.Handshake.ProtocolVersionRange serverSupportedVersions) -> void
+ChServerM.Hosting.VersionNegotiationException.VersionNegotiationException(string! message, System.Exception! innerException) -> void
+ChServerM.Hosting.VersionNegotiationOptions
+ChServerM.Hosting.VersionNegotiationOptions.HandshakeTimeout.get -> System.TimeSpan
+ChServerM.Hosting.VersionNegotiationOptions.HandshakeTimeout.set -> void
+ChServerM.Hosting.VersionNegotiationOptions.SupportedVersions.get -> ChServerM.Handshake.ProtocolVersionRange
+ChServerM.Hosting.VersionNegotiationOptions.SupportedVersions.set -> void
+ChServerM.Hosting.VersionNegotiationOptions.Validate() -> void
+ChServerM.Hosting.VersionNegotiationOptions.VersionNegotiationOptions() -> void
+static readonly ChServerM.Hosting.VersionNegotiationOptions.DefaultHandshakeTimeout -> System.TimeSpan

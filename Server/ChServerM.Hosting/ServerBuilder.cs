@@ -43,6 +43,7 @@ public sealed class ServerBuilder
     private IFrameEncoder? _encoder;
     private IExecutionModel? _executionModel;
     private ITransportSecurity? _transportSecurity;
+    private VersionNegotiationOptions? _versionNegotiation;
     private IServerLogger _logger = NullServerLogger.Instance;
     private TimeProvider _timeProvider = TimeProvider.System;
 
@@ -90,6 +91,30 @@ public sealed class ServerBuilder
     {
         ArgumentNullException.ThrowIfNull(security);
         _transportSecurity = security;
+        return this;
+    }
+
+    /// <summary>버전 협상 핸드셰이크를 켠다 (ADR-0017 결정 3).</summary>
+    /// <param name="options">협상 설정 — 지원 버전 구간과 제한 시간.</param>
+    /// <returns>메서드 체이닝을 위한 자기 자신.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="options"/>가 <see langword="null"/>일 때.</exception>
+    /// <remarks>
+    /// <para>
+    /// 커넥션의 첫 왕복이 <c>ClientHello[Min,Max]</c> → <c>ServerHello</c>(교집합 최고 버전
+    /// 확정) 또는 <c>ConnectionRejected</c>(지원 구간 포함) 후 종료가 된다. 보안 축이 있으면
+    /// 협상은 그 채널 <b>안</b>에서 일어난다 — 순서는 조립이 강제하므로 호출자가 틀릴 수
+    /// 없다. 지정하지 않으면 협상 없이 바로 프레이밍이 시작된다(기존 동작).
+    /// </para>
+    /// <para>
+    /// 클라이언트도 <see cref="ClientBuilder.UseVersionNegotiation"/> 으로 짝을 맞춰야 한다 —
+    /// 서버만 켜면 클라이언트의 첫 앱 프레임이 <c>ClientHello</c> 형식 위반으로 거부된다.
+    /// </para>
+    /// <para>협상 결과는 커넥션의 <see cref="ChServerM.Features.IProtocolVersionFeature"/> 로 조회한다.</para>
+    /// </remarks>
+    public ServerBuilder UseVersionNegotiation(VersionNegotiationOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        _versionNegotiation = options;
         return this;
     }
 
@@ -180,7 +205,15 @@ public sealed class ServerBuilder
         IConnectionHandler handler = new FramedConnectionHandler(
             decoder, _dispatcher.Build(), _connectionOptions, _timeProvider, _logger, _executionModel);
 
+        // 버전 협상이 있으면 프레이밍 전에 1왕복 핸드셰이크가 끼어든다(ADR-0017 결정 3).
+        if (_versionNegotiation is not null)
+        {
+            _versionNegotiation.Validate();
+            handler = new VersionNegotiatingConnectionHandler(_versionNegotiation, handler, _timeProvider, _logger);
+        }
+
         // 보안 축이 있으면 수락 직후·프레이밍 전에 핸드셰이크가 끼어든다(ADR-0017).
+        // 협상보다 바깥에 감싼다 — 협상은 보안 채널 안에서 일어나야 R-4 가 충족된다.
         if (_transportSecurity is not null)
         {
             handler = new SecuredConnectionHandler(_transportSecurity, handler, _logger);

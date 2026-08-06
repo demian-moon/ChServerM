@@ -1,11 +1,15 @@
 using System;
+using System.Buffers;
+using System.IO.Pipelines;
 using System.Net;
 using System.Security.Authentication;
 using System.Threading;
 using System.Threading.Tasks;
 using ChServerM.Connections;
 using ChServerM.Diagnostics;
+using ChServerM.Features;
 using ChServerM.Framing;
+using ChServerM.Handshake;
 using ChServerM.Hosting.Dispatch;
 using ChServerM.Security;
 using ChServerM.Transports;
@@ -37,6 +41,7 @@ public sealed class ClientBuilder
     private IFrameDecoder? _decoder;
     private IFrameEncoder? _encoder;
     private ITransportSecurity? _transportSecurity;
+    private VersionNegotiationOptions? _versionNegotiation;
     private IServerLogger _logger = NullServerLogger.Instance;
     private TimeProvider _timeProvider = TimeProvider.System;
 
@@ -78,6 +83,29 @@ public sealed class ClientBuilder
     {
         ArgumentNullException.ThrowIfNull(security);
         _transportSecurity = security;
+        return this;
+    }
+
+    /// <summary>버전 협상 핸드셰이크를 켠다 (ADR-0017 결정 3).</summary>
+    /// <param name="options">협상 설정 — 지원 버전 구간과 제한 시간.</param>
+    /// <returns>메서드 체이닝을 위한 자기 자신.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="options"/>가 <see langword="null"/>일 때.</exception>
+    /// <remarks>
+    /// <para>
+    /// <see cref="ChServerMClient.ConnectAsync"/> 가 연결(보안 축이 있으면 그 핸드셰이크까지)
+    /// 직후·프레이밍 시작 전에 <c>ClientHello</c> 를 보내고 서버의 확정/거부를 기다린다.
+    /// 거부되면 <see cref="VersionNegotiationException"/> 이 던져지고, 그 안에 서버의 지원
+    /// 구간이 실려 있다 — "클라이언트 업데이트 필요"를 사용자에게 알릴 근거다(R-3).
+    /// </para>
+    /// <para>
+    /// 서버도 <see cref="ServerBuilder.UseVersionNegotiation"/> 으로 짝을 맞춰야 한다 —
+    /// 클라이언트만 켜면 서버는 <c>ClientHello</c> 를 앱 프레임으로 해석한다.
+    /// </para>
+    /// </remarks>
+    public ClientBuilder UseVersionNegotiation(VersionNegotiationOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        _versionNegotiation = options;
         return this;
     }
 
@@ -135,13 +163,14 @@ public sealed class ClientBuilder
                 $"프레이밍이 지정되지 않았다. {nameof(UseFraming)} 를 호출한다.");
 
         _connectionOptions.Validate();
+        _versionNegotiation?.Validate();
 
         CompositionGuard.EnsureFrameFitsInTransportBuffer(transport, decoder, encoder);
 
         FramedConnectionHandler handler = new(
             decoder, _dispatcher.Build(), _connectionOptions, _timeProvider, _logger);
 
-        return new ChServerMClient(transport, handler, encoder, _transportSecurity);
+        return new ChServerMClient(transport, handler, encoder, _transportSecurity, _versionNegotiation, _timeProvider);
     }
 }
 
@@ -158,17 +187,23 @@ public sealed class ChServerMClient : IAsyncDisposable
     private readonly IClientTransport _transport;
     private readonly IConnectionHandler _handler;
     private readonly ITransportSecurity? _security;
+    private readonly VersionNegotiationOptions? _negotiation;
+    private readonly TimeProvider _timeProvider;
     private int _disposed;
 
     internal ChServerMClient(
         IClientTransport transport,
         IConnectionHandler handler,
         IFrameEncoder encoder,
-        ITransportSecurity? security)
+        ITransportSecurity? security,
+        VersionNegotiationOptions? negotiation,
+        TimeProvider timeProvider)
     {
         _transport = transport;
         _handler = handler;
         _security = security;
+        _negotiation = negotiation;
+        _timeProvider = timeProvider;
         Encoder = encoder;
     }
 
@@ -190,6 +225,7 @@ public sealed class ChServerMClient : IAsyncDisposable
     /// </para>
     /// </remarks>
     /// <exception cref="AuthenticationException">보안 핸드셰이크가 실패했을 때.</exception>
+    /// <exception cref="VersionNegotiationException">버전 협상이 거부·실패했을 때.</exception>
     public async ValueTask<ClientSession> ConnectAsync(
         EndPoint endPoint,
         CancellationToken cancellationToken = default)
@@ -201,6 +237,12 @@ public sealed class ChServerMClient : IAsyncDisposable
         if (_security is not null)
         {
             connection = await SecureAsync(connection, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (_negotiation is not null)
+        {
+            // 협상은 보안 채널 확립 후·프레이밍 시작 전이다(ADR-0017 결정 3).
+            await NegotiateAsync(connection, cancellationToken).ConfigureAwait(false);
         }
 
         return new ClientSession(connection, _handler.RunAsync(connection));
@@ -233,6 +275,110 @@ public sealed class ChServerMClient : IAsyncDisposable
         }
 
         return new SecuredConnection(connection, result.Channel!);
+    }
+
+    /// <summary>클라이언트 측 버전 협상 1왕복을 수행한다.</summary>
+    /// <remarks>
+    /// <para>
+    /// <c>ClientHello</c> 는 <see cref="VersionHandshakeCodec"/> 의 동결 레이아웃으로 파이프에
+    /// 직접 쓴다 — 프레이밍 축을 타지 않는다(R-2). 성공하면 정확히 응답 바이트까지만
+    /// 소비하므로, 서버가 확정 직후 보낸 프레임은 읽기 루프의 첫 읽기로 넘어간다.
+    /// </para>
+    /// <para>
+    /// 실패는 전부 커넥션 정리 후 예외다 — 연결 수립은 호출자 대면 경로라
+    /// <see cref="SecureAsync"/> 와 같은 원칙을 따른다(취소만 <see cref="OperationCanceledException"/>).
+    /// </para>
+    /// </remarks>
+    private async ValueTask NegotiateAsync(IConnection connection, CancellationToken cancellationToken)
+    {
+        VersionNegotiationOptions negotiation = _negotiation!;
+
+        // 제한 시간은 CTS 가 센다 — 응답 없는 서버에 매달리지 않는다.
+        using CancellationTokenSource timeoutCts = new(negotiation.HandshakeTimeout, _timeProvider);
+        using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(
+            connection.ConnectionClosed, cancellationToken, timeoutCts.Token);
+
+        try
+        {
+            PipeWriter output = connection.Output;
+            Span<byte> hello = output.GetSpan(VersionHandshakeCodec.ClientHelloFrameSize);
+            VersionHandshakeCodec.WriteClientHello(hello, negotiation.SupportedVersions);
+            output.Advance(VersionHandshakeCodec.ClientHelloFrameSize);
+
+            FlushResult flush = await output.FlushAsync(linked.Token).ConfigureAwait(false);
+            if (flush.IsCanceled || flush.IsCompleted)
+            {
+                throw new VersionNegotiationException("서버가 버전 협상 중 연결을 닫았다.");
+            }
+
+            PipeReader input = connection.Input;
+            while (true)
+            {
+                ReadResult read = await input.ReadAsync(linked.Token).ConfigureAwait(false);
+                if (read.IsCanceled)
+                {
+                    throw new VersionNegotiationException("버전 협상 읽기가 중단됐다.");
+                }
+
+                ReadOnlySequence<byte> buffer = read.Buffer;
+                VersionHandshakeStatus status =
+                    VersionHandshakeCodec.TryReadServerResponse(buffer, out VersionHandshakeResponse response);
+
+                if (status == VersionHandshakeStatus.Success)
+                {
+                    // 정확히 응답 바이트까지만 소비한다 — 뒤는 프레이밍의 몫이다.
+                    SequencePosition consumed = buffer.GetPosition(response.FrameSize);
+                    input.AdvanceTo(consumed, consumed);
+
+                    if (!response.IsAccepted)
+                    {
+                        throw new VersionNegotiationException(
+                            $"서버가 버전을 거부했다. 서버 지원 {response.ServerSupported}, " +
+                            $"클라이언트 지원 {negotiation.SupportedVersions}. 클라이언트 업데이트가 필요할 수 있다.",
+                            response.ServerSupported);
+                    }
+
+                    connection.Features.Set<IProtocolVersionFeature>(
+                        new NegotiatedVersionFeature(response.SelectedVersion));
+                    return;
+                }
+
+                if (status == VersionHandshakeStatus.Malformed)
+                {
+                    input.AdvanceTo(buffer.Start, buffer.End);
+                    throw new VersionNegotiationException(
+                        "버전 협상 응답을 해석할 수 없다. 서버가 협상을 조립하지 않았거나 다른 사유로 거부했다.");
+                }
+
+                // NeedMoreData — examined 를 끝으로 둬야 파이프가 더 읽는다.
+                input.AdvanceTo(buffer.Start, buffer.End);
+
+                if (read.IsCompleted)
+                {
+                    throw new VersionNegotiationException("서버가 버전 협상 응답 없이 연결을 닫았다.");
+                }
+            }
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // 호출자 취소가 아니다 — 제한 시간 초과 또는 커넥션 종료다.
+            await connection.DisposeAsync().ConfigureAwait(false);
+            throw new VersionNegotiationException(
+                timeoutCts.IsCancellationRequested
+                    ? $"버전 협상이 제한 시간({negotiation.HandshakeTimeout})을 넘겼다."
+                    : "버전 협상 중 연결이 닫혔다.");
+        }
+        catch (OperationCanceledException)
+        {
+            await connection.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
+        catch (VersionNegotiationException)
+        {
+            // 실패한 커넥션을 반드시 정리한다 — 남겨두면 소켓이 샌다(SecureAsync 와 동일).
+            await connection.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
     }
 
     /// <inheritdoc />
