@@ -55,4 +55,14 @@ public enum DispatchStatus : byte
     /// 인가(6001)가 구분된다(T-07).
     /// </remarks>
     RejectedByAuthentication = 8,
+
+    /// <summary>속도 제한에 걸렸다. <b>커넥션은 닫지 않는다</b>(기본) — 일시적 제한이다.</summary>
+    /// <remarks>
+    /// <see cref="RejectedByPolicy"/>(6001, 인가)와 구분하는 이유: 속도 제한은
+    /// <c>RateLimitExceeded</c>(6003)로 관측돼야 인가 실패와 대시보드에서 갈린다. 그리고
+    /// 속도 제한은 <b>일시적</b>이라 커넥션을 끊으면 정상 사용자가 재접속 폭풍을 만든다
+    /// (<c>FramedConnectionOptions</c> 의 정책 거부 무-종료 근거와 같다). 그래서 이 상태는
+    /// 옵션 무관하게 커넥션을 닫지 않고 그 프레임만 버린다 — 클라이언트는 스스로 늦춘다.
+    /// </remarks>
+    RejectedByRateLimit = 9,
 }

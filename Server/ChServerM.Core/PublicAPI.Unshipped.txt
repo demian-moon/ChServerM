@@ -427,6 +427,7 @@ ChServerM.Diagnostics.NullMetricsSink.AdjustGauge(string! name, long delta, Syst
 ChServerM.Diagnostics.NullMetricsSink.Count(string! name, long delta, System.ReadOnlySpan<ChServerM.Diagnostics.MetricTag> tags) -> void
 ChServerM.Diagnostics.NullMetricsSink.Record(string! name, double value, System.ReadOnlySpan<ChServerM.Diagnostics.MetricTag> tags) -> void
 ChServerM.Dispatch.DispatchStatus.RejectedByAuthentication = 8 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.DispatchStatus.RejectedByRateLimit = 9 -> ChServerM.Dispatch.DispatchStatus
 ChServerM.Resilience.AdmissionDecision
 ChServerM.Resilience.AdmissionDecision.AdmissionDecision() -> void
 ChServerM.Resilience.AdmissionDecision.Equals(ChServerM.Resilience.AdmissionDecision other) -> bool
@@ -434,6 +435,8 @@ ChServerM.Resilience.AdmissionDecision.IsAdmitted.get -> bool
 ChServerM.Resilience.AdmissionDecision.RejectionReason.get -> string?
 ChServerM.Resilience.IAdmissionControl
 ChServerM.Resilience.IAdmissionControl.TryAdmit(System.Net.EndPoint? remoteEndPoint) -> ChServerM.Resilience.AdmissionDecision
+ChServerM.Resilience.IRateLimiter
+ChServerM.Resilience.IRateLimiter.TryAcquire(ChServerM.Dispatch.MessageContext! context) -> bool
 override ChServerM.Resilience.AdmissionDecision.Equals(object? obj) -> bool
 override ChServerM.Resilience.AdmissionDecision.GetHashCode() -> int
 static ChServerM.Resilience.AdmissionDecision.Admit() -> ChServerM.Resilience.AdmissionDecision
