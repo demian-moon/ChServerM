@@ -2,6 +2,7 @@ using System;
 using System.Buffers;
 using System.IO.Pipelines;
 using System.Net;
+using ChServerM.Compression;
 using System.Security.Authentication;
 using System.Threading;
 using System.Threading.Tasks;
@@ -42,6 +43,7 @@ public sealed class ClientBuilder
     private IFrameEncoder? _encoder;
     private ITransportSecurity? _transportSecurity;
     private VersionNegotiationOptions? _versionNegotiation;
+    private IPayloadCodec? _payloadCodec;
     private IServerLogger _logger = NullServerLogger.Instance;
     private TimeProvider _timeProvider = TimeProvider.System;
 
@@ -83,6 +85,18 @@ public sealed class ClientBuilder
     {
         ArgumentNullException.ThrowIfNull(security);
         _transportSecurity = security;
+        return this;
+    }
+
+    /// <summary>압축 축을 지정한다 (ADR-0019).</summary>
+    /// <param name="codec">압축 코덱. 서버와 같은 구현이어야 한다 — 알고리즘은 와이어에
+    /// 실리지 않는 조립 수준 합의다. 불일치 = 해제 실패 = 종료.</param>
+    /// <returns>메서드 체이닝을 위한 자기 자신.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="codec"/>이 <see langword="null"/>일 때.</exception>
+    public ClientBuilder UsePayloadCodec(IPayloadCodec codec)
+    {
+        ArgumentNullException.ThrowIfNull(codec);
+        _payloadCodec = codec;
         return this;
     }
 
@@ -168,7 +182,8 @@ public sealed class ClientBuilder
         CompositionGuard.EnsureFrameFitsInTransportBuffer(transport, decoder, encoder);
 
         FramedConnectionHandler handler = new(
-            decoder, _dispatcher.Build(), _connectionOptions, _timeProvider, _logger);
+            decoder, _dispatcher.Build(), _connectionOptions, _timeProvider, _logger,
+            payloadCodec: _payloadCodec);
 
         return new ChServerMClient(transport, handler, encoder, _transportSecurity, _versionNegotiation, _timeProvider);
     }

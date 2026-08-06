@@ -3,6 +3,7 @@ using System.Buffers;
 using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
+using ChServerM.Compression;
 using ChServerM.Connections;
 using ChServerM.Diagnostics;
 using ChServerM.Dispatch;
@@ -57,6 +58,7 @@ public sealed class FramedConnectionHandler : IConnectionHandler
     private static readonly EventId ProtocolErrorEvent = new(2000, "ProtocolError");
     private static readonly EventId TruncatedFrameEvent = new(2001, "TruncatedFrame");
     private static readonly EventId FragmentViolationEvent = new(2002, "FragmentViolation");
+    private static readonly EventId CompressionViolationEvent = new(2003, "CompressionViolation");
     private static readonly EventId DispatchRejectedEvent = new(4003, "DispatchRejected");
 
     private readonly IFrameDecoder _decoder;
@@ -64,11 +66,13 @@ public sealed class FramedConnectionHandler : IConnectionHandler
     private readonly TimeProvider _timeProvider;
     private readonly IServerLogger _logger;
     private readonly IExecutionModel? _executionModel;
+    private readonly IPayloadCodec? _payloadCodec;
     private readonly bool _closeOnHandlerNotFound;
     private readonly bool _closeOnDeserializationFailure;
     private readonly bool _closeOnPolicyRejection;
     private readonly bool _closeOnHandlerFault;
     private readonly int _maxAssembledMessageLength;
+    private readonly int _maxDecompressedMessageLength;
 
     /// <summary>읽기 루프를 만든다.</summary>
     /// <param name="decoder">프레임 디코더.</param>
@@ -80,6 +84,11 @@ public sealed class FramedConnectionHandler : IConnectionHandler
     /// 실행 모델. 주어지면 프레임 디스패치가 커넥션의 파티션 배타 구간에서 실행된다
     /// (ADR-0008). <see langword="null"/>이면 호출 스레드에서 그대로 디스패치한다.
     /// </param>
+    /// <param name="payloadCodec">
+    /// 압축 축. 주어지면 <see cref="FrameFlags.Compressed"/> 프레임을 (조각이면 재조립 후)
+    /// 해제해 디스패치한다. <see langword="null"/>인데 압축 프레임이 오면 커넥션을 닫는다 —
+    /// 압축된 바이트가 조용히 핸들러에 전달되는 것이 정확히 레거시형 조용한 실패다.
+    /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="decoder"/> 또는 <paramref name="dispatcher"/>가 <see langword="null"/>일 때.</exception>
     /// <exception cref="InvalidOperationException">옵션이 유효하지 않을 때.</exception>
     public FramedConnectionHandler(
@@ -88,7 +97,8 @@ public sealed class FramedConnectionHandler : IConnectionHandler
         FramedConnectionOptions? options = null,
         TimeProvider? timeProvider = null,
         IServerLogger? logger = null,
-        IExecutionModel? executionModel = null)
+        IExecutionModel? executionModel = null,
+        IPayloadCodec? payloadCodec = null)
     {
         ArgumentNullException.ThrowIfNull(decoder);
         ArgumentNullException.ThrowIfNull(dispatcher);
@@ -101,6 +111,7 @@ public sealed class FramedConnectionHandler : IConnectionHandler
         _timeProvider = timeProvider ?? TimeProvider.System;
         _logger = logger ?? NullServerLogger.Instance;
         _executionModel = executionModel;
+        _payloadCodec = payloadCodec;
 
         // 값을 복사한다. 동작 중에 정책이 바뀌면 같은 커넥션 안에서 판정이 뒤바뀐다.
         _closeOnHandlerNotFound = options.CloseOnHandlerNotFound;
@@ -108,6 +119,7 @@ public sealed class FramedConnectionHandler : IConnectionHandler
         _closeOnPolicyRejection = options.CloseOnPolicyRejection;
         _closeOnHandlerFault = options.CloseOnHandlerFault;
         _maxAssembledMessageLength = options.MaxAssembledMessageLength;
+        _maxDecompressedMessageLength = options.MaxDecompressedMessageLength;
     }
 
     /// <inheritdoc />
@@ -133,6 +145,9 @@ public sealed class FramedConnectionHandler : IConnectionHandler
 
         // 조각 재조립 상태. 첫 조각이 올 때 만든다 — 조각을 안 쓰는 커넥션은 비용 0(ADR-0015).
         FragmentAssembler? assembler = null;
+
+        // 압축 해제 버퍼. 코덱이 조립됐을 때만 존재하고, 대여는 압축 프레임에서만 일어난다.
+        DecompressionBuffer? decompression = _payloadCodec is null ? null : new DecompressionBuffer();
 
         try
         {
@@ -193,13 +208,10 @@ public sealed class FramedConnectionHandler : IConnectionHandler
                         {
                             try
                             {
-                                status = gate is null
-                                    ? await DispatchFrameAsync(
-                                        context, assembler!.AssembledEnvelope, assembler.AssembledPayload, token)
-                                        .ConfigureAwait(false)
-                                    : await gate.DispatchExclusiveAsync(
-                                        partition!, assembler!.AssembledEnvelope, assembler.AssembledPayload,
-                                        MonotonicTimestamp.Now(_timeProvider), token).ConfigureAwait(false);
+                                (closeInfo, status) = await DispatchWithDecompressionAsync(
+                                    context, gate, partition,
+                                    assembler!.AssembledEnvelope, assembler.AssembledPayload,
+                                    decompression, token).ConfigureAwait(false);
                             }
                             finally
                             {
@@ -210,17 +222,22 @@ public sealed class FramedConnectionHandler : IConnectionHandler
                     }
                     else
                     {
-                        status = gate is null
-                            ? await DispatchFrameAsync(context, decoded.Envelope, decoded.Payload, token)
-                                .ConfigureAwait(false)
-                            : await gate.DispatchExclusiveAsync(
-                                partition!, decoded.Envelope, decoded.Payload,
-                                MonotonicTimestamp.Now(_timeProvider), token).ConfigureAwait(false);
+                        (closeInfo, status) = await DispatchWithDecompressionAsync(
+                            context, gate, partition, decoded.Envelope, decoded.Payload,
+                            decompression, token).ConfigureAwait(false);
                     }
 
                     buffer = buffer.Slice(decoded.Consumed);
                     consumed = decoded.Consumed;
                     examined = decoded.Consumed;
+
+                    if (closeInfo is not null)
+                    {
+                        // 조각·압축 계약 위반이 확정됐다 — 같은 읽기의 나머지 프레임을
+                        // 처리하지 않는다. 위반 이후의 프레임을 계속 디스패치하면
+                        // "종료가 결정된 커넥션에서 일이 진행되는" 창이 생긴다.
+                        break;
+                    }
 
                     if (status != DispatchStatus.Handled)
                     {
@@ -268,8 +285,9 @@ public sealed class FramedConnectionHandler : IConnectionHandler
         }
         finally
         {
-            // 재조립 버퍼는 풀 대여물이다 — 어떤 종료 경로에서도 반납한다.
+            // 재조립·해제 버퍼는 풀 대여물이다 — 어떤 종료 경로에서도 반납한다.
             assembler?.Reset();
+            decompression?.Reset();
 
             // 읽기 쪽을 반드시 닫는다. 남겨두면 쓰기 측이 백프레셔로 영원히 대기한다.
             await input.CompleteAsync().ConfigureAwait(false);
@@ -341,6 +359,155 @@ public sealed class FramedConnectionHandler : IConnectionHandler
                 reason,
                 null,
                 static (state, _) => $"조각 재조립 계약 위반: {state}");
+        }
+    }
+
+    /// <summary>압축 프레임이면 해제한 뒤, 평문이면 그대로 디스패치한다.</summary>
+    /// <returns>첫 항목이 <see langword="null"/>이 아니면 압축 계약 위반 — 커넥션을 닫는다.</returns>
+    /// <remarks>
+    /// <para>
+    /// 압축 축이 조립되지 않았는데 <see cref="FrameFlags.Compressed"/> 프레임이 오면 종료다 —
+    /// 압축된 바이트가 플래그만 단 채 조용히 핸들러에 전달되는 것이 정확히 레거시형
+    /// 조용한 실패다(T-07). 해제 실패(손상·해제 상한 초과·알고리즘 불일치)도 종료다(T-18) —
+    /// 상한 검사는 코덱 계약이 <b>버퍼를 잡기 전에</b> 수행한다.
+    /// </para>
+    /// <para>
+    /// 해제에 성공하면 <see cref="FrameFlags.Compressed"/> 를 지우고 디스패치한다 —
+    /// 핸들러가 보는 페이로드는 평문이므로 플래그를 남기면 거짓말이 된다.
+    /// 해제 버퍼는 디스패치 직후 <c>finally</c> 로 반납한다(페이로드 참조는
+    /// <c>EndFrame</c> 이 이미 끊었다).
+    /// </para>
+    /// </remarks>
+    private async ValueTask<(ConnectionCloseInfo? CloseInfo, DispatchStatus Status)> DispatchWithDecompressionAsync(
+        MessageContext context,
+        PartitionDispatchGate? gate,
+        IExecutionPartition? partition,
+        MessageEnvelope envelope,
+        ReadOnlySequence<byte> payload,
+        DecompressionBuffer? decompression,
+        CancellationToken token)
+    {
+        if ((envelope.Flags & FrameFlags.Compressed) == 0)
+        {
+            DispatchStatus plainStatus = gate is null
+                ? await DispatchFrameAsync(context, envelope, payload, token).ConfigureAwait(false)
+                : await gate.DispatchExclusiveAsync(
+                    partition!, envelope, payload,
+                    MonotonicTimestamp.Now(_timeProvider), token).ConfigureAwait(false);
+            return (null, plainStatus);
+        }
+
+        if (_payloadCodec is null || decompression is null)
+        {
+            LogCompressionViolation("압축 프레임을 받았지만 압축 축이 조립되지 않았다.");
+            return (ConnectionCloseInfo.ProtocolError(
+                ErrorCode.InvalidFrameFlags, "이 조립은 압축 프레임을 받지 않는다."), default);
+        }
+
+        try
+        {
+            if (!_payloadCodec.TryDecode(payload, decompression, _maxDecompressedMessageLength, out _))
+            {
+                LogCompressionViolation(
+                    $"압축 해제 실패 — 손상이거나 해제 상한({_maxDecompressedMessageLength}B) 초과이거나 알고리즘 불일치다.");
+                return (ConnectionCloseInfo.ProtocolError(
+                    ErrorCode.MalformedFrame, "압축 페이로드를 해제할 수 없다."), default);
+            }
+
+            MessageEnvelope plain = new(
+                envelope.MessageId, envelope.Flags & ~FrameFlags.Compressed, envelope.Sequence);
+
+            DispatchStatus status = gate is null
+                ? await DispatchFrameAsync(context, plain, decompression.WrittenSequence, token).ConfigureAwait(false)
+                : await gate.DispatchExclusiveAsync(
+                    partition!, plain, decompression.WrittenSequence,
+                    MonotonicTimestamp.Now(_timeProvider), token).ConfigureAwait(false);
+            return (null, status);
+        }
+        finally
+        {
+            // 사용 직후 반납 — 유휴 커넥션이 해제 버퍼를 붙들지 않는다(재조립 버퍼와 같은 규약).
+            decompression.Reset();
+        }
+    }
+
+    private void LogCompressionViolation(string reason)
+    {
+        if (_logger.IsEnabled(LogLevel.Warning))
+        {
+            _logger.Log(
+                LogLevel.Warning,
+                CompressionViolationEvent,
+                reason,
+                null,
+                static (state, _) => $"압축 계약 위반: {state} 커넥션을 닫는다.");
+        }
+    }
+
+    /// <summary>
+    /// 압축 해제 출력용 커넥션 소유 풀 대여 버퍼.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="FragmentAssembler"/> 와 같은 수명 규약이다 — 대여는 압축 프레임에서만
+    /// 일어나고, 사용 직후 <see cref="Reset"/> 으로 반납한다. 커넥션 종료 경로의
+    /// <c>finally</c> 가 마지막 안전망이다. 커넥션당 하나이므로 동기화가 필요 없다
+    /// (읽기 루프 단일 소유).
+    /// </remarks>
+    private sealed class DecompressionBuffer : IBufferWriter<byte>
+    {
+        private byte[]? _rented;
+        private int _written;
+
+        /// <summary>지금까지 쓰인 바이트의 시퀀스 뷰. <see cref="Reset"/> 이후 무효.</summary>
+        public ReadOnlySequence<byte> WrittenSequence =>
+            _rented is null ? ReadOnlySequence<byte>.Empty : new ReadOnlySequence<byte>(_rented, 0, _written);
+
+        public void Advance(int count) => _written += count;
+
+        public Memory<byte> GetMemory(int sizeHint = 0)
+        {
+            EnsureCapacity(sizeHint);
+            return _rented!.AsMemory(_written);
+        }
+
+        public Span<byte> GetSpan(int sizeHint = 0)
+        {
+            EnsureCapacity(sizeHint);
+            return _rented!.AsSpan(_written);
+        }
+
+        /// <summary>대여물을 반납하고 초기 상태로 돌아간다.</summary>
+        public void Reset()
+        {
+            if (_rented is not null)
+            {
+                ArrayPool<byte>.Shared.Return(_rented);
+                _rented = null;
+            }
+
+            _written = 0;
+        }
+
+        private void EnsureCapacity(int sizeHint)
+        {
+            if (sizeHint < 1)
+            {
+                sizeHint = 1;
+            }
+
+            if (_rented is not null && _rented.Length - _written >= sizeHint)
+            {
+                return;
+            }
+
+            byte[] bigger = ArrayPool<byte>.Shared.Rent(_written + sizeHint);
+            if (_rented is not null)
+            {
+                _rented.AsSpan(0, _written).CopyTo(bigger);
+                ArrayPool<byte>.Shared.Return(_rented);
+            }
+
+            _rented = bigger;
         }
     }
 

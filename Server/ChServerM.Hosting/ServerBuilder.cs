@@ -1,4 +1,5 @@
 using System;
+using ChServerM.Compression;
 using ChServerM.Connections;
 using ChServerM.Diagnostics;
 using ChServerM.Execution;
@@ -44,6 +45,7 @@ public sealed class ServerBuilder
     private IExecutionModel? _executionModel;
     private ITransportSecurity? _transportSecurity;
     private VersionNegotiationOptions? _versionNegotiation;
+    private IPayloadCodec? _payloadCodec;
     private IServerLogger _logger = NullServerLogger.Instance;
     private TimeProvider _timeProvider = TimeProvider.System;
 
@@ -91,6 +93,29 @@ public sealed class ServerBuilder
     {
         ArgumentNullException.ThrowIfNull(security);
         _transportSecurity = security;
+        return this;
+    }
+
+    /// <summary>압축 축을 지정한다 (ADR-0019).</summary>
+    /// <param name="codec">압축 코덱. 지정하지 않으면 압축 프레임 수신 = 커넥션 종료.</param>
+    /// <returns>메서드 체이닝을 위한 자기 자신.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="codec"/>이 <see langword="null"/>일 때.</exception>
+    /// <remarks>
+    /// <para>
+    /// 수신: <see cref="Framing.FrameFlags.Compressed"/> 프레임이 (조각이면 재조립 후)
+    /// 해제되어 핸들러에 평문으로 전달된다. 해제 상한은
+    /// <see cref="FramedConnectionOptions.MaxDecompressedMessageLength"/>(T-18).
+    /// 송신: 핸들러가 <see cref="FrameWriter.WriteCompressedFrameAsync(System.IO.Pipelines.PipeWriter, IFrameEncoder, IPayloadCodec, PayloadCompressionOptions, Identity.MessageId, ReadOnlySpan{byte}, uint, System.Threading.CancellationToken)"/> 를 쓴다.
+    /// </para>
+    /// <para>양쪽이 <b>같은 코덱 구현</b>을 조립해야 한다 — 알고리즘은 와이어에 실리지
+    /// 않는 조립 수준 합의다(프레이밍 축 선택과 같은 성격). 불일치 = 해제 실패 = 종료.</para>
+    /// <para>varint 프레이밍과는 조립할 수 없다 — 그 와이어에는 플래그 필드가 없어
+    /// 인코더가 <see cref="Framing.FrameFlags.Compressed"/> 를 거부한다.</para>
+    /// </remarks>
+    public ServerBuilder UsePayloadCodec(IPayloadCodec codec)
+    {
+        ArgumentNullException.ThrowIfNull(codec);
+        _payloadCodec = codec;
         return this;
     }
 
@@ -203,7 +228,8 @@ public sealed class ServerBuilder
 
         // 실행 모델이 있으면 프레임 디스패치가 파티션 배타 구간에서 실행된다(ADR-0008).
         IConnectionHandler handler = new FramedConnectionHandler(
-            decoder, _dispatcher.Build(), _connectionOptions, _timeProvider, _logger, _executionModel);
+            decoder, _dispatcher.Build(), _connectionOptions, _timeProvider, _logger, _executionModel,
+            _payloadCodec);
 
         // 버전 협상이 있으면 프레이밍 전에 1왕복 핸드셰이크가 끼어든다(ADR-0017 결정 3).
         if (_versionNegotiation is not null)

@@ -51,7 +51,7 @@ ChServerM.Hosting.Dispatch.MessageStateFilterOptions.InitialStates.set -> void
 ChServerM.Hosting.Dispatch.MessageStateFilterOptions.MessageStateFilterOptions() -> void
 ChServerM.Hosting.FrameWriter
 ChServerM.Hosting.FramedConnectionHandler
-ChServerM.Hosting.FramedConnectionHandler.FramedConnectionHandler(ChServerM.Framing.IFrameDecoder! decoder, ChServerM.Dispatch.IMessageDispatcher! dispatcher, ChServerM.Hosting.FramedConnectionOptions? options = null, System.TimeProvider? timeProvider = null, ChServerM.Diagnostics.IServerLogger? logger = null, ChServerM.Execution.IExecutionModel? executionModel = null) -> void
+ChServerM.Hosting.FramedConnectionHandler.FramedConnectionHandler(ChServerM.Framing.IFrameDecoder! decoder, ChServerM.Dispatch.IMessageDispatcher! dispatcher, ChServerM.Hosting.FramedConnectionOptions? options = null, System.TimeProvider? timeProvider = null, ChServerM.Diagnostics.IServerLogger? logger = null, ChServerM.Execution.IExecutionModel? executionModel = null, ChServerM.Compression.IPayloadCodec? payloadCodec = null) -> void
 ChServerM.Hosting.FramedConnectionHandler.RunAsync(ChServerM.Connections.IConnection! connection) -> System.Threading.Tasks.Task!
 ChServerM.Hosting.FramedConnectionOptions
 ChServerM.Hosting.FramedConnectionOptions.CloseOnDeserializationFailure.get -> bool
@@ -129,3 +129,16 @@ ChServerM.Hosting.TokenReplayGuardOptions.Ttl.get -> System.TimeSpan
 ChServerM.Hosting.TokenReplayGuardOptions.Ttl.set -> void
 ChServerM.Hosting.TokenReplayGuardOptions.Validate() -> void
 const ChServerM.Hosting.TokenReplayGuardOptions.DefaultMaxEntries = 100000 -> int
+ChServerM.Hosting.FramedConnectionOptions.MaxDecompressedMessageLength.get -> int
+ChServerM.Hosting.FramedConnectionOptions.MaxDecompressedMessageLength.set -> void
+ChServerM.Hosting.PayloadCompressionOptions
+ChServerM.Hosting.PayloadCompressionOptions.DoNotCompress(ChServerM.Identity.MessageId messageId) -> ChServerM.Hosting.PayloadCompressionOptions!
+ChServerM.Hosting.PayloadCompressionOptions.MinCompressLength.get -> int
+ChServerM.Hosting.PayloadCompressionOptions.MinCompressLength.set -> void
+ChServerM.Hosting.PayloadCompressionOptions.PayloadCompressionOptions() -> void
+ChServerM.Hosting.PayloadCompressionOptions.Validate() -> void
+ChServerM.Hosting.ClientBuilder.UsePayloadCodec(ChServerM.Compression.IPayloadCodec! codec) -> ChServerM.Hosting.ClientBuilder!
+ChServerM.Hosting.ServerBuilder.UsePayloadCodec(ChServerM.Compression.IPayloadCodec! codec) -> ChServerM.Hosting.ServerBuilder!
+const ChServerM.Hosting.PayloadCompressionOptions.DefaultMinCompressLength = 1024 -> int
+static ChServerM.Hosting.FrameWriter.WriteCompressedFrameAsync(System.IO.Pipelines.PipeWriter! writer, ChServerM.Framing.IFrameEncoder! encoder, ChServerM.Compression.IPayloadCodec! codec, ChServerM.Hosting.PayloadCompressionOptions! options, ChServerM.Identity.MessageId messageId, System.ReadOnlySpan<byte> payload, uint sequence, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.IO.Pipelines.FlushResult>
+static ChServerM.Hosting.FrameWriter.WriteCompressedFrameAsync(this ChServerM.Connections.IConnection! connection, ChServerM.Framing.IFrameEncoder! encoder, ChServerM.Compression.IPayloadCodec! codec, ChServerM.Hosting.PayloadCompressionOptions! options, ChServerM.Identity.MessageId messageId, System.ReadOnlySpan<byte> payload, uint sequence) -> System.Threading.Tasks.ValueTask<System.IO.Pipelines.FlushResult>

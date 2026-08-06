@@ -3,6 +3,7 @@ using System.Buffers;
 using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
+using ChServerM.Compression;
 using ChServerM.Connections;
 using ChServerM.Framing;
 
@@ -163,6 +164,103 @@ public static class FrameWriter
 
         return WriteFrameAsync(
             connection.Output, encoder, messageId, payload, flags, sequence, connection.ConnectionClosed);
+    }
+
+    /// <summary>정책에 따라 압축해 프레임 하나를 쓰고 내보낸다.</summary>
+    /// <param name="writer">출력 파이프.</param>
+    /// <param name="encoder">헤더 인코더.</param>
+    /// <param name="codec">압축 코덱. 수신 측과 같은 구현이 조립돼 있어야 한다.</param>
+    /// <param name="options">압축 정책(문턱·제외 목록).</param>
+    /// <param name="messageId">메시지 식별자.</param>
+    /// <param name="payload">평문 페이로드.</param>
+    /// <param name="sequence">프레임 일련번호.</param>
+    /// <param name="cancellationToken">내보내기 취소 토큰.</param>
+    /// <returns>내보내기 결과.</returns>
+    /// <exception cref="ArgumentNullException">인자가 <see langword="null"/>일 때.</exception>
+    /// <remarks>
+    /// <para>
+    /// <b><see cref="FrameFlags.Compressed"/> 는 이 메서드가 붙인다</b> — 호출자가 플래그
+    /// 인자를 받지 않는 이유다. 플래그와 실제 변환이 어긋나는 실수(압축 표시만 있고
+    /// 압축은 안 된 페이로드, 또는 그 역)가 구조적으로 불가능해진다.
+    /// </para>
+    /// <para>
+    /// 압축하지 않는 세 경우 전부 <b>평문으로 정상 송신</b>된다: (1) 문턱 미만,
+    /// (2) 제외 목록(T-11), (3) 압축 결과가 원본보다 크거나 같음(비압축성 데이터 —
+    /// 시도는 하되 이득 없으면 버린다).
+    /// </para>
+    /// <para><b>할당.</b> 압축 시도 시 풀 대여 1회(반납은 <c>finally</c>).
+    /// 대여 버퍼의 반납은 <see cref="PipeWriter"/> 로의 복사가 끝난 뒤이므로 안전하다.</para>
+    /// </remarks>
+    public static ValueTask<FlushResult> WriteCompressedFrameAsync(
+        PipeWriter writer,
+        IFrameEncoder encoder,
+        IPayloadCodec codec,
+        PayloadCompressionOptions options,
+        Identity.MessageId messageId,
+        ReadOnlySpan<byte> payload,
+        uint sequence,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(writer);
+        ArgumentNullException.ThrowIfNull(encoder);
+        ArgumentNullException.ThrowIfNull(codec);
+        ArgumentNullException.ThrowIfNull(options);
+
+        if (payload.Length < options.MinCompressLength || options.IsExcluded(messageId))
+        {
+            return WriteFrameAsync(
+                writer, encoder, messageId, payload, FrameFlags.None, sequence, cancellationToken);
+        }
+
+        byte[] rented = ArrayPool<byte>.Shared.Rent(codec.MaxEncodedLength(payload.Length));
+        try
+        {
+            int encoded = codec.Encode(payload, rented);
+
+            if (encoded >= payload.Length)
+            {
+                // 압축 이득 없음(랜덤·이미 압축된 데이터) — 평문이 더 싸다.
+                return WriteFrameAsync(
+                    writer, encoder, messageId, payload, FrameFlags.None, sequence, cancellationToken);
+            }
+
+            return WriteFrameAsync(
+                writer, encoder, messageId, rented.AsSpan(0, encoded),
+                FrameFlags.Compressed, sequence, cancellationToken);
+        }
+        finally
+        {
+            // WriteFrameAsync 는 반환 전에 페이로드를 파이프 버퍼로 복사한다 —
+            // flush 완료를 기다리지 않고 반납해도 안전하다.
+            ArrayPool<byte>.Shared.Return(rented);
+        }
+    }
+
+    /// <summary>커넥션에 정책에 따라 압축한 프레임 하나를 쓰고 내보낸다.</summary>
+    /// <param name="connection">대상 커넥션.</param>
+    /// <param name="encoder">헤더 인코더.</param>
+    /// <param name="codec">압축 코덱.</param>
+    /// <param name="options">압축 정책.</param>
+    /// <param name="messageId">메시지 식별자.</param>
+    /// <param name="payload">평문 페이로드.</param>
+    /// <param name="sequence">프레임 일련번호.</param>
+    /// <returns>내보내기 결과.</returns>
+    /// <exception cref="ArgumentNullException">인자가 <see langword="null"/>일 때.</exception>
+    /// <remarks>취소 토큰은 <see cref="IConnection.ConnectionClosed"/> 를 자동으로 쓴다.</remarks>
+    public static ValueTask<FlushResult> WriteCompressedFrameAsync(
+        this IConnection connection,
+        IFrameEncoder encoder,
+        IPayloadCodec codec,
+        PayloadCompressionOptions options,
+        Identity.MessageId messageId,
+        ReadOnlySpan<byte> payload,
+        uint sequence)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+
+        return WriteCompressedFrameAsync(
+            connection.Output, encoder, codec, options, messageId, payload, sequence,
+            connection.ConnectionClosed);
     }
 
     /// <summary>큰 논리 메시지를 조각(<see cref="FrameFlags.Fragmented"/>)으로 나눠 보낸다.</summary>

@@ -70,6 +70,21 @@ public sealed class FramedConnectionOptions
     /// </remarks>
     public int MaxAssembledMessageLength { get; set; } = 1024 * 1024;
 
+    /// <summary>압축(<see cref="Framing.FrameFlags.Compressed"/>) 해제 후 페이로드의 최대 길이.</summary>
+    /// <remarks>
+    /// <para>
+    /// 기본값 1 MiB. 압축 축이 조립됐을 때만 의미가 있다 — 코덱 계약이 이 값을
+    /// <b>버퍼를 잡기 전에</b> 블롭의 선언 길이와 대조한다(T-18 압축 폭탄).
+    /// 작은 프레임 하나가 선언할 수 있는 최대 해제 메모리가 이 값이므로
+    /// <c>MaxConnections × 이 값</c>이 최악 해제 메모리다.
+    /// </para>
+    /// <para>
+    /// 재조립 상한(<see cref="MaxAssembledMessageLength"/>)과 별개다 — 압축된 조각
+    /// 메시지는 재조립 상한(압축 블롭 크기)과 이 상한(해제 결과 크기)을 모두 지나야 한다.
+    /// </para>
+    /// </remarks>
+    public int MaxDecompressedMessageLength { get; set; } = 1024 * 1024;
+
     /// <summary>설정을 검증한다.</summary>
     /// <exception cref="InvalidOperationException">값이 유효하지 않을 때.</exception>
     public void Validate()
@@ -78,6 +93,13 @@ public sealed class FramedConnectionOptions
         {
             throw new InvalidOperationException(
                 $"{nameof(MaxAssembledMessageLength)} 는 0(재조립 끔) 이상이어야 한다: {MaxAssembledMessageLength}");
+        }
+
+        if (MaxDecompressedMessageLength <= 0)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(MaxDecompressedMessageLength)} 는 1 이상이어야 한다: {MaxDecompressedMessageLength}. " +
+                "압축을 받지 않으려면 압축 축을 조립하지 않는 것이 맞다 — 그러면 압축 프레임은 종료된다.");
         }
     }
 }
