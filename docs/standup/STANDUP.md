@@ -1,8 +1,8 @@
 # ChServerM — 현재 상태
 
-**최종 갱신**: 2026-08-06 (9차)
-**현재 단계**: **Part III — Phase 10 복원력 진행 중** (수용 제어 축 첫 증분 ✅). Phase 9 보안 ✅ / Phase 11 관측 메트릭 축 ✅(게이트 충족)
-**진행률**: 99/222 항목 (Phase 0 `13/17` · 1 `15/21` · 2 `7/11` · 3 `4/6` · 4 `10/10` · 5 `12/12` · 6 `7/7` · 7 `5/7` · 8 `8/16` · 9 `13/13` · 10 `1/10` · 11 `4/9`)
+**최종 갱신**: 2026-08-06 (10차)
+**현재 단계**: **Part III — Phase 10 복원력 진행 중** (수용 제어 + 속도 제한 축 ✅). Phase 9 보안 ✅ / Phase 11 관측 메트릭 ✅
+**진행률**: 100/222 항목 (Phase 0 `13/17` · 1 `15/21` · 2 `7/11` · 3 `4/6` · 4 `10/10` · 5 `12/12` · 6 `7/7` · 7 `5/7` · 8 `8/16` · 9 `13/13` · 10 `2/10` · 11 `4/9`)
 
 ## 완료된 것
 
@@ -17,17 +17,19 @@
   + `MeterMetricsSink`(BCL `System.Diagnostics.Metrics` — dotnet-counters 즉시, OTel 은 Meter
   구독으로). `UseMetrics()` 한 줄이 커넥션 생명주기·디스패치 지연·처리량·실패를 데코레이터로
   배선. **오버헤드 게이트 충족**: 켠 ~72ns/프레임·**할당 0**, 끈(NullMetricsSink) 6ns
-- **Phase 10 복원력 — 수용 제어 축 첫 증분 ✅ (2026-08-06 9차, ADR-0021)** — `IAdmissionControl`
-  (Core) + `ConnectionRateAdmissionControl`(신규 연결 토큰 버킷 — 정적 상한 안의 연결 폭주
-  방어, T-14·16) + `CompositeAdmissionControl`(AND). 전송 옵션 주입, 거부는 전송이
-  `ConnectionsRejected` 메트릭으로 방출(Phase 11 토대 활용)
-- 테스트 **634개** 통과, 전체 게이트(-WarnAsError 클린 빌드·audit·AOT publish+실행) 통과
+- **Phase 10 복원력 — 수용 제어(연결) + 속도 제한(메시지) ✅ (2026-08-06 9~10차)** —
+  수용 제어 `IAdmissionControl` + `ConnectionRateAdmissionControl`(신규 연결 토큰 버킷,
+  전송 주입, 거부 = `ConnectionsRejected` 메트릭, ADR-0021, T-14·16). 속도 제한
+  `IRateLimiter` + `PerConnectionRateLimiter`(커넥션별 토큰 버킷 — 상태를 `Connection.Features`
+  에 둬 순차 디스패치로 락-프리·축출 불필요) + `RateLimitMiddleware`. 거부 =
+  `RejectedByRateLimit`(9)→6003 무-종료, 관측은 `DispatchFailures` 자동
+- 테스트 **643개** 통과, 전체 게이트(-WarnAsError 클린 빌드·audit·AOT publish+실행) 통과
 
 ## 진행 중
 
-- **Phase 10 후속** — `IRateLimiter`(메시지 수준, RateLimiting+ADR, `RateLimitExceeded`
-  6003 생산) / 백프레셔 생산 배선(`RejectedByBackpressure`) / 서킷 브레이커·Bulkhead /
-  IP별·워터마크 수용 제어 / **24h soak 하네스**(게이트 후반부 "메모리 평탄")
+- **Phase 10 후속** — **24h soak 하네스**(게이트 후반부 "메모리 평탄" — 게이트 완성) /
+  백프레셔 생산 배선(`RejectedByBackpressure`) / 서킷 브레이커·Bulkhead /
+  전역·IP별 속도 제한·워터마크 수용 제어(System.Threading.RateLimiting)
 - **Phase 11 후속** — 분산 트레이싱(`ActivitySource`) / 프레임당 바이트·큐 깊이·풀 카운터 /
   ZLogger / 헬스체크 엔드포인트 / 런타임 로그 레벨
 - **후속 최적화 후보** — 디스패치 데코레이터 async 래퍼가 계측보다 비싸다(Null 싱크
@@ -35,14 +37,11 @@
 
 ## 다음 (우선순위 순)
 
-1. **Phase 10 후속 증분** — 셋 중 사용자와 함께 순서 결정:
-   (a) `IRateLimiter`(메시지 수준 속도 제한, RateLimiting+ADR, 6003 생산) —
-   수용 제어(연결 수준)와 짝을 이루는 메시지 수준 방어
-   (b) 백프레셔 생산 배선(`RejectedByBackpressure` — 정의만 있고 미배선)
-   (c) **24h soak 하네스** — 게이트 후반부("메모리 평탄"). Phase 11 메트릭 활용,
-   장시간 실행 도구·CI 고려
-2. (대안) **Phase 11 후속** — 트레이싱·헬스체크·바이트/큐/풀 카운터
-3. (대안) **Part II 잔여** — Phase 7(누락 핸들러 검출) / Phase 8(코어 제한 재측정)
+1. **Phase 10 게이트 완성 — 24h soak 하네스** (추천) — 게이트 후반부("메모리 평탄").
+   수용 제어·속도 제한(전반부 "거부하며 생존")이 됐으니 이제 24h 메모리 곡선만 남았다.
+   Phase 11 메트릭 활용. 단 장시간 실행이라 별도 도구·CI 설계 필요
+2. (대안) Phase 10 후속 — 백프레셔 생산 배선 / 서킷 브레이커·Bulkhead / 전역·IP별 속도 제한
+3. (대안) Phase 11 후속(트레이싱·헬스체크) 또는 Part II 잔여(Phase 7·8)
 
 ## 블로커 / 열린 결정
 
@@ -61,7 +60,13 @@
 - **이름 계약을 미리 깔아둔 값** — 2026-08-04 메트릭 이름 정비 덕에 관측·수용 제어 증분이
   축 계약과 배선만으로 끝났다. 오타 하나가 대시보드 계약을 깨는 것을 막음
 - **저빈도 경로는 락이 옳다** — 9.1 락 금지는 핫패스(프레임당) 대상. 커넥션당 1회 토큰
-  버킷은 락이 CAS 재시도보다 명백히 정확·가독. 규칙을 맥락 없이 적용하지 않는다
+  버킷(수용 제어)은 락이 CAS 재시도보다 명백히 정확·가독. 규칙을 맥락 없이 적용하지 않는다
+- **상태를 파티션 소유자에 두면 락도 축출도 사라진다** — per-connection 속도 제한 버킷을
+  Connection.Features 에 두니 순차 디스패치가 동기화를, 커넥션 GC 가 축출을 공짜로 해결.
+  전역 맵 만들기 전에 "이 상태의 자연스러운 소유자가 누구인가"를 먼저 본다(9.1)
+- **응답 없는 거부는 메트릭이 배리어다** — 드롭 프레임은 클라이언트가 못 봐서 테스트가
+  시계 진행과 경합. Phase 11 메트릭을 배리어로 써 "처리·거부됨"을 확정 — 관측이 테스트
+  결정성에도 값을 했다
 - **raw `dotnet build -warnaserror` 는 게이트보다 엄격** — CA5398(Tls13 하드코드)이 raw
   에선 에러, `eng/build.ps1`·plain build 에선 editorconfig 로 억제됨. 게이트가 authority
 - **PowerShell 5.1 은 heredoc(`<<`)이 없다** — 여러 줄 커밋은 `git commit -F <파일>`.
@@ -99,5 +104,5 @@ powershell -File eng/build.ps1 -Configuration Release -WarnAsError
 - 위협 모델: `docs/THREAT-MODEL.md` (T-04·05·06·08~22 대부분 ✅ — T-14·16 도 2026-08-06)
 - 진단 규칙: `docs/DIAGNOSTICS.md` / 메트릭 이름: `DiagnosticNames`/`MetricNames`/`TagNames`
 - 성능 수치: `docs/BENCHMARKS.md` (ENV-A: 9900X 12/24 · ENV-B: 7945HX 16/32)
-- 상세 이력: `docs/standup/history/` (최근: `2026-08-06.md` 1~9차)
+- 상세 이력: `docs/standup/history/` (최근: `2026-08-06.md` 1~10차)
 - 레거시 분석: `docs/legacy/00-overview.md`

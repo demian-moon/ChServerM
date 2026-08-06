@@ -308,7 +308,7 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 
 ## Phase 10 — 복원력 & 과부하 제어
 
-- [ ] `IRateLimiter` 구현 — IP별 / 세션별 / 메시지 타입별. `System.Threading.RateLimiting` 활용
+- [x] `IRateLimiter` 구현 — IP별 / 세션별 / 메시지 타입별. `System.Threading.RateLimiting` 활용 (2026-08-06 완료 `a1cf3ec`+`c5876a7`: `IRateLimiter`(Core, `TryAcquire(MessageContext)`) + `RateLimitMiddleware` + 첫 구현 `PerConnectionRateLimiter`(커넥션별 토큰 버킷 — 상태를 `Connection.Features` 에 둬 순차 디스패치로 락-프리·축출 불필요). 거부 = `RejectedByRateLimit`(9)→6003, 무-종료(일시적 제한). 관측은 `DispatchFailures` 자동. 종단 5종. **System.Threading.RateLimiting 은 per-connection 에 과임** — 전역·IP별·메시지타입별 후속 구현이 그 라이브러리로 간다)
 - [x] `IAdmissionControl` — 과부하 시 신규 연결 거부. **거부가 붕괴보다 낫다** (2026-08-06 완료 `f8bbf5b`+`1faca86`, ADR-0021: `IAdmissionControl`(Core, `TryAdmit(EndPoint?)`) + 전송 옵션 주입 + 첫 구현 `ConnectionRateAdmissionControl`(신규 연결 토큰 버킷 — 정적 상한 안의 연결 폭주 방어, T-16) + `CompositeAdmissionControl`(AND·단락). 거부는 전송이 `ConnectionsRejected` 메트릭으로 방출(사유 태그). 종단 11종. IP별·워터마크는 후속 구현)
 - [ ] 리소스 상한 — 최대 커넥션 수, 커넥션당 메모리 상한, 전체 메모리 워터마크 (진행 중: 최대 커넥션 수(정적 `MaxConnections`)·커넥션당 메모리(Phase 5 실측 ~8KB)는 있음. 전체 메모리 워터마크 기반 수용 거부는 `IAdmissionControl` 후속 구현)
 - [ ] 연결 폭주 방어 — accept 큐 관리, SYN 폭주 대응, 핸드셰이크 타임아웃 (진행 중: SYN·재접속 폭주는 `ConnectionRateAdmissionControl`(2026-08-06)이 신규 연결 속도 제한으로 방어. 핸드셰이크 타임아웃은 버전 협상·TLS 에 있음. accept 큐(backlog) 튜닝은 후속)
