@@ -408,3 +408,52 @@ virtual ChServerM.Dispatch.MessageDelegate.Invoke(ChServerM.Dispatch.MessageCont
 ChServerM.Dispatch.MessageHandlerAttribute
 ChServerM.Dispatch.MessageHandlerAttribute.MessageHandlerAttribute(ushort messageId) -> void
 ChServerM.Dispatch.MessageHandlerAttribute.MessageId.get -> ushort
+ChServerM.Features.IProtocolVersionFeature
+ChServerM.Features.IProtocolVersionFeature.NegotiatedVersion.get -> ushort
+ChServerM.Handshake.ProtocolVersionRange
+ChServerM.Handshake.ProtocolVersionRange.Contains(ushort version) -> bool
+ChServerM.Handshake.ProtocolVersionRange.Equals(ChServerM.Handshake.ProtocolVersionRange other) -> bool
+ChServerM.Handshake.ProtocolVersionRange.Max.get -> ushort
+ChServerM.Handshake.ProtocolVersionRange.Min.get -> ushort
+ChServerM.Handshake.ProtocolVersionRange.ProtocolVersionRange() -> void
+ChServerM.Handshake.ProtocolVersionRange.ProtocolVersionRange(ushort min, ushort max) -> void
+ChServerM.Handshake.VersionHandshakeCodec
+ChServerM.Handshake.VersionHandshakeResponse
+ChServerM.Handshake.VersionHandshakeResponse.Equals(ChServerM.Handshake.VersionHandshakeResponse other) -> bool
+ChServerM.Handshake.VersionHandshakeResponse.FrameSize.get -> int
+ChServerM.Handshake.VersionHandshakeResponse.IsAccepted.get -> bool
+ChServerM.Handshake.VersionHandshakeResponse.RejectReason.get -> ushort
+ChServerM.Handshake.VersionHandshakeResponse.SelectedVersion.get -> ushort
+ChServerM.Handshake.VersionHandshakeResponse.ServerSupported.get -> ChServerM.Handshake.ProtocolVersionRange
+ChServerM.Handshake.VersionHandshakeResponse.VersionHandshakeResponse() -> void
+ChServerM.Handshake.VersionHandshakeStatus
+ChServerM.Handshake.VersionHandshakeStatus.Malformed = 3 -> ChServerM.Handshake.VersionHandshakeStatus
+ChServerM.Handshake.VersionHandshakeStatus.NeedMoreData = 1 -> ChServerM.Handshake.VersionHandshakeStatus
+ChServerM.Handshake.VersionHandshakeStatus.None = 0 -> ChServerM.Handshake.VersionHandshakeStatus
+ChServerM.Handshake.VersionHandshakeStatus.Success = 2 -> ChServerM.Handshake.VersionHandshakeStatus
+const ChServerM.Handshake.VersionHandshakeCodec.BootstrapHeaderVersion = 1 -> ushort
+const ChServerM.Handshake.VersionHandshakeCodec.ClientHelloFrameSize = 20 -> int
+const ChServerM.Handshake.VersionHandshakeCodec.ClientHelloPayloadSize = 4 -> int
+const ChServerM.Handshake.VersionHandshakeCodec.HeaderSize = 16 -> int
+const ChServerM.Handshake.VersionHandshakeCodec.RejectionFrameSize = 22 -> int
+const ChServerM.Handshake.VersionHandshakeCodec.RejectionPayloadSize = 6 -> int
+const ChServerM.Handshake.VersionHandshakeCodec.RejectReasonVersionMismatch = 2002 -> ushort
+const ChServerM.Handshake.VersionHandshakeCodec.ServerHelloFrameSize = 18 -> int
+const ChServerM.Handshake.VersionHandshakeCodec.ServerHelloPayloadSize = 2 -> int
+override ChServerM.Handshake.ProtocolVersionRange.Equals(object? obj) -> bool
+override ChServerM.Handshake.ProtocolVersionRange.GetHashCode() -> int
+override ChServerM.Handshake.ProtocolVersionRange.ToString() -> string!
+override ChServerM.Handshake.VersionHandshakeResponse.Equals(object? obj) -> bool
+override ChServerM.Handshake.VersionHandshakeResponse.GetHashCode() -> int
+static ChServerM.Handshake.VersionHandshakeResponse.operator !=(ChServerM.Handshake.VersionHandshakeResponse left, ChServerM.Handshake.VersionHandshakeResponse right) -> bool
+static ChServerM.Handshake.VersionHandshakeResponse.operator ==(ChServerM.Handshake.VersionHandshakeResponse left, ChServerM.Handshake.VersionHandshakeResponse right) -> bool
+static ChServerM.Handshake.ProtocolVersionRange.operator !=(ChServerM.Handshake.ProtocolVersionRange left, ChServerM.Handshake.ProtocolVersionRange right) -> bool
+static ChServerM.Handshake.ProtocolVersionRange.operator ==(ChServerM.Handshake.ProtocolVersionRange left, ChServerM.Handshake.ProtocolVersionRange right) -> bool
+static ChServerM.Handshake.ProtocolVersionRange.TrySelect(ChServerM.Handshake.ProtocolVersionRange local, ChServerM.Handshake.ProtocolVersionRange remote, out ushort selected) -> bool
+static ChServerM.Handshake.VersionHandshakeCodec.TryReadClientHello(in System.Buffers.ReadOnlySequence<byte> buffer, out ChServerM.Handshake.ProtocolVersionRange clientSupported) -> ChServerM.Handshake.VersionHandshakeStatus
+static ChServerM.Handshake.VersionHandshakeCodec.TryReadServerResponse(in System.Buffers.ReadOnlySequence<byte> buffer, out ChServerM.Handshake.VersionHandshakeResponse response) -> ChServerM.Handshake.VersionHandshakeStatus
+static ChServerM.Handshake.VersionHandshakeCodec.WriteClientHello(System.Span<byte> destination, ChServerM.Handshake.ProtocolVersionRange supported) -> void
+static ChServerM.Handshake.VersionHandshakeCodec.WriteRejection(System.Span<byte> destination, ChServerM.Handshake.ProtocolVersionRange serverSupported) -> void
+static ChServerM.Handshake.VersionHandshakeCodec.WriteServerHello(System.Span<byte> destination, ushort selectedVersion) -> void
+static ChServerM.Identity.FrameworkMessageIds.ClientHello.get -> ChServerM.Identity.MessageId
+static ChServerM.Identity.FrameworkMessageIds.ServerHello.get -> ChServerM.Identity.MessageId

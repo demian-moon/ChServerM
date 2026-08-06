@@ -102,6 +102,23 @@ public static class FrameworkMessageIds
     /// 동시 접속 상한 등으로 수락 직후 닫을 때, 그냥 끊으면 클라이언트는 RST 하나만 보고
     /// "서버가 꽉 찼다"와 "네트워크가 끊겼다"를 구분할 수 없어 재시도 정책을 세울 수 없다
     /// (Phase 10 과부하 제어와 연결). 이 ID 의 프레임을 최선 노력으로 보낸 뒤 닫는다.
+    /// 버전 협상의 거부 통지도 이 ID 를 재사용한다(R-3) — 그 경우의 페이로드는
+    /// <see cref="ChServerM.Handshake.VersionHandshakeCodec"/> 의 동결 레이아웃이다.
     /// </remarks>
     public static MessageId ConnectionRejected => new(40004);
+
+    /// <summary>버전 협상 개시 — 클라이언트가 지원 구간 <c>[Min, Max]</c> 를 제시한다 (ADR-0017).</summary>
+    /// <remarks>
+    /// 커넥션(보안 축이 있으면 그 채널 안)의 <b>첫 프레임</b>이어야 하며, 와이어 형식은
+    /// <see cref="ChServerM.Handshake.VersionHandshakeCodec"/> 가 영구 동결한다 —
+    /// 협상 이전에는 합의된 버전이 없으므로 이 프레임만은 어느 축에도 얹지 않는다(R-2).
+    /// </remarks>
+    public static MessageId ClientHello => new(40005);
+
+    /// <summary>버전 협상 확정 — 서버가 교집합 최고 버전을 통보한다 (ADR-0017).</summary>
+    /// <remarks>
+    /// 교집합이 없으면 이 대신 <see cref="ConnectionRejected"/> 를 보내고 닫는다.
+    /// 와이어 형식은 <see cref="ChServerM.Handshake.VersionHandshakeCodec"/> 참조.
+    /// </remarks>
+    public static MessageId ServerHello => new(40006);
 }
