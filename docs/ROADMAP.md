@@ -123,7 +123,7 @@ Core에 들어간 인터페이스는 되돌리기 비용이 가장 크다 — �
 - [ ] `IServerLogger` / `IMetricsSink` — 관측 추상화 (진행 중: `IServerLogger` 완료. `IMetricsSink` 미착수 — 이름 상수는 이미 있다)
 - [ ] `IPayloadCodec` — 압축 계약
 - [x] `ITransportSecurity` — 전송 보안 계약 (2026-08-05, ADR-0017: 커넥션 파이프 데코레이터 — 전송 중립이라 인메모리에서도 보안 경로가 테스트된다. 실패는 예외가 아니라 상태(핸드셰이크 폭주 = 공격 시나리오 T-16), 기본값 센티넬은 비확립. TLS 어댑터 + 호스팅 통합까지 실동 — `4d8810f`·`e35a9ff`·`42659bc`)
-- [ ] `IAuthenticator` / `IAuthorizationPolicy` — 인증·인가 계약 (Phase 9에서 구현) (진행 중: `IAuthenticator` 계약·구현 완료(2026-08-06, `aff7942`). `IAuthorizationPolicy` 는 인가 미들웨어(T-21)와 함께)
+- [x] `IAuthenticator` / `IAuthorizationPolicy` — 인증·인가 계약 (Phase 9에서 구현) (2026-08-06 완료: `IAuthenticator` = `aff7942`, `IAuthorizationPolicy` = `792ea9c` — 실패는 값(T-16)·default 는 가장 제한적·페이로드 수명 계약 명시. 구현체는 Hosting 미들웨어 2종)
 - [ ] `IRateLimiter` / `IAdmissionControl` — 과부하 제어 계약 (Phase 10에서 구현)
 - [ ] `IClusterMembership` — 클러스터 계약 (Phase 15에서 구현)
 
@@ -298,6 +298,7 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 - [x] 무결성 검증 — AEAD 태그로 대체 (레거시의 단순 체크섬은 공격자에게 무의미) (2026-08-05: TLS 1.3 레코드 AEAD 가 담당(ADR-0017) — 구현·종단 테스트·실측까지 완료. 헤더에 가짜 무결성 장치가 없음은 Phase 4 에서 이미 확정(체크섬 필드 제거))
 - [x] **상태별 패킷 화이트리스트** — 인증 전에 인증 후 패킷을 받지 않는다. 레거시 `AllowedPacketM` 승계 (2026-08-05 완료 `1b3fc20`: `IConnectionStateFeature`(Core, 상태 비트마스크 — 의미는 앱 정의, ADR-0004) + `MessageStateFilterMiddleware`(FrozenDictionary + 비트 AND, **기본 거부는 옵션이 아님** — 레거시 `AllowedPkState` 기본 전부 허용 결함의 역). 거부 = 커넥션 종료(4001) + 경고 로그. 게이트 테스트: 인증 전 특권 메시지 = 응답 없이 종료(InMemory/TCP 2전송) 포함 +10)
 - [x] `IAuthenticator` 구현 — 토큰 검증. 레거시 `BasicLibM/AuthM` 판정 필요 (2026-08-06 완료 `aff7942`+`9a7297d`+`f47967b`: 미들웨어 방식 — 실패 = `next` 미호출 + **옵션 무관** 6000 종료(전용 `RejectedByAuthentication`, T-20 구조 봉쇄), 성공 = `GrantedStates` 상태 대체 전이(T-19 필터와 한 몸, 별도 "인증됨" 플래그 없음). 조립 순서(필터→인증) 위반은 `Build()` 예외. `ITokenReplayGuard` + 유계·TTL 인메모리 구현(T-05, 검증→클레임 순서 계약). `AuthM` 판정 이행: `PasswordHasher` 위임 어댑터 `ChServerM.Security.AspNetIdentity`(ADR-0018, 레거시 해시 형식 호환·결함 4종 역해소). 종단 16종·2전송 + 해셔 7종)
+- [x] 인가 미들웨어 — 메시지별 권한 검사 (2026-08-06 완료 `792ea9c`+`83a8d76`: 2단 구조 — 메시지 수준은 T-19 필터+`GrantedStates` 기본 거부가 담당, 자원 수준(페이로드 의존 소유자 검사·동적 정책)은 `AuthorizationMiddleware` 보호 목록+`IAuthorizationPolicy`. 거부 = 6001+`CloseOnPolicyRejection` 옵션(인증과 의도적 비대칭). 조립 순서 필터→인증→인가 `Build()` 검증. 종단 11종·2전송)
 - [ ] 시크릿 관리 — 설정 파일에 키를 두지 않는다. 환경변수/시크릿 저장소
 - [ ] 입력 검증 — 모든 페이로드 필드 범위 검사. 퍼징 확대
 - [ ] `/security-review` 실행 + 결과 반영
