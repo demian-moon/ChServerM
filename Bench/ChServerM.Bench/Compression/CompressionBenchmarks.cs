@@ -15,8 +15,9 @@ namespace ChServerM.Bench.Compression;
 /// 있는가. 결과는 <c>docs/BENCHMARKS.md</c> 압축 절에 기록한다.
 /// </para>
 /// <para>
-/// 페이로드 2종: 압축성(반복 구조 — 게임 상태·좌표 스냅샷 류) / 비압축성(랜덤 —
-/// 암호화·재압축된 데이터 류). 실측 워크로드가 생기면 대표 페이로드를 교체한다.
+/// 페이로드 2종: 압축성(반복 구조 — 게임 상태·좌표 스냅샷 류) / 비압축성(결정적
+/// 의사난수 — 암호화·재압축된 데이터 류). 비압축성 채움은 <c>System.Random</c> 이 아니라
+/// 곱셈 해시로 만든다 — 벤치 재현성(고정 시드)과 분석기 규약(CA5394)을 동시에 지킨다.
 /// </para>
 /// <para>Brotli 는 BCL <see cref="BrotliEncoder"/> 원시 API 를 품질 1(최속)로 쓴다 —
 /// 비교군에게 최대한 유리한 조건이다(벤치 대결은 불리한 쪽에 기울여 설계한다).</para>
@@ -47,39 +48,49 @@ public class CompressionBenchmarks
             _compressible[i] = (byte)(i % 16);
         }
 
+        // 결정적 비압축성 채움 — 곱셈 해시(splitmix 계열)로 엔트로피를 채운다.
         _incompressible = new byte[PayloadLength];
-        new Random(42).NextBytes(_incompressible);
+        ulong state = 0x9E3779B97F4A7C15UL;
+        for (int i = 0; i < _incompressible.Length; i++)
+        {
+            state += 0x9E3779B97F4A7C15UL;
+            ulong z = state;
+            z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;
+            z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;
+            _incompressible[i] = (byte)(z >> 56);
+        }
 
         _lz4Output = new byte[_lz4.MaxEncodedLength(PayloadLength)];
         _brotliOutput = new byte[BrotliEncoder.GetMaxCompressedLength(PayloadLength)];
         _decodeOutput = new byte[PayloadLength];
 
-        int encoded = _lz4.Encode(_compressible, _lz4CompressedBlob = new byte[_lz4.MaxEncodedLength(PayloadLength)]);
+        _lz4CompressedBlob = new byte[_lz4.MaxEncodedLength(PayloadLength)];
+        int encoded = _lz4.Encode(_compressible, _lz4CompressedBlob);
         Array.Resize(ref _lz4CompressedBlob, encoded);
     }
 
-    [Benchmark(Baseline = true)]
-    public int Lz4_Encode_Compressible() => _lz4.Encode(_compressible, _lz4Output);
+    [Benchmark(Baseline = true, Description = "LZ4 인코드 (압축성)")]
+    public int Lz4EncodeCompressible() => _lz4.Encode(_compressible, _lz4Output);
 
-    [Benchmark]
-    public int Lz4_Encode_Incompressible() => _lz4.Encode(_incompressible, _lz4Output);
+    [Benchmark(Description = "LZ4 인코드 (비압축성)")]
+    public int Lz4EncodeIncompressible() => _lz4.Encode(_incompressible, _lz4Output);
 
-    [Benchmark]
-    public int Brotli_Encode_Compressible()
+    [Benchmark(Description = "Brotli 인코드 (압축성)")]
+    public int BrotliEncodeCompressible()
     {
         BrotliEncoder.TryCompress(_compressible, _brotliOutput, out int written, quality: 1, window: 22);
         return written;
     }
 
-    [Benchmark]
-    public int Brotli_Encode_Incompressible()
+    [Benchmark(Description = "Brotli 인코드 (비압축성)")]
+    public int BrotliEncodeIncompressible()
     {
         BrotliEncoder.TryCompress(_incompressible, _brotliOutput, out int written, quality: 1, window: 22);
         return written;
     }
 
-    [Benchmark]
-    public int Lz4_Decode_Compressible()
+    [Benchmark(Description = "LZ4 디코드 (압축성)")]
+    public int Lz4DecodeCompressible()
     {
         System.Buffers.ArrayBufferWriter<byte> writer = new(_decodeOutput.Length);
         _lz4.TryDecode(
