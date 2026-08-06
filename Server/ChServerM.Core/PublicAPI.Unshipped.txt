@@ -417,8 +417,15 @@ ChServerM.Security.AuthenticationResult.FailureDescription.get -> string?
 ChServerM.Security.AuthenticationResult.GrantedStates.get -> uint
 ChServerM.Security.AuthenticationResult.IsAuthenticated.get -> bool
 ChServerM.Security.AuthenticationResult.AuthenticationResult() -> void
+ChServerM.Security.AuthorizationDecision
+ChServerM.Security.AuthorizationDecision.AuthorizationDecision() -> void
+ChServerM.Security.AuthorizationDecision.DenyDescription.get -> string?
+ChServerM.Security.AuthorizationDecision.Equals(ChServerM.Security.AuthorizationDecision other) -> bool
+ChServerM.Security.AuthorizationDecision.IsAllowed.get -> bool
 ChServerM.Security.IAuthenticator
 ChServerM.Security.IAuthenticator.AuthenticateAsync(ChServerM.Dispatch.MessageContext! context) -> System.Threading.Tasks.ValueTask<ChServerM.Security.AuthenticationResult>
+ChServerM.Security.IAuthorizationPolicy
+ChServerM.Security.IAuthorizationPolicy.AuthorizeAsync(ChServerM.Dispatch.MessageContext! context) -> System.Threading.Tasks.ValueTask<ChServerM.Security.AuthorizationDecision>
 ChServerM.Security.IPasswordHasher
 ChServerM.Security.IPasswordHasher.Hash(string! password) -> string!
 ChServerM.Security.IPasswordHasher.Verify(string! hashedPassword, string! providedPassword) -> ChServerM.Security.PasswordVerification
@@ -431,10 +438,16 @@ ChServerM.Security.PasswordVerification.Success = 2 -> ChServerM.Security.Passwo
 ChServerM.Security.PasswordVerification.SuccessRehashNeeded = 3 -> ChServerM.Security.PasswordVerification
 override ChServerM.Security.AuthenticationResult.Equals(object? obj) -> bool
 override ChServerM.Security.AuthenticationResult.GetHashCode() -> int
+override ChServerM.Security.AuthorizationDecision.Equals(object? obj) -> bool
+override ChServerM.Security.AuthorizationDecision.GetHashCode() -> int
 static ChServerM.Security.AuthenticationResult.Failure(string? description = null) -> ChServerM.Security.AuthenticationResult
 static ChServerM.Security.AuthenticationResult.Success(uint grantedStates) -> ChServerM.Security.AuthenticationResult
 static ChServerM.Security.AuthenticationResult.operator !=(ChServerM.Security.AuthenticationResult left, ChServerM.Security.AuthenticationResult right) -> bool
 static ChServerM.Security.AuthenticationResult.operator ==(ChServerM.Security.AuthenticationResult left, ChServerM.Security.AuthenticationResult right) -> bool
+static ChServerM.Security.AuthorizationDecision.Allow() -> ChServerM.Security.AuthorizationDecision
+static ChServerM.Security.AuthorizationDecision.Deny(string? description = null) -> ChServerM.Security.AuthorizationDecision
+static ChServerM.Security.AuthorizationDecision.operator !=(ChServerM.Security.AuthorizationDecision left, ChServerM.Security.AuthorizationDecision right) -> bool
+static ChServerM.Security.AuthorizationDecision.operator ==(ChServerM.Security.AuthorizationDecision left, ChServerM.Security.AuthorizationDecision right) -> bool
 ChServerM.Handshake.ProtocolVersionRange
 ChServerM.Handshake.ProtocolVersionRange.Contains(ushort version) -> bool
 ChServerM.Handshake.ProtocolVersionRange.Equals(ChServerM.Handshake.ProtocolVersionRange other) -> bool
