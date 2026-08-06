@@ -122,6 +122,19 @@ ChServerM.Hosting.Dispatch.AuthorizationOptions.Validate() -> void
 ChServerM.Hosting.Dispatch.AuthenticationOptions.CredentialMessageId.get -> ChServerM.Identity.MessageId
 ChServerM.Hosting.Dispatch.AuthenticationOptions.CredentialMessageId.set -> void
 ChServerM.Hosting.Dispatch.AuthenticationOptions.Validate() -> void
+ChServerM.Hosting.CompositeAdmissionControl
+ChServerM.Hosting.CompositeAdmissionControl.CompositeAdmissionControl(params System.Collections.Generic.IReadOnlyList<ChServerM.Resilience.IAdmissionControl!>! controls) -> void
+ChServerM.Hosting.CompositeAdmissionControl.TryAdmit(System.Net.EndPoint? remoteEndPoint) -> ChServerM.Resilience.AdmissionDecision
+ChServerM.Hosting.ConnectionRateAdmissionControl
+ChServerM.Hosting.ConnectionRateAdmissionControl.ConnectionRateAdmissionControl(ChServerM.Hosting.ConnectionRateAdmissionControlOptions! options, System.TimeProvider? timeProvider = null) -> void
+ChServerM.Hosting.ConnectionRateAdmissionControl.TryAdmit(System.Net.EndPoint? remoteEndPoint) -> ChServerM.Resilience.AdmissionDecision
+ChServerM.Hosting.ConnectionRateAdmissionControlOptions
+ChServerM.Hosting.ConnectionRateAdmissionControlOptions.BurstCapacity.get -> int
+ChServerM.Hosting.ConnectionRateAdmissionControlOptions.BurstCapacity.set -> void
+ChServerM.Hosting.ConnectionRateAdmissionControlOptions.ConnectionRateAdmissionControlOptions() -> void
+ChServerM.Hosting.ConnectionRateAdmissionControlOptions.PermitsPerSecond.get -> double
+ChServerM.Hosting.ConnectionRateAdmissionControlOptions.PermitsPerSecond.set -> void
+ChServerM.Hosting.ConnectionRateAdmissionControlOptions.Validate() -> void
 ChServerM.Hosting.DirectorySecretSource
 ChServerM.Hosting.DirectorySecretSource.DirectorySecretSource(string! directoryPath) -> void
 ChServerM.Hosting.DirectorySecretSource.TryGetSecret(string! name, out string? value) -> bool

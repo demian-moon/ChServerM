@@ -1,6 +1,8 @@
 using System;
 using System.IO.Pipelines;
 using System.Net.Sockets;
+using ChServerM.Diagnostics;
+using ChServerM.Resilience;
 
 namespace ChServerM.Transport.Tcp;
 
@@ -129,6 +131,23 @@ public sealed class TcpTransportOptions
     /// <summary>동시에 허용할 최대 커넥션 수.</summary>
     /// <remarks><b>거부가 붕괴보다 낫다</b>(CLAUDE.md 9.6).</remarks>
     public int MaxConnections { get; set; } = int.MaxValue;
+
+    /// <summary>신규 커넥션 동적 수용 제어(Phase 10, T-14). <see langword="null"/>이면 정적 상한만 적용.</summary>
+    /// <remarks>
+    /// <see cref="MaxConnections"/>(정적 하드 상한)와 별개다 — 그 상한 <b>안</b>에서 일어나는
+    /// 연결 폭주(SYN 폭주·재접속 스톰)를 막는다. 수락 루프가 정적 상한 통과 후 이것을 물어보고,
+    /// 거부하면 <see cref="RejectionNotice"/> 경로로 통지 후 닫는다. 참조 구현:
+    /// <c>ChServerM.Hosting.ConnectionRateAdmissionControl</c>(토큰 버킷).
+    /// </remarks>
+    public IAdmissionControl? AdmissionControl { get; set; }
+
+    /// <summary>커넥션 거부를 관측할 메트릭 싱크(Phase 11). <see langword="null"/>이면 기록하지 않는다.</summary>
+    /// <remarks>
+    /// 거부된 커넥션은 핸들러에 닿지 않으므로 <c>ServerBuilder.UseMetrics</c> 의 핸들러 데코레이터가
+    /// 볼 수 없다 — 거부(<see cref="MetricNames.ConnectionsRejected"/>)는 전송이 직접 방출한다.
+    /// 정적 상한 거부와 동적 수용 거부 모두 여기서 관측된다.
+    /// </remarks>
+    public IMetricsSink? MetricsSink { get; set; }
 
     /// <summary>정상 종료 시 상대의 응답을 기다리는 최대 시간.</summary>
     /// <remarks>
@@ -280,6 +299,8 @@ public sealed class TcpTransportOptions
         LingerSeconds = LingerSeconds,
         ReuseAddress = ReuseAddress,
         RejectionNotice = RejectionNotice,
+        AdmissionControl = AdmissionControl,
+        MetricsSink = MetricsSink,
     };
 
     /// <summary>이 설정으로 <see cref="PipeOptions"/>를 만든다.</summary>

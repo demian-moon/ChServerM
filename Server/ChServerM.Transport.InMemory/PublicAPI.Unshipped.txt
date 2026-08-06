@@ -34,9 +34,13 @@ ChServerM.Transport.InMemory.InMemoryTransportHub.InMemoryTransportHub() -> void
 ChServerM.Transport.InMemory.InMemoryTransportHub.IsListening(string! name) -> bool
 ChServerM.Transport.InMemory.InMemoryTransportHub.ListenerCount.get -> int
 ChServerM.Transport.InMemory.InMemoryTransportOptions
+ChServerM.Transport.InMemory.InMemoryTransportOptions.AdmissionControl.get -> ChServerM.Resilience.IAdmissionControl?
+ChServerM.Transport.InMemory.InMemoryTransportOptions.AdmissionControl.set -> void
 ChServerM.Transport.InMemory.InMemoryTransportOptions.InMemoryTransportOptions() -> void
 ChServerM.Transport.InMemory.InMemoryTransportOptions.MaxConnections.get -> int
 ChServerM.Transport.InMemory.InMemoryTransportOptions.MaxConnections.set -> void
+ChServerM.Transport.InMemory.InMemoryTransportOptions.MetricsSink.get -> ChServerM.Diagnostics.IMetricsSink?
+ChServerM.Transport.InMemory.InMemoryTransportOptions.MetricsSink.set -> void
 ChServerM.Transport.InMemory.InMemoryTransportOptions.PauseWriterThreshold.get -> long
 ChServerM.Transport.InMemory.InMemoryTransportOptions.PauseWriterThreshold.set -> void
 ChServerM.Transport.InMemory.InMemoryTransportOptions.ResumeWriterThreshold.get -> long

@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using ChServerM.Connections;
 using ChServerM.Diagnostics;
 using ChServerM.Identity;
+using ChServerM.Resilience;
 using ChServerM.Transports;
 
 namespace ChServerM.Transport.InMemory;
@@ -46,6 +47,8 @@ public sealed class InMemoryServerTransport : IServerTransport, ITransportBuffer
     private readonly int _maxConnections;
     private readonly TimeSpan _shutdownTimeout;
     private readonly IServerLogger _logger;
+    private readonly IAdmissionControl? _admissionControl;
+    private readonly IMetricsSink? _metricsSink;
 
     private readonly ConcurrentDictionary<ConnectionId, ActiveConnection> _connections = new();
 
@@ -81,6 +84,8 @@ public sealed class InMemoryServerTransport : IServerTransport, ITransportBuffer
         _maxConnections = options.MaxConnections;
         _shutdownTimeout = options.ShutdownTimeout;
         _logger = logger ?? NullServerLogger.Instance;
+        _admissionControl = options.AdmissionControl;
+        _metricsSink = options.MetricsSink;
         MaxBufferedBytesPerConnection = options.PauseWriterThreshold;
     }
 
@@ -212,9 +217,23 @@ public sealed class InMemoryServerTransport : IServerTransport, ITransportBuffer
             Interlocked.Decrement(ref _activeCount);
 
             // 거부가 붕괴보다 낫다. 조용히 받아두고 나중에 죽는 것이 최악이다.
-            LogRejected();
+            EmitRejected(CloseReasonTags.ConnectionLimit);
+            LogRejected(CloseReasonTags.ConnectionLimit);
             throw new InvalidOperationException(
                 $"동시 접속 상한({_maxConnections})에 도달했다. ({nameof(ErrorCode.ConnectionLimitReached)})");
+        }
+
+        // 동적 수용 제어 — 상한 안의 연결 폭주를 막는다(T-16). 정적 상한 통과 후에만 묻는다.
+        // 거부 시 증가시킨 카운터를 되돌려야 한다(정적 거부와 같은 롤백).
+        if (_admissionControl is { } admissionControl
+            && !admissionControl.TryAdmit(clientEndPoint).IsAdmitted)
+        {
+            Interlocked.Decrement(ref _activeCount);
+
+            EmitRejected(CloseReasonTags.Admission);
+            LogRejected(CloseReasonTags.Admission);
+            throw new InvalidOperationException(
+                $"수용 제어가 연결을 거부했다. ({nameof(ErrorCode.ConnectionLimitReached)})");
         }
 
         Pipe clientToServer = new(_pipeOptions);
@@ -287,17 +306,33 @@ public sealed class InMemoryServerTransport : IServerTransport, ITransportBuffer
     private ConnectionId NextConnectionId() =>
         new((uint)Interlocked.Increment(ref _nextSlot), generation: 1);
 
-    private void LogRejected()
+    private void EmitRejected(string reason)
+    {
+        if (_metricsSink is { } sink)
+        {
+            Span<MetricTag> tags = [new MetricTag(TagNames.CloseReason, reason)];
+            sink.Count(MetricNames.ConnectionsRejected, 1, tags);
+        }
+    }
+
+    private void LogRejected(string reason)
     {
         if (_logger.IsEnabled(LogLevel.Warning))
         {
             _logger.Log(
                 LogLevel.Warning,
                 ConnectionRejectedEvent,
-                _maxConnections,
+                (Limit: _maxConnections, Reason: reason),
                 null,
-                static (limit, _) => $"동시 접속 상한({limit})에 도달해 연결을 거부했다.");
+                static (state, _) => $"연결을 거부했다(사유: {state.Reason}, 동시 접속 상한 {state.Limit}).");
         }
+    }
+
+    /// <summary>커넥션 거부 메트릭의 저카디널리티 사유 태그 값.</summary>
+    private static class CloseReasonTags
+    {
+        public const string ConnectionLimit = "connection_limit";
+        public const string Admission = "admission";
     }
 
     private void LogHandlerFaulted(ConnectionId id, Exception exception)

@@ -1,5 +1,7 @@
 using System;
 using System.IO.Pipelines;
+using ChServerM.Diagnostics;
+using ChServerM.Resilience;
 
 namespace ChServerM.Transport.InMemory;
 
@@ -45,6 +47,21 @@ public sealed class InMemoryTransportOptions
     /// 상한을 넘는 연결 시도는 거부된다. <b>거부가 붕괴보다 낫다</b>(CLAUDE.md 9.6).
     /// </remarks>
     public int MaxConnections { get; set; } = int.MaxValue;
+
+    /// <summary>신규 커넥션 동적 수용 제어(Phase 10, T-14). <see langword="null"/>이면 정적 상한만 적용.</summary>
+    /// <remarks>
+    /// <see cref="MaxConnections"/>(정적 하드 상한)를 통과한 뒤에만 물어본다. 거부하면
+    /// <c>Accept</c> 가 예외로 실패한다(인메모리는 통지 소켓이 없다). 참조 구현:
+    /// <c>ChServerM.Hosting.ConnectionRateAdmissionControl</c>.
+    /// </remarks>
+    public IAdmissionControl? AdmissionControl { get; set; }
+
+    /// <summary>커넥션 거부를 관측할 메트릭 싱크(Phase 11). <see langword="null"/>이면 기록하지 않는다.</summary>
+    /// <remarks>
+    /// 거부된 커넥션은 핸들러에 닿지 않으므로 거부(<see cref="MetricNames.ConnectionsRejected"/>)는
+    /// 전송이 직접 방출한다 — 정적 상한 거부와 동적 수용 거부 모두 관측된다.
+    /// </remarks>
+    public IMetricsSink? MetricsSink { get; set; }
 
     /// <summary>정상 종료 시 남은 송신 데이터의 드레인을 기다리는 최대 시간.</summary>
     /// <remarks>

@@ -57,6 +57,10 @@ ChServerM.Transport.Tcp.TcpTransportOptions.SocketSendBufferSize.get -> int?
 ChServerM.Transport.Tcp.TcpTransportOptions.SocketSendBufferSize.set -> void
 ChServerM.Transport.Tcp.TcpTransportOptions.LingerSeconds.get -> int?
 ChServerM.Transport.Tcp.TcpTransportOptions.LingerSeconds.set -> void
+ChServerM.Transport.Tcp.TcpTransportOptions.AdmissionControl.get -> ChServerM.Resilience.IAdmissionControl?
+ChServerM.Transport.Tcp.TcpTransportOptions.AdmissionControl.set -> void
+ChServerM.Transport.Tcp.TcpTransportOptions.MetricsSink.get -> ChServerM.Diagnostics.IMetricsSink?
+ChServerM.Transport.Tcp.TcpTransportOptions.MetricsSink.set -> void
 ChServerM.Transport.Tcp.TcpTransportOptions.ReuseAddress.get -> bool
 ChServerM.Transport.Tcp.TcpTransportOptions.ReuseAddress.set -> void
 ChServerM.Transport.Tcp.TcpTransportOptions.RejectionNotice.get -> System.ReadOnlyMemory<byte>

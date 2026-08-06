@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using ChServerM.Connections;
 using ChServerM.Diagnostics;
 using ChServerM.Identity;
+using ChServerM.Resilience;
 using ChServerM.Transports;
 
 namespace ChServerM.Transport.Tcp;
@@ -365,32 +366,19 @@ public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimit
 
     private void StartConnection(Socket accepted, IConnectionHandler handler)
     {
+        // 정적 하드 상한 — 정상 상태의 최대 커넥션.
         if (_connections.Count >= _options.MaxConnections)
         {
-            // 거부가 붕괴보다 낫다. 조용히 받아두고 나중에 죽는 것이 최악이다.
-            LogRejected();
+            RejectConnection(accepted, CloseReasonTags.ConnectionLimit);
+            return;
+        }
 
-            // 거부 이유 통지(최선 노력). 그냥 닫으면 클라이언트는 RST 하나만 보고
-            // "서버가 꽉 찼다"와 "네트워크가 끊겼다"를 구분할 수 없다 — 옵션 문서 참조.
-            // 동기 Send 인 이유: 새 소켓의 송신 버퍼는 비어 있어 실질 논블로킹이고,
-            // 거부 경로에서 비동기 대기를 만들면 그것이 곧 자원 소모 공격 표면이다.
-            if (!_options.RejectionNotice.IsEmpty)
-            {
-                try
-                {
-                    accepted.Send(_options.RejectionNotice.Span);
-                }
-                catch (SocketException)
-                {
-                    // 상대가 이미 끊었다. 통지는 최선 노력이다.
-                }
-                catch (ObjectDisposedException)
-                {
-                    // 이미 버려진 소켓이다.
-                }
-            }
-
-            accepted.Dispose();
+        // 동적 수용 제어 — 상한 안의 연결 폭주(SYN 폭주·재접속 스톰)를 막는다(T-16).
+        // 정적 상한을 통과한 뒤에만 물어본다: 이미 꽉 찼으면 속도를 따질 필요가 없다.
+        if (_options.AdmissionControl is { } admissionControl
+            && !admissionControl.TryAdmit(SafeRemoteEndPoint(accepted)).IsAdmitted)
+        {
+            RejectConnection(accepted, CloseReasonTags.Admission);
             return;
         }
 
@@ -517,17 +505,84 @@ public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimit
         }
     }
 
-    private void LogRejected()
+    /// <summary>커넥션을 거부한다 — 관측·로그·최선 노력 통지·소켓 정리를 한곳에서.</summary>
+    /// <remarks>
+    /// 정적 상한 거부와 동적 수용 거부가 같은 경로를 쓴다 — 통지·정리 로직이 두 벌이 되면
+    /// 한쪽만 고치는 사고가 난다. <paramref name="reason"/> 는 메트릭의 저카디널리티 태그다.
+    /// </remarks>
+    private void RejectConnection(Socket accepted, string reason)
+    {
+        // 거부가 붕괴보다 낫다. 조용히 받아두고 나중에 죽는 것이 최악이다(관측되지 않는 유실도 금지).
+        EmitRejected(reason);
+        LogRejected(reason);
+
+        // 거부 이유 통지(최선 노력). 그냥 닫으면 클라이언트는 RST 하나만 보고
+        // "서버가 꽉 찼다"와 "네트워크가 끊겼다"를 구분할 수 없다 — 옵션 문서 참조.
+        // 동기 Send 인 이유: 새 소켓의 송신 버퍼는 비어 있어 실질 논블로킹이고,
+        // 거부 경로에서 비동기 대기를 만들면 그것이 곧 자원 소모 공격 표면이다.
+        if (!_options.RejectionNotice.IsEmpty)
+        {
+            try
+            {
+                accepted.Send(_options.RejectionNotice.Span);
+            }
+            catch (SocketException)
+            {
+                // 상대가 이미 끊었다. 통지는 최선 노력이다.
+            }
+            catch (ObjectDisposedException)
+            {
+                // 이미 버려진 소켓이다.
+            }
+        }
+
+        accepted.Dispose();
+    }
+
+    /// <summary>원격 주소를 안전하게 읽는다 — 수락 직후 끊긴 소켓은 던진다.</summary>
+    private static EndPoint? SafeRemoteEndPoint(Socket accepted)
+    {
+        try
+        {
+            return accepted.RemoteEndPoint;
+        }
+        catch (SocketException)
+        {
+            return null;
+        }
+        catch (ObjectDisposedException)
+        {
+            return null;
+        }
+    }
+
+    private void EmitRejected(string reason)
+    {
+        if (_options.MetricsSink is { } sink)
+        {
+            Span<MetricTag> tags = [new MetricTag(TagNames.CloseReason, reason)];
+            sink.Count(MetricNames.ConnectionsRejected, 1, tags);
+        }
+    }
+
+    private void LogRejected(string reason)
     {
         if (_logger.IsEnabled(LogLevel.Warning))
         {
             _logger.Log(
                 LogLevel.Warning,
                 ConnectionRejectedEvent,
-                _options.MaxConnections,
+                (Limit: _options.MaxConnections, Reason: reason),
                 null,
-                static (limit, _) => $"동시 접속 상한({limit})에 도달해 연결을 거부했다.");
+                static (state, _) => $"연결을 거부했다(사유: {state.Reason}, 동시 접속 상한 {state.Limit}).");
         }
+    }
+
+    /// <summary>커넥션 거부 메트릭의 저카디널리티 사유 태그 값.</summary>
+    private static class CloseReasonTags
+    {
+        public const string ConnectionLimit = "connection_limit";
+        public const string Admission = "admission";
     }
 
     private void LogHandlerFaulted(ConnectionId id, Exception exception)
