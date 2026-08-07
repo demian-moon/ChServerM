@@ -46,7 +46,16 @@ public sealed class TlsSecurityOptions
     public string? TargetHost { get; set; }
 
     /// <summary>허용 TLS 버전. 기본값은 <see cref="SslProtocols.Tls13"/> 단독.</summary>
+    /// <remarks>
+    /// <b>CA5398 억제 근거.</b> 분석기는 <see cref="SslProtocols"/> 하드코딩을 경고하며 OS 가
+    /// 버전을 고르게 <c>None</c> 을 권한다. 그러나 이 프레임워크는 ADR-0017 에서 <b>TLS 1.3
+    /// 을 기본으로 못박는 것</b>이 결정이다 — 구버전으로의 다운그레이드를 기본값이 열어두지
+    /// 않는다. 게다가 이 값은 설정 가능한 <b>기본값</b>이지 고정 상수가 아니다(소비자가
+    /// 재정의할 수 있다). 따라서 CA5398 은 이 설계에 대한 오탐이다.
+    /// </remarks>
+#pragma warning disable CA5398 // TLS 1.3 을 안전한 기본값으로 못박는다(ADR-0017) — 위 remarks 참조.
     public SslProtocols EnabledProtocols { get; set; } = SslProtocols.Tls13;
+#pragma warning restore CA5398
 
     /// <summary>클라이언트 측 서버 인증서 검증 재정의. null 이면 기본 체인 검증(공인 CA)이다.</summary>
     /// <remarks>

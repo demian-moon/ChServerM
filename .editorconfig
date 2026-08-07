@@ -151,6 +151,11 @@ dotnet_diagnostic.CA5394.severity = none
 # Method_name_with_underscores 는 테스트 명명 관례다.
 dotnet_diagnostic.CA1707.severity = none
 
+# CA1515 — public 타입을 internal 로 낮추라는 제안. xUnit 은 테스트 클래스와
+# [CollectionDefinition] 마커 클래스가 public 이어야 발견한다(Bench 와 같은 사유).
+# [Fact] 없는 컬렉션 정의 클래스가 "외부에서 안 쓰이는 public" 으로 오탐된다.
+dotnet_diagnostic.CA1515.severity = none
+
 # ──────────────────────────────────────────────────────────────
 # 샘플 — 사용자가 읽는 참조 코드다. 성능·신뢰성 규칙은 그대로 두고,
 # 콘솔 애플리케이션에 맞지 않는 세 가지만 푼다.
