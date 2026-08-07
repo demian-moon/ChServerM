@@ -186,18 +186,13 @@ static ChServerM.Hosting.FrameWriter.WriteCompressedFrameAsync(this ChServerM.Co
 ChServerM.Hosting.ChServerMServer.Health.get -> ChServerM.Hosting.HealthCheckService!
 ChServerM.Hosting.HealthCheckRegistration
 ChServerM.Hosting.HealthCheckRegistration.Check.get -> ChServerM.Diagnostics.IHealthCheck!
-ChServerM.Hosting.HealthCheckRegistration.HealthCheckRegistration(string! name, ChServerM.Diagnostics.IHealthCheck! check, ChServerM.Hosting.HealthProbe probes = ChServerM.Hosting.HealthProbe.All) -> void
+ChServerM.Hosting.HealthCheckRegistration.HealthCheckRegistration(string! name, ChServerM.Diagnostics.IHealthCheck! check, ChServerM.Diagnostics.HealthProbe probes = ChServerM.Diagnostics.HealthProbe.All) -> void
 ChServerM.Hosting.HealthCheckRegistration.Name.get -> string!
-ChServerM.Hosting.HealthCheckRegistration.Probes.get -> ChServerM.Hosting.HealthProbe
+ChServerM.Hosting.HealthCheckRegistration.Probes.get -> ChServerM.Diagnostics.HealthProbe
 ChServerM.Hosting.HealthCheckService
-ChServerM.Hosting.HealthCheckService.CheckHealthAsync(ChServerM.Hosting.HealthProbe probe = ChServerM.Hosting.HealthProbe.All, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Diagnostics.HealthReport!>
+ChServerM.Hosting.HealthCheckService.CheckHealthAsync(ChServerM.Diagnostics.HealthProbe probe = ChServerM.Diagnostics.HealthProbe.All, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Diagnostics.HealthReport!>
 ChServerM.Hosting.HealthCheckService.HealthCheckService(System.Collections.Generic.IEnumerable<ChServerM.Hosting.HealthCheckRegistration!>! registrations) -> void
-ChServerM.Hosting.HealthProbe
-ChServerM.Hosting.HealthProbe.All = ChServerM.Hosting.HealthProbe.Liveness | ChServerM.Hosting.HealthProbe.Readiness -> ChServerM.Hosting.HealthProbe
-ChServerM.Hosting.HealthProbe.Liveness = 1 -> ChServerM.Hosting.HealthProbe
-ChServerM.Hosting.HealthProbe.None = 0 -> ChServerM.Hosting.HealthProbe
-ChServerM.Hosting.HealthProbe.Readiness = 2 -> ChServerM.Hosting.HealthProbe
-ChServerM.Hosting.ServerBuilder.AddHealthCheck(string! name, ChServerM.Diagnostics.IHealthCheck! check, ChServerM.Hosting.HealthProbe probes = ChServerM.Hosting.HealthProbe.All) -> ChServerM.Hosting.ServerBuilder!
+ChServerM.Hosting.ServerBuilder.AddHealthCheck(string! name, ChServerM.Diagnostics.IHealthCheck! check, ChServerM.Diagnostics.HealthProbe probes = ChServerM.Diagnostics.HealthProbe.All) -> ChServerM.Hosting.ServerBuilder!
 ChServerM.Hosting.ServerLifecycleState
 ChServerM.Hosting.ServerLifecycleState.ServerLifecycleState() -> void
 ChServerM.Hosting.ServerLifecycleState.State.get -> ChServerM.Hosting.ServerState

@@ -1,16 +1,21 @@
 using System;
 
-namespace ChServerM.Hosting;
+namespace ChServerM.Diagnostics;
 
 /// <summary>
 /// 헬스 체크가 어느 프로브에 속하는지 (Phase 11 관측).
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>왜 계약(<see cref="ChServerM.Diagnostics.IHealthCheck"/>)이 아니라 등록에 두는가.</b>
-/// liveness 와 readiness 는 <b>같은 체크를 다르게 쓰는 것</b>이지 다른 체크가 아니다 —
-/// 프로세스 존재 여부는 둘 다에 기여할 수 있다. 그래서 프로브 소속은 체크 자신이 아니라
-/// 등록(<see cref="HealthCheckRegistration"/>)이 정한다. Core 계약을 최소로 유지하는 선택이다.
+/// <b>왜 계약(<see cref="IHealthCheck"/>)이 아니라 등록에 두는가.</b> liveness 와 readiness 는
+/// <b>같은 체크를 다르게 쓰는 것</b>이지 다른 체크가 아니다 — 프로세스 존재 여부는 둘 다에
+/// 기여할 수 있다. 그래서 프로브 소속은 체크 자신이 아니라 등록이 정한다. <see cref="IHealthCheck"/>
+/// 계약을 최소로 유지하는 선택이다.
+/// </para>
+/// <para>
+/// <b>이 값 타입은 Core 에 둔다.</b> <see cref="HealthStatus"/>·<see cref="HealthReport"/> 와 같은
+/// 헬스 어휘의 값 타입이라, HTTP 노출 어댑터처럼 Hosting 을 참조하지 않는 소비자도 이것으로
+/// 프로브를 지정할 수 있어야 한다(일방 의존 규칙 유지).
 /// </para>
 /// <para>
 /// <b>두 프로브의 의미가 다르다(오케스트레이터 계약).</b>

@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.Diagnostics.Http</RootNamespace>
+    <Description>ChServerM 헬스 체크의 HTTP 노출 어댑터 (ADR-0024). System.Net.HttpListener 로 /healthz·/readyz 를 별도 admin 포트에 낸다 — k8s liveness/readiness 프로브용. Core 만 참조(프로브 델리게이트).</Description>
+  </PropertyGroup>
+
+  <!--
+    이 어댑터의 "벤더"는 BCL 의 System.Net.HttpListener 다 — 패키지 참조가 없다.
+    그래도 별도 어셈블리로 격리하는 이유: HTTP 헬스 노출은 "없음"이 유효한 조립이라
+    (프로그래밍 API 로 충분한 소비자, 사이드카가 노출을 대신하는 배포), 이것을 안 쓰는
+    소비자가 HttpListener 관련 표면을 프로세스에 끌고 가지 않아야 한다(Observability 가
+    Meter 를, Security.Tls 가 SslStream 을 격리하는 것과 같은 규율).
+
+    Hosting 을 참조하지 않는다 — 엔드포인트는 프로브 델리게이트
+    (Func<HealthProbe, CancellationToken, ValueTask<HealthReport>>)만 받으므로 Core 로 족하다.
+    그래서 일방 의존(어댑터 → Core)이 유지되고, 임의의 헬스 소스에 재사용된다(ADR-0024).
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\ChServerM.Core\ChServerM.Core.csproj" />
+  </ItemGroup>
+
+</Project>

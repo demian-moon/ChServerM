@@ -573,3 +573,8 @@ static ChServerM.Diagnostics.HealthCheckResult.operator ==(ChServerM.Diagnostics
 static ChServerM.Diagnostics.HealthCheckResult.Unhealthy(string? description = null) -> ChServerM.Diagnostics.HealthCheckResult
 static ChServerM.Diagnostics.HealthReportEntry.operator !=(ChServerM.Diagnostics.HealthReportEntry left, ChServerM.Diagnostics.HealthReportEntry right) -> bool
 static ChServerM.Diagnostics.HealthReportEntry.operator ==(ChServerM.Diagnostics.HealthReportEntry left, ChServerM.Diagnostics.HealthReportEntry right) -> bool
+ChServerM.Diagnostics.HealthProbe
+ChServerM.Diagnostics.HealthProbe.All = ChServerM.Diagnostics.HealthProbe.Liveness | ChServerM.Diagnostics.HealthProbe.Readiness -> ChServerM.Diagnostics.HealthProbe
+ChServerM.Diagnostics.HealthProbe.Liveness = 1 -> ChServerM.Diagnostics.HealthProbe
+ChServerM.Diagnostics.HealthProbe.None = 0 -> ChServerM.Diagnostics.HealthProbe
+ChServerM.Diagnostics.HealthProbe.Readiness = 2 -> ChServerM.Diagnostics.HealthProbe

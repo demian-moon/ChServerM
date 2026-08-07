@@ -1582,3 +1582,53 @@ publish 가 함께 검증한다.
   같은 방식으로 헬스에 기여할 수 있는 확장 접점이다.
 - 부정: HTTP 엔드포인트가 없어 k8s 프로브가 아직 직접 못 쓴다 — 관리 HTTP 어댑터가 후속.
 - 부정: liveness 는 스레드 사망만 본다(교착 미감지). 진행도 하트비트 기반 liveness 는 후속.
+
+## ADR-0024: HTTP 헬스 노출은 `System.Net.HttpListener` + 프로브 델리게이트(Core 만 참조)
+
+- **날짜**: 2026-08-07
+- **상태**: 채택
+- **영향 범위**: 신규 어셈블리 `ChServerM.Diagnostics.Http`(`HealthHttpEndpoint`·`HealthHttpOptions`) /
+  Core(`HealthProbe` 를 Hosting 에서 이동)
+
+### 배경
+
+- ADR-0023 에서 헬스 생산·집계·프로그래밍 API 를 만들되 HTTP 노출은 후속으로 미뤘다.
+  k8s liveness/readiness 프로브는 HTTP GET 이므로, 오케스트레이터가 직접 쓰려면 엔드포인트가 필요하다.
+- 이 프레임워크엔 HTTP 전송이 없다(데이터 평면 raw TCP) — 헬스 HTTP 는 별도 admin 서버여야 한다.
+
+### 결정
+
+1. **HTTP 스택은 `System.Net.HttpListener`.** 2라우트 GET 헬스 엔드포인트에 Kestrel(ASP.NET Core
+   호스팅 모델)은 과하다. HttpListener 는 BCL 공유 프레임워크라 패키지 의존이 0이고, AOT 분석기도
+   깨끗하다(clean 빌드 경고 0). 응답 본문은 <b>평문</b> — 프로브는 상태코드만 보므로 JSON(과 그
+   직렬화·AOT 비용)을 들이지 않는다. 상태 매핑: 정상·저하 → <c>200</c>, 비정상 → <c>503</c>
+   (저하는 경고이지 프로브 실패가 아니다).
+2. **어댑터는 Core 만 참조하고, 헬스 소스를 델리게이트로 받는다**
+   (`Func<HealthProbe, CancellationToken, ValueTask<HealthReport>>`). 그러려면 `HealthProbe` 를
+   Hosting → Core 로 옮긴다 — `HealthStatus`·`HealthReport` 와 같은 헬스 값 타입 계열이다.
+   그 결과 일방 의존(어댑터 → Core)이 유지되고("Server 어셈블리가 Hosting 참조"라는 첫 사례를
+   만들지 않는다), 엔드포인트가 임의의 헬스 소스에 재사용된다. 표준 사용법은
+   `new HealthHttpEndpoint(server.Health.CheckHealthAsync, options)`.
+3. **별도 어셈블리로 격리.** HTTP 헬스 노출을 안 쓰는 소비자(프로그래밍 API 로 충분·사이드카가
+   노출을 대신하는 배포)가 HttpListener 표면을 프로세스에 끌고 가지 않아야 한다(Observability 가
+   Meter 를, Security.Tls 가 SslStream 을 격리하는 규율).
+4. **항목별 격리.** 한 요청의 예외(프로브 실패·연결 끊김)가 accept 루프를 죽이지 않는다 —
+   500 으로 응답하고 계속(소비 루프 항목 격리, 9.2). 프로브는 순차 처리(저빈도라 동시성 불필요).
+
+### 대안과 탈락 이유
+
+| 대안 | 탈락 이유 |
+|---|---|
+| Kestrel | 2라우트 헬스엔 과함 + ASP.NET Core 호스팅 모델을 헬스 어댑터에 끌어들임. HttpListener 로 충분 |
+| 어댑터가 Hosting 참조(HealthCheckService 직접) | "Server 어셈블리 → Hosting" 첫 사례로 일방 의존을 흐린다. 델리게이트면 Core 로 족하다 |
+| JSON 응답 본문 | 프로브는 상태코드만 본다. STJ 직렬화·AOT 비용을 헬스 어댑터에 들일 이유가 없다(본문은 curl 디버그용 평문) |
+| 데이터 평면 프로토콜에 헬스 메시지 | k8s 프로브는 HTTP 다. 커스텀 TCP 메시지는 그 용도를 못 채운다 |
+
+### 결과
+
+- 긍정: k8s 등이 `/healthz`·`/readyz` 를 직접 프로브할 수 있다(200/503). 무의존·AOT 클린.
+  엔드포인트가 헬스 소스와 분리돼 테스트가 스텁 델리게이트로 Core 만으로 완결된다(6종).
+- 긍정: `HealthProbe` 가 Core 로 가며 헬스 값 타입이 한곳에 모였다(HealthStatus·HealthReport·HealthProbe).
+- 부정: HttpListener 는 일부 환경에서 URL ACL(Windows netsh)·방화벽 설정이 필요하다 —
+  기본 루프백은 사이드카·같은 파드 안에서만 닿는다. 외부 인터페이스 노출은 운영이 함께 본다.
+- 부정: TLS·인증이 없는 평문 admin 엔드포인트다 — admin 포트를 외부에 노출하지 않는 전제다(관례).
