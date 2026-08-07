@@ -583,3 +583,11 @@ ChServerM.Diagnostics.NullMetricsSink.ObserveCounter(string! name, System.Func<l
 const ChServerM.Diagnostics.MetricNames.PoolBuffersLeaked = "chserverm.pool.buffers.leaked" -> string!
 const ChServerM.Diagnostics.MetricNames.PoolBuffersRented = "chserverm.pool.buffers.rented" -> string!
 const ChServerM.Diagnostics.MetricNames.PoolBuffersReturned = "chserverm.pool.buffers.returned" -> string!
+ChServerM.Diagnostics.ErrorCode.LoadShed = 5003 -> ChServerM.Diagnostics.ErrorCode
+ChServerM.Dispatch.DispatchStatus.RejectedByLoadShedding = 10 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Resilience.ILoadLevelSource
+ChServerM.Resilience.ILoadLevelSource.Current.get -> ChServerM.Resilience.LoadLevel
+ChServerM.Resilience.LoadLevel
+ChServerM.Resilience.LoadLevel.Critical = 2 -> ChServerM.Resilience.LoadLevel
+ChServerM.Resilience.LoadLevel.Elevated = 1 -> ChServerM.Resilience.LoadLevel
+ChServerM.Resilience.LoadLevel.Normal = 0 -> ChServerM.Resilience.LoadLevel

@@ -218,3 +218,15 @@ ChServerM.Hosting.PerAddressConnectionRateOptions.Validate() -> void
 const ChServerM.Hosting.PerAddressConnectionRateOptions.AbsoluteMaxSlotCount = 4194304 -> int
 ChServerM.Hosting.ProcessFaultHandlers
 static ChServerM.Hosting.ProcessFaultHandlers.Install(ChServerM.Diagnostics.IServerLogger! logger) -> System.IDisposable!
+ChServerM.Hosting.Dispatch.LoadSheddingMiddleware
+ChServerM.Hosting.Dispatch.LoadSheddingMiddleware.InvokeAsync(ChServerM.Dispatch.MessageContext! context, ChServerM.Dispatch.MessageDelegate! next) -> System.Threading.Tasks.ValueTask<ChServerM.Dispatch.DispatchStatus>
+ChServerM.Hosting.Dispatch.LoadSheddingMiddleware.LoadSheddingMiddleware(ChServerM.Resilience.ILoadLevelSource! loadLevel, ChServerM.Hosting.Dispatch.LoadSheddingOptions! options) -> void
+ChServerM.Hosting.Dispatch.LoadSheddingOptions
+ChServerM.Hosting.Dispatch.LoadSheddingOptions.LoadSheddingOptions() -> void
+ChServerM.Hosting.Dispatch.LoadSheddingOptions.ShedAbove(ChServerM.Identity.MessageId messageId, ChServerM.Resilience.LoadLevel keepUpTo) -> ChServerM.Hosting.Dispatch.LoadSheddingOptions!
+ChServerM.Hosting.Dispatch.LoadSheddingOptions.Validate() -> void
+ChServerM.Hosting.MemoryLoadLevelSource
+ChServerM.Hosting.MemoryLoadLevelSource.Current.get -> ChServerM.Resilience.LoadLevel
+ChServerM.Hosting.MemoryLoadLevelSource.MemoryLoadLevelSource(double elevatedRatio = 0.75, double criticalRatio = 0.9, System.TimeSpan? refreshInterval = null, System.TimeProvider? timeProvider = null) -> void
+ChServerM.Hosting.MemoryLoadLevelSource.RefreshInterval.get -> System.TimeSpan
+static ChServerM.Hosting.MemoryLoadLevelSource.DefaultRefreshInterval.get -> System.TimeSpan

@@ -83,4 +83,21 @@ public enum DispatchStatus : byte
     /// 옵션 무관하게 커넥션을 닫지 않고 그 프레임만 버린다 — 클라이언트는 스스로 늦춘다.
     /// </remarks>
     RejectedByRateLimit = 9,
+
+    /// <summary>부하가 높아 비필수로 분류된 메시지를 버렸다. <b>커넥션은 닫지 않는다</b> — 일시적 압박이다.</summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="RejectedByPolicy"/> 와 구분하는 이유: 그쪽은 <c>CloseOnPolicyRejection</c>
+    /// 옵션에 걸려 있어, 재사용하면 <b>부하가 올라갈 때 옵션 하나 때문에 커넥션이 무더기로
+    /// 끊기고</b> 그 재접속이 부하를 더 키운다 — 열화가 붕괴를 앞당기는 정확한 역효과다.
+    /// 그래서 이 상태는 옵션 무관하게 닫지 않고 그 프레임만 버린다
+    /// (<see cref="RejectedByRateLimit"/> 와 같은 근거).
+    /// </para>
+    /// <para>
+    /// <see cref="RejectedByRateLimit"/> 와도 구분한다: 속도 제한은 <b>이 클라이언트가 너무 많이
+    /// 보낸 것</b>이고 열화는 <b>서버가 힘든 것</b>이다. 원인이 반대이므로 대시보드에서 갈려야
+    /// 조치가 갈린다(속도 제한 증가 = 학대자, 열화 증가 = 증설 신호).
+    /// </para>
+    /// </remarks>
+    RejectedByLoadShedding = 10,
 }

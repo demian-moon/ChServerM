@@ -595,6 +595,10 @@ public sealed class FramedConnectionHandler : IConnectionHandler
             // MetricsMiddleware 의 DispatchFailures). null 은 "계속"을 뜻한다.
             DispatchStatus.RejectedByRateLimit => null,
 
+            // 열화도 닫지 않는다(불변). 오히려 여기서 닫으면 부하가 높을 때 커넥션이
+            // 무더기로 끊기고 그 재접속이 부하를 더 키운다 — 열화가 붕괴를 앞당긴다.
+            DispatchStatus.RejectedByLoadShedding => null,
+
             _ => null,
         };
     }
