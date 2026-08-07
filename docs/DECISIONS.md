@@ -1962,3 +1962,61 @@ publish 가 함께 검증한다.
   못한다. 그 수준이 필요하면 앱이 메시지를 나누거나 별도 미들웨어를 쓴다.
 - 부정: 열화 발동을 자동으로 알리는 메트릭 이름은 별도로 두지 않았다 — `DispatchFailures` 의
   상태 태그(`RejectedByLoadShedding`)로 관측된다.
+
+## ADR-0030: 로깅 어댑터는 ZLogger 가 아니라 `Microsoft.Extensions.Logging` 을 대상으로 한다
+
+- **날짜**: 2026-08-07
+- **상태**: 채택
+- **영향 범위**: 신규 어셈블리 `ChServerM.Logging.Extensions`(`MicrosoftServerLogger`·
+  `ServerLoggerExtensions`) / `Directory.Packages.props`(`Microsoft.Extensions.Logging.Abstractions`)
+
+### 배경
+
+- ROADMAP Phase 11 항목: "**ZLogger 어댑터** (무할당 구조적 로깅)". 여기서 ZLogger 는 **수단**이고
+  괄호 안이 **목표**다.
+- 조사에서 세 가지가 드러났다.
+  1. **`IServerLogger.Log<TState>` 는 `ILogger.Log<TState>` 와 인자 구성이 동일하다**(심각도·
+     이벤트 ID·상태·예외·포매터). `LogLevel` 값도 MEL 과 같은 순서·값이다. 즉 MEL 어댑터는
+     열거형 두 개만 옮기는 **~30줄 패스스루**다.
+  2. **이 프레임워크는 프레임당 로깅을 하지 않는다.** 로그 지점 29곳을 전수 확인한 결과 전부
+     오류·희소 경로였고(프로토콜 오류·핸들러 예외·인증 실패·파티션 거부·협상 실패), 정상 프레임
+     처리 경로에는 로그가 **하나도 없다**. 모두 `IsEnabled` 로 걸린다.
+  3. **ZLogger 의 방출 시점 무할당 경로를 쓰려면 벤더가 Core 에 스며든다.** 상태 타입이
+     ZLogger 인터페이스(`IZLoggerFormattable`)를 구현해야 문자열을 피하는데, 그것은 Core public
+     표면에 벤더 타입을 넣는 것이라 **하드 룰 위반**이다. 우리 계약의
+     `Func<TState, Exception?, string>` 포매터를 통과하는 한 문자열은 생긴다.
+
+### 결정
+
+1. **어댑터 대상은 `Microsoft.Extensions.Logging.Abstractions` 다.** 표준 추상화 하나에 붙이면
+   **ZLogger·Serilog·콘솔·파일·Seq·Application Insights 가 전부 프로바이더로 열린다** —
+   벤더별 어댑터를 하나씩 만들 이유가 사라진다. ZLogger 는 그중 하나의 선택지가 된다.
+2. **"무할당" 목표는 이미 충족돼 있다.** 정상 처리 경로의 로깅 비용은 `IsEnabled` 게이트로 **0**
+   이고, 상태는 구조체라 박싱이 없다. 실제 방출 시의 문자열 한 번은 **희소 경로에서만** 발생한다.
+   "방출 시점까지 무할당"은 초당 수만 건을 로깅할 때 값을 하는데, 그런 설계를 애초에 하지 않았다.
+3. **상태를 재포장하지 않는다.** 어댑터가 `TState` 를 감싸면 구조체 상태가 박싱되어 프레임워크가
+   지켜온 규약이 어댑터에서 깨진다. 그대로 넘기는 것이 이 어댑터의 핵심 제약이며 테스트로 고정했다.
+4. **`Abstractions` 만 참조한다.** 로깅 구현·프로바이더 선택은 호스트의 몫이다.
+5. **범주 이름은 `ChServerM`**(`ActivitySourceName`·`MeterName` 과 동일). 메트릭·추적·로그가
+   한 이름으로 묶여 운영자가 프레임워크 신호만 따로 필터링할 수 있다.
+
+### 대안과 탈락 이유
+
+| 대안 | 탈락 이유 |
+|---|---|
+| ZLogger 직접 어댑터(ROADMAP 문구 그대로) | 벤더 하나에 묶이면서 얻는 것이 없다 — 무할당 방출 경로는 Core 에 벤더 타입을 요구하고(하드 룰 위반), 그 경로 없이는 MEL 경유와 동일하다 |
+| `IServerLogger` 에 UTF8 방출 경로 추가 | Core 계약 확장. 프레임당 로깅이 없어 **필요가 증명되지 않았다** — 필요해지면 그때 근거와 함께 |
+| 어댑터 없이 사용자가 직접 구현 | 시그니처가 동일한데 매번 손으로 쓰게 하는 것은 낭비다. 30줄이면 생태계 전체가 열린다 |
+| `Microsoft.Extensions.Logging`(구현까지) 참조 | 호스트의 프로바이더 선택을 프레임워크가 끌고 간다. Abstractions 만으로 충분 |
+
+### 결과
+
+- 긍정: 패키지 하나로 .NET 로깅 생태계 전체가 열린다. `loggerFactory.CreateServerLogger()` 한 줄.
+  ZLogger 를 쓰려면 호스트가 `AddZLoggerConsole()` 하면 되고 프레임워크는 그것을 알지 않는다.
+- 긍정: 상태 무박싱이 테스트로 고정됐다 — 어댑터가 프레임워크의 무할당 규약을 깨지 않는다.
+- 부정: **ROADMAP 문구("ZLogger 어댑터")를 문자 그대로 이행하지 않았다.** 목표(무할당 구조적
+  로깅)는 충족하되 수단을 바꾼 것이므로 항목에 근거를 남긴다.
+- 부정: 방출 시점 문자열 할당은 남는다. 프레임당 로깅을 하는 조립이 생기면 이 결정을 재검토해야
+  한다(그때는 Core 계약에 UTF8 경로를 더하는 쪽이 맞다).
+- 부정: `Logging.Abstractions` 버전을 기존 `Identity.Core 10.0.10` 의 전이 요구에 맞춰 10.0.10 으로
+  고정했다 — 중앙 관리에서 낮은 버전을 쓰면 NU1109 다운그레이드 오류가 난다.

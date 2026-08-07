@@ -7,6 +7,7 @@
     <Project Path="Server/ChServerM.Concurrency/ChServerM.Concurrency.csproj" />
     <Project Path="Server/ChServerM.Diagnostics.Http/ChServerM.Diagnostics.Http.csproj" />
     <Project Path="Server/ChServerM.Hosting/ChServerM.Hosting.csproj" />
+    <Project Path="Server/ChServerM.Logging.Extensions/ChServerM.Logging.Extensions.csproj" />
     <Project Path="Server/ChServerM.Observability/ChServerM.Observability.csproj" />
     <Project Path="Server/ChServerM.Security.AspNetIdentity/ChServerM.Security.AspNetIdentity.csproj" />
     <Project Path="Server/ChServerM.Security.Tls/ChServerM.Security.Tls.csproj" />
@@ -31,6 +32,7 @@
     <Project Path="Tests/ChServerM.Diagnostics.Http.Tests/ChServerM.Diagnostics.Http.Tests.csproj" />
     <Project Path="Tests/ChServerM.Framing.Tests/ChServerM.Framing.Tests.csproj" />
     <Project Path="Tests/ChServerM.Integration.Tests/ChServerM.Integration.Tests.csproj" />
+    <Project Path="Tests/ChServerM.Logging.Extensions.Tests/ChServerM.Logging.Extensions.Tests.csproj" />
     <Project Path="Tests/ChServerM.Observability.Tests/ChServerM.Observability.Tests.csproj" />
     <Project Path="Tests/ChServerM.Security.AspNetIdentity.Tests/ChServerM.Security.AspNetIdentity.Tests.csproj" />
     <Project Path="Tests/ChServerM.Security.Tls.Tests/ChServerM.Security.Tls.Tests.csproj" />

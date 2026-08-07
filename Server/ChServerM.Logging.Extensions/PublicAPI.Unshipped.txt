@@ -1,0 +1,9 @@
+#nullable enable
+ChServerM.Logging.Extensions.MicrosoftServerLogger
+ChServerM.Logging.Extensions.MicrosoftServerLogger.IsEnabled(ChServerM.Diagnostics.LogLevel level) -> bool
+ChServerM.Logging.Extensions.MicrosoftServerLogger.Log<TState>(ChServerM.Diagnostics.LogLevel level, ChServerM.Diagnostics.EventId eventId, TState state, System.Exception? exception, System.Func<TState, System.Exception?, string!>! formatter) -> void
+ChServerM.Logging.Extensions.MicrosoftServerLogger.MicrosoftServerLogger(Microsoft.Extensions.Logging.ILogger! logger) -> void
+ChServerM.Logging.Extensions.ServerLoggerExtensions
+const ChServerM.Logging.Extensions.ServerLoggerExtensions.DefaultCategory = "ChServerM" -> string!
+static ChServerM.Logging.Extensions.ServerLoggerExtensions.CreateServerLogger(this Microsoft.Extensions.Logging.ILoggerFactory! factory, string? category = null) -> ChServerM.Diagnostics.IServerLogger!
+static ChServerM.Logging.Extensions.ServerLoggerExtensions.ToServerLogger(this Microsoft.Extensions.Logging.ILogger! logger) -> ChServerM.Diagnostics.IServerLogger!

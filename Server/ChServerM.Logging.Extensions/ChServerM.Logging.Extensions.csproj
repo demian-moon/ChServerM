@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.Logging.Extensions</RootNamespace>
+    <Description>ChServerM 로깅 축의 Microsoft.Extensions.Logging 어댑터 (ADR-0030). IServerLogger ↔ ILogger 양방향 브리지 — ZLogger·Serilog·콘솔·Seq 등 MEL 프로바이더 생태계 전체가 이 하나로 열린다.</Description>
+  </PropertyGroup>
+
+  <!--
+    이 어댑터의 "벤더"는 Microsoft.Extensions.Logging.Abstractions 다.
+
+    별도 어셈블리로 격리하는 이유: 로깅 축은 "없음"(NullServerLogger)이 유효한 조립이라,
+    MEL 을 쓰지 않는 소비자가 그 표면을 끌고 가지 않아야 한다(Observability 가 Meter 를,
+    Security.Tls 가 SslStream 을 격리하는 것과 같은 규율).
+
+    Abstractions 만 참조한다 — 로깅 구현·프로바이더 선택은 호스트 애플리케이션의 몫이다.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\ChServerM.Core\ChServerM.Core.csproj" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+</Project>

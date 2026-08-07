@@ -18,6 +18,21 @@
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
   </ItemGroup>
 
+  <ItemGroup Label="Logging">
+    <!--
+      로깅 축의 어댑터 대상 (Phase 11, ADR-0030).
+
+      ⚠ ZLogger 를 직접 참조하지 않는 이유: IServerLogger.Log&lt;TState&gt; 의 시그니처가
+      ILogger.Log&lt;TState&gt; 와 동일하므로, MEL 추상화 하나로 ZLogger·Serilog·콘솔·Seq 등
+      생태계 전체가 열린다. ZLogger 를 직접 물면 벤더 하나에 묶이면서 얻는 것이 없다 —
+      ZLogger 의 방출 시점 무할당 경로는 상태 타입이 ZLogger 인터페이스를 구현해야 해서
+      Core 에 벤더가 스며든다(하드 룰 위반). 상세는 ADR-0030.
+
+      Abstractions 만 참조한다 — 구현(Microsoft.Extensions.Logging)은 호스트가 고른다.
+    -->
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
+  </ItemGroup>
+
   <ItemGroup Label="Analyzers">
     <!--
       공개 API 승인 파일 게이트.
