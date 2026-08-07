@@ -174,7 +174,7 @@ public sealed class RuntimeDiagnosticsTests : IDisposable
         Assert.Throws<ArgumentNullException>(() => new ServerBuilder().AddDiagnosticsSource(null!));
     }
 
-    private ChServerMServer BuildServer(
+    private static ChServerMServer BuildServer(
         out TcpServerTransport transport,
         int partitionCount = 2,
         IDiagnosticsSource? extraSource = null)

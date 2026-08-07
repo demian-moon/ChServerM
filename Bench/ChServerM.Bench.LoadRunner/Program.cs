@@ -254,8 +254,23 @@ internal static class Program
         int perSecond = Math.Max(1, connections / Math.Max(1, rampUpSeconds));
         int connectFailures = 0;
 
+        // ⚠ 진전 없는 라운드가 연속되면 중단한다.
+        //
+        // 이 조건이 없으면 대상 서버가 없거나 도중에 죽었을 때 all.Count 가 영원히 늘지 않아
+        // **무한 루프**가 된다 — 1초마다 실패만 세며 프로세스가 살아남아 고아가 된다
+        // (2026-08-05 발견). 루프 뒤의 "연결이 하나도 성립하지 않았다" 검사는 그 경우
+        // **도달조차 하지 못했다.**
+        //
+        // 판정 기준은 "실패 수" 가 아니라 **진전 여부**다. 부하 시험에서는 일부 실패가 정상
+        // 결과이므로(그 수 자체가 측정값이다), 실패를 세어 끊으면 멀쩡한 시험을 중단시킨다.
+        // 반면 <b>한 라운드에서 단 하나도 붙지 못하는 상태가 연속</b>되면 그것은 부하가 아니라
+        // 대상이 없다는 뜻이다.
+        const int MaxConsecutiveFailedRounds = 3;
+        int consecutiveFailedRounds = 0;
+
         while (all.Count < connections)
         {
+            int countBeforeRound = all.Count;
             int batch = Math.Min(perSecond, connections - all.Count);
             Task<IConnection>[] connecting = new Task<IConnection>[batch];
 
@@ -276,6 +291,19 @@ internal static class Program
                     connectFailures++;
                 }
 #pragma warning restore CA1031
+            }
+
+            if (all.Count > countBeforeRound)
+            {
+                // 하나라도 붙었으면 진전이다 — 부분 실패는 정상 결과이므로 계수를 되돌린다.
+                consecutiveFailedRounds = 0;
+            }
+            else if (++consecutiveFailedRounds >= MaxConsecutiveFailedRounds)
+            {
+                Console.WriteLine(
+                    $"램프업 중단: {MaxConsecutiveFailedRounds}회 연속으로 한 개도 연결하지 못했다. " +
+                    $"대상({target})이 살아 있는지 확인한다.");
+                break;
             }
 
             await Task.Delay(TimeSpan.FromSeconds(1)).ConfigureAwait(false);
