@@ -128,23 +128,41 @@ public sealed class PerAddressAdmissionControlTests
     [Fact]
     public void State_is_bounded_by_slot_count_regardless_of_address_count()
     {
-        // 이 설계의 핵심 — 방어 장치가 OOM 벡터가 되지 않는다. 슬롯 수보다 훨씬 많은
-        // 고유 주소를 흘려도 상태가 자라지 않는다(고정 배열이라 커질 수가 없다).
+        // 이 설계의 핵심 — 방어 장치가 OOM 벡터가 되지 않는다. 슬롯 수보다 훨씬 많은 고유
+        // 주소를 흘려도 상태가 자라지 않는다(고정 배열이라 커질 수가 없다).
+        //
+        // ⚠ 측정 도구 주의: GC.GetTotalMemory 는 **프로세스 전역**이라 병렬 테스트의 할당이
+        // 섞여 들어온다(단독 실행은 통과하고 전체 실행에서 흔들린다 — 실제로 그렇게 깨졌다).
+        // GetAllocatedBytesForCurrentThread 는 **이 스레드의** 할당만 세므로 병렬에 영향받지
+        // 않고, "엔트리당 할당이 없다" 는 설계 주장을 더 정확히 검증한다.
         ManualTimeProvider time = new();
-        PerAddressConnectionRateAdmissionControl control = Create(time, permitsPerSecond: 1000, burst: 1000, slots: 64);
+        PerAddressConnectionRateAdmissionControl control =
+            Create(time, permitsPerSecond: 1000, burst: 1000, slots: 64);
 
-        long before = GC.GetTotalMemory(forceFullCollection: true);
-
-        for (int i = 0; i < 20_000; i++)
+        // 종단 객체는 측정 구간 밖에서 미리 만든다 — 테스트 자신의 할당을 재지 않기 위해서다.
+        const int AddressCount = 20_000;
+        IPEndPoint[] endPoints = new IPEndPoint[AddressCount];
+        for (int i = 0; i < AddressCount; i++)
         {
-            control.TryAdmit(new IPEndPoint(new IPAddress(new byte[] { 10, (byte)(i >> 16), (byte)(i >> 8), (byte)i }), 1));
+            endPoints[i] = new IPEndPoint(
+                new IPAddress(new byte[] { 10, (byte)(i >> 16), (byte)(i >> 8), (byte)i }), 1);
         }
 
-        long after = GC.GetTotalMemory(forceFullCollection: true);
+        // 워밍업 — 첫 호출의 JIT·초기화 할당을 측정에서 뺀다.
+        control.TryAdmit(endPoints[0]);
 
-        // 주소 2만 개를 흘려도 증가분이 미미하다(엔트리당 할당이 존재하지 않는다).
-        // 여유 있게 1MB 로 잡는다 — 맵이 자랐다면 수 MB 단위로 벌어졌을 규모다.
-        Assert.True(after - before < 1_000_000, $"주소별 상태가 자랐다: {after - before} 바이트");
+        long before = GC.GetAllocatedBytesForCurrentThread();
+
+        for (int i = 0; i < AddressCount; i++)
+        {
+            control.TryAdmit(endPoints[i]);
+        }
+
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        // 주소 2만 개를 흘려도 엔트리당 할당이 없다. 맵이 자랐다면 주소당 수십 바이트씩
+        // 수백 KB 로 벌어졌을 규모다. 여유를 둬 8KB 로 잡는다.
+        Assert.True(allocated < 8_192, $"주소별 판정이 할당했다: {allocated} 바이트 / {AddressCount}건");
     }
 
     [Fact]
