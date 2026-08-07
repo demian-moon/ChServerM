@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using ChServerM.Compression;
 using ChServerM.Connections;
 using ChServerM.Diagnostics;
@@ -48,6 +49,7 @@ public sealed class ServerBuilder
     private IPayloadCodec? _payloadCodec;
     private IMetricsSink? _metricsSink;
     private bool _tracingEnabled;
+    private readonly List<HealthCheckRegistration> _healthChecks = [];
     private IServerLogger _logger = NullServerLogger.Instance;
     private TimeProvider _timeProvider = TimeProvider.System;
 
@@ -207,6 +209,29 @@ public sealed class ServerBuilder
         return this;
     }
 
+    /// <summary>헬스 체크를 등록한다 (Phase 11 관측).</summary>
+    /// <param name="name">체크 이름(보고서 키). 비어 있을 수 없다.</param>
+    /// <param name="check">헬스 체크.</param>
+    /// <param name="probes">이 체크가 기여하는 프로브. 기본은 <see cref="HealthProbe.All"/>.</param>
+    /// <returns>메서드 체이닝을 위한 자기 자신.</returns>
+    /// <exception cref="ArgumentException"><paramref name="name"/>이 비어 있을 때.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="check"/>가 <see langword="null"/>일 때.</exception>
+    /// <remarks>
+    /// <para>
+    /// 세션 저장소 연결·의존성 준비 같은 앱·어댑터 고유의 헬스를 더한다. 내장 체크(수용 상태
+    /// readiness·실행 모델 liveness)는 조립 시점에 자동 등록되므로 여기서 다시 넣지 않는다.
+    /// </para>
+    /// <para>
+    /// 결과는 <see cref="ChServerMServer.Health"/> 로 조회한다. HTTP 노출(<c>/healthz</c>·
+    /// <c>/readyz</c>)은 이 서비스를 감싸는 별도 관리 서버 몫이다(후속 어댑터).
+    /// </para>
+    /// </remarks>
+    public ServerBuilder AddHealthCheck(string name, IHealthCheck check, HealthProbe probes = HealthProbe.All)
+    {
+        _healthChecks.Add(new HealthCheckRegistration(name, check, probes));
+        return this;
+    }
+
     /// <summary>진단 로거를 지정한다.</summary>
     /// <param name="logger">로거.</param>
     /// <returns>메서드 체이닝을 위한 자기 자신.</returns>
@@ -323,6 +348,36 @@ public sealed class ServerBuilder
             handler = new TracingConnectionHandler(handler);
         }
 
-        return new ChServerMServer(transport, handler, encoder, _executionModel);
+        // 헬스 체크 조립 — 내장(수용 상태 readiness·실행 모델 liveness) + 사용자 등록.
+        ServerLifecycleState lifecycle = new();
+        HealthCheckService health = new(BuildHealthRegistrations(lifecycle));
+
+        return new ChServerMServer(transport, handler, encoder, _executionModel, lifecycle, health);
+    }
+
+    /// <summary>내장 헬스 체크와 사용자 등록을 하나의 목록으로 모은다.</summary>
+    /// <remarks>
+    /// <b>실행 모델 liveness 는 <see cref="IHealthCheck"/> 구현 여부로 배선한다.</b> 호스팅은
+    /// Concurrency 를 참조하지 않으므로 <c>PartitionedExecutionModel</c> 을 직접 알지 못한다 —
+    /// 대신 실행 모델이 <see cref="IHealthCheck"/> 를 구현하면 liveness 프로브에 자동 등록한다.
+    /// Core 실행 모델 계약에 진단 멤버를 얹지 않고 배선을 얻는 접점이다(ADR 근거).
+    /// </remarks>
+    private List<HealthCheckRegistration> BuildHealthRegistrations(ServerLifecycleState lifecycle)
+    {
+        List<HealthCheckRegistration> registrations =
+        [
+            // 수용 상태 → readiness. 드레이닝이면 트래픽에서 빠진다.
+            new HealthCheckRegistration("acceptance", new AcceptanceReadinessCheck(lifecycle), HealthProbe.Readiness),
+        ];
+
+        // 실행 모델이 헬스를 낼 수 있으면 liveness 로 등록한다.
+        if (_executionModel is IHealthCheck executionModelHealth)
+        {
+            registrations.Add(new HealthCheckRegistration("execution-model", executionModelHealth, HealthProbe.Liveness));
+        }
+
+        // 사용자 등록은 뒤에 — 보고서 항목 순서가 내장 → 사용자다.
+        registrations.AddRange(_healthChecks);
+        return registrations;
     }
 }

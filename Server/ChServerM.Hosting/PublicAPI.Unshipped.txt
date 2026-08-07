@@ -183,3 +183,26 @@ ChServerM.Hosting.ServerBuilder.UsePayloadCodec(ChServerM.Compression.IPayloadCo
 const ChServerM.Hosting.PayloadCompressionOptions.DefaultMinCompressLength = 1024 -> int
 static ChServerM.Hosting.FrameWriter.WriteCompressedFrameAsync(System.IO.Pipelines.PipeWriter! writer, ChServerM.Framing.IFrameEncoder! encoder, ChServerM.Compression.IPayloadCodec! codec, ChServerM.Hosting.PayloadCompressionOptions! options, ChServerM.Identity.MessageId messageId, System.ReadOnlySpan<byte> payload, uint sequence, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.IO.Pipelines.FlushResult>
 static ChServerM.Hosting.FrameWriter.WriteCompressedFrameAsync(this ChServerM.Connections.IConnection! connection, ChServerM.Framing.IFrameEncoder! encoder, ChServerM.Compression.IPayloadCodec! codec, ChServerM.Hosting.PayloadCompressionOptions! options, ChServerM.Identity.MessageId messageId, System.ReadOnlySpan<byte> payload, uint sequence) -> System.Threading.Tasks.ValueTask<System.IO.Pipelines.FlushResult>
+ChServerM.Hosting.ChServerMServer.Health.get -> ChServerM.Hosting.HealthCheckService!
+ChServerM.Hosting.HealthCheckRegistration
+ChServerM.Hosting.HealthCheckRegistration.Check.get -> ChServerM.Diagnostics.IHealthCheck!
+ChServerM.Hosting.HealthCheckRegistration.HealthCheckRegistration(string! name, ChServerM.Diagnostics.IHealthCheck! check, ChServerM.Hosting.HealthProbe probes = ChServerM.Hosting.HealthProbe.All) -> void
+ChServerM.Hosting.HealthCheckRegistration.Name.get -> string!
+ChServerM.Hosting.HealthCheckRegistration.Probes.get -> ChServerM.Hosting.HealthProbe
+ChServerM.Hosting.HealthCheckService
+ChServerM.Hosting.HealthCheckService.CheckHealthAsync(ChServerM.Hosting.HealthProbe probe = ChServerM.Hosting.HealthProbe.All, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Diagnostics.HealthReport!>
+ChServerM.Hosting.HealthCheckService.HealthCheckService(System.Collections.Generic.IEnumerable<ChServerM.Hosting.HealthCheckRegistration!>! registrations) -> void
+ChServerM.Hosting.HealthProbe
+ChServerM.Hosting.HealthProbe.All = ChServerM.Hosting.HealthProbe.Liveness | ChServerM.Hosting.HealthProbe.Readiness -> ChServerM.Hosting.HealthProbe
+ChServerM.Hosting.HealthProbe.Liveness = 1 -> ChServerM.Hosting.HealthProbe
+ChServerM.Hosting.HealthProbe.None = 0 -> ChServerM.Hosting.HealthProbe
+ChServerM.Hosting.HealthProbe.Readiness = 2 -> ChServerM.Hosting.HealthProbe
+ChServerM.Hosting.ServerBuilder.AddHealthCheck(string! name, ChServerM.Diagnostics.IHealthCheck! check, ChServerM.Hosting.HealthProbe probes = ChServerM.Hosting.HealthProbe.All) -> ChServerM.Hosting.ServerBuilder!
+ChServerM.Hosting.ServerLifecycleState
+ChServerM.Hosting.ServerLifecycleState.ServerLifecycleState() -> void
+ChServerM.Hosting.ServerLifecycleState.State.get -> ChServerM.Hosting.ServerState
+ChServerM.Hosting.ServerState
+ChServerM.Hosting.ServerState.Accepting = 1 -> ChServerM.Hosting.ServerState
+ChServerM.Hosting.ServerState.Created = 0 -> ChServerM.Hosting.ServerState
+ChServerM.Hosting.ServerState.Draining = 2 -> ChServerM.Hosting.ServerState
+ChServerM.Hosting.ServerState.Stopped = 3 -> ChServerM.Hosting.ServerState

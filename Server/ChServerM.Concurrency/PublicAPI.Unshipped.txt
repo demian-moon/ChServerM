@@ -32,3 +32,4 @@ ChServerM.Concurrency.PartitionedExecutionOptions.Validate() -> void
 const ChServerM.Concurrency.PartitionedExecutionOptions.AbsoluteMaxPartitionCount = 512 -> int
 const ChServerM.Concurrency.PartitionedExecutionOptions.DefaultQueueCapacity = 4096 -> int
 static ChServerM.Concurrency.PartitionedExecutionOptions.DefaultShutdownTimeout.get -> System.TimeSpan
+ChServerM.Concurrency.PartitionedExecutionModel.CheckAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Diagnostics.HealthCheckResult>

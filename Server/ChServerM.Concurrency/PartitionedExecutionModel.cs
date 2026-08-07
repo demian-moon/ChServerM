@@ -34,8 +34,15 @@ namespace ChServerM.Concurrency;
 /// 순서 보장이 사라진다.
 /// </para>
 /// <para><b>스레드 규약.</b> 스레드 안전하다.</para>
+/// <para>
+/// <b>헬스 기여(<see cref="IHealthCheck"/>).</b> 이 모델은 liveness 신호를 낸다 — 파티션
+/// 전용 스레드가 전부 살아 있는지. 스레드가 죽으면 그 파티션의 커넥션이 영영 멈추므로
+/// 확정적 고장이다. 호스팅은 실행 모델이 <see cref="IHealthCheck"/> 를 구현하면 liveness
+/// 프로브에 자동 등록한다 — Core 실행 모델 계약(<see cref="IExecutionModel"/>)에 진단
+/// 멤버를 얹지 않고, 호스팅이 Concurrency 를 참조하지 않고도 배선되게 하는 접점이다.
+/// </para>
 /// </remarks>
-public sealed class PartitionedExecutionModel : IExecutionModel
+public sealed class PartitionedExecutionModel : IExecutionModel, IHealthCheck
 {
     private readonly ExecutionPartition[] _partitions;
     private readonly TimeSpan _shutdownTimeout;
@@ -133,6 +140,35 @@ public sealed class PartitionedExecutionModel : IExecutionModel
 
             return total;
         }
+    }
+
+    /// <summary>liveness 판정 — 파티션 전용 스레드가 전부 살아 있는지.</summary>
+    /// <param name="cancellationToken">쓰이지 않는다 — 로컬 플래그를 읽는 즉시 완료다.</param>
+    /// <returns>
+    /// 전부 살아 있으면 <see cref="HealthStatus.Healthy"/>, 하나라도 죽었으면
+    /// <see cref="HealthStatus.Unhealthy"/>(죽은 개수를 설명에 남긴다).
+    /// </returns>
+    /// <remarks>
+    /// 스레드 생존은 <b>확정적 고장</b>만 잡는다 — 살아서 교착한 파티션은 못 잡는다
+    /// (<see cref="ExecutionPartition.IsThreadAlive"/> 문서). 그 수준의 감지는 진행도 하트비트가
+    /// 필요한 후속 신호다. 지금은 "스레드가 죽어 커넥션이 영영 멈춘" 경우를 드러낸다.
+    /// </remarks>
+    public ValueTask<HealthCheckResult> CheckAsync(CancellationToken cancellationToken = default)
+    {
+        int dead = 0;
+        foreach (ExecutionPartition partition in _partitions)
+        {
+            if (!partition.IsThreadAlive)
+            {
+                dead++;
+            }
+        }
+
+        HealthCheckResult result = dead == 0
+            ? HealthCheckResult.Healthy($"파티션 스레드 {_partitions.Length}개 전부 생존")
+            : HealthCheckResult.Unhealthy($"파티션 스레드 {_partitions.Length}개 중 {dead}개 죽음");
+
+        return ValueTask.FromResult(result);
     }
 
     /// <inheritdoc />

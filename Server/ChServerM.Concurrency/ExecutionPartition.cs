@@ -172,6 +172,16 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
     /// <summary>이 스레드가 이 파티션의 소비자인지 여부.</summary>
     internal bool IsCurrentThread => Environment.CurrentManagedThreadId == _thread.ManagedThreadId;
 
+    /// <summary>이 파티션의 전용 스레드가 살아 있는지 여부 (liveness 신호).</summary>
+    /// <remarks>
+    /// <b>확정적 고장만 잡는다.</b> 스레드가 죽었다는 것은(예외로 소비 루프가 튕겨나가는 등)
+    /// 이 파티션에 묶인 모든 커넥션이 영영 멈췄다는 뜻이라 liveness 실패다. 반대로 스레드가
+    /// 살아 있으면서 한 작업에 <b>교착</b>한 경우는 이 신호로 잡히지 않는다 — 그건 진행도
+    /// 하트비트가 필요한 별도 신호다(후속). 소비 루프는 항목별 try/catch 라 스레드가 죽는 일은
+    /// 사실상 없지만, 그 최후의 보루가 뚫렸는지를 이 값이 드러낸다.
+    /// </remarks>
+    internal bool IsThreadAlive => _thread.IsAlive;
+
     internal void Start() => _thread.Start();
 
     /// <inheritdoc />

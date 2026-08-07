@@ -1523,3 +1523,62 @@ publish 가 함께 검증한다.
   리스너 없는 조립의 핫패스는 여전히 8ns/0B(feature 접근조차 없음).
 - **결과**: 실행 모델(파티션 스레드) 아래에서도 디스패치 span 이 커넥션 span 의 자식(같은
   TraceId·부모 SpanId)이 됨을 종단 테스트로 고정. 새 public 표면 없음(전 타입 internal).
+
+## ADR-0023: 헬스 체크 축 — Core 최소 계약 + 프로그래밍 우선, HTTP 노출은 후속
+
+- **날짜**: 2026-08-07
+- **상태**: 채택
+- **영향 범위**: Core(`IHealthCheck`·`HealthStatus`·`HealthCheckResult`·`HealthReport` 계약) /
+  Hosting(`HealthCheckService`·`HealthProbe`·내장 체크·`ServerLifecycleState`) /
+  Concurrency(`PartitionedExecutionModel` 이 `IHealthCheck` 구현)
+
+### 배경
+
+- Phase 11: "헬스체크 / 라이브 진단 엔드포인트 — liveness / readiness 구분". 오케스트레이터
+  (k8s 등)가 "프로세스가 살아 동작하는가(liveness)"·"트래픽 받을 준비가 됐는가(readiness)"를
+  물을 수 있어야 한다.
+- 조사로 확정한 전제 둘: (1) **HTTP 전송이 없다** — 데이터 평면은 raw TCP + 커스텀 프레이밍,
+  헬스를 얹을 기존 HTTP 서버가 없다. (2) **생명주기가 이미 readiness 전이를 모델링한다** —
+  `StartAsync`(수용) → `UnbindAsync`(드레이닝) → `StopAsync`(정리).
+
+### 결정
+
+1. **Core 에 최소 헬스 계약**(무의존): `IHealthCheck`(`ValueTask<HealthCheckResult> CheckAsync`),
+   `HealthStatus`(Unhealthy=0 최악=기본값), `HealthCheckResult`, `HealthReport`. ASP.NET Core 가
+   검증한 형태라 "두 번째 구현 없는 가설"이 아니다. `Microsoft.Extensions.Diagnostics.HealthChecks`
+   (패키지)를 Core 가 참조할 수 없어 최소 계약을 직접 둔다.
+2. **프로브 소속은 계약이 아니라 등록에 둔다**(`HealthProbe` [Flags], Hosting). liveness·readiness 는
+   같은 체크를 다르게 쓰는 것이라 체크 자신이 아는 것이 아니다 — Core 계약을 최소로 유지.
+3. **집계는 "가장 나쁜 것이 이긴다"** + **항목별 try/catch**. 한 체크의 예외가 전체 헬스
+   조회를 깨지 않는다(소비 루프 항목 격리와 같은 원칙, 9.2). 헬스가 예외로 터지면
+   오케스트레이터가 프로세스를 오판한다.
+4. **내장 readiness = 생명주기.** `ServerLifecycleState`(Created→Accepting→Draining→Stopped)를
+   `ChServerMServer` 가 갱신하고 `AcceptanceReadinessCheck` 가 읽는다 — 생명주기와 readiness 가
+   한 진실을 공유. `UnbindAsync` 즉시 Draining 으로 전이해 무중단 배포 때 로드밸런서가 트래픽을 뺀다.
+5. **내장 liveness = 실행 모델이 `IHealthCheck` 를 구현.** `PartitionedExecutionModel` 이 파티션
+   스레드 생존을 보고한다. 호스팅은 `_executionModel is IHealthCheck` 면 liveness 로 자동 등록 —
+   **Core 실행 모델 계약(`IExecutionModel`)에 진단 멤버를 얹지 않고, 호스팅이 Concurrency 를
+   참조하지 않고도 배선**되는 접점이다. liveness 는 확정적 고장(스레드 사망)만 본다 — 교착
+   감지(진행도 하트비트)는 후속.
+6. **이번 증분은 프로그래밍 API 까지**(`server.Health.CheckHealthAsync(probe)`). HTTP 노출
+   (`/healthz`·`/readyz`)은 별도 어댑터 몫 — HTTP 관리 서버는 별개 축(HttpListener vs Kestrel
+   ADR·별도 어셈블리)이라 "먼저 경계를 긋고 하나씩"(CLAUDE.md 1.4) 원칙으로 분리한다.
+
+### 대안과 탈락 이유
+
+| 대안 | 탈락 이유 |
+|---|---|
+| `Microsoft.Extensions.Diagnostics.HealthChecks` 채택 | 패키지 의존 — Core 무의존 위반. 최소 계약이면 충분하다 |
+| 이번 증분에 HTTP 엔드포인트 포함 | HTTP 호스팅은 별개 축(전송 미구현). 헬스 생산을 먼저 올바로 긋고 노출은 후속(요청 범위를 임의로 넓히지 않는다) |
+| liveness 를 `IExecutionModel` 에 멤버로 | 실행 모델 축 계약에 진단 관심사를 얹는다. `IHealthCheck` 옵트인 구현이 계약을 오염 안 시키고 배선을 준다 |
+| readiness 상태를 헬스가 따로 관리 | 생명주기와 두 진실이 어긋난다. 서버가 이미 아는 상태를 공유하는 것이 옳다 |
+| 프로브 소속을 `IHealthCheck` 에 | 같은 체크가 두 프로브에 쓰일 수 있다 — 등록의 몫이 맞다 |
+
+### 결과
+
+- 긍정: readiness 가 무중단 배포(`UnbindAsync`)에 즉시 반응, liveness 가 실행 모델 스레드
+  사망을 잡는다. 프로그래밍으로 완전 조회·테스트 가능(9종 테스트). 무의존·새 라이브러리 0.
+- 긍정: 실행 모델이 `IHealthCheck` 를 구현하는 패턴은 세션 저장소·전송 등 다른 어댑터도
+  같은 방식으로 헬스에 기여할 수 있는 확장 접점이다.
+- 부정: HTTP 엔드포인트가 없어 k8s 프로브가 아직 직접 못 쓴다 — 관리 HTTP 어댑터가 후속.
+- 부정: liveness 는 스레드 사망만 본다(교착 미감지). 진행도 하트비트 기반 liveness 는 후속.

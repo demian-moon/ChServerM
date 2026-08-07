@@ -31,6 +31,7 @@ public sealed class ChServerMServer : IAsyncDisposable
     private readonly IServerTransport _transport;
     private readonly IConnectionHandler _handler;
     private readonly IExecutionModel? _executionModel;
+    private readonly ServerLifecycleState _lifecycle;
 
     private int _started;
     private int _disposed;
@@ -39,12 +40,16 @@ public sealed class ChServerMServer : IAsyncDisposable
         IServerTransport transport,
         IConnectionHandler handler,
         IFrameEncoder encoder,
-        IExecutionModel? executionModel)
+        IExecutionModel? executionModel,
+        ServerLifecycleState lifecycle,
+        HealthCheckService health)
     {
         _transport = transport;
         _handler = handler;
         _executionModel = executionModel;
+        _lifecycle = lifecycle;
         Encoder = encoder;
+        Health = health;
     }
 
     /// <summary>이 서버가 쓰는 프레임 인코더.</summary>
@@ -60,6 +65,22 @@ public sealed class ChServerMServer : IAsyncDisposable
     /// <summary>실행 모델. 지정하지 않았으면 <see langword="null"/>.</summary>
     public IExecutionModel? ExecutionModel => _executionModel;
 
+    /// <summary>헬스 체크 서비스 (Phase 11 관측).</summary>
+    /// <remarks>
+    /// <para>
+    /// 프로브별로 헬스를 조회한다 — <c>Health.CheckHealthAsync(HealthProbe.Readiness)</c> 는
+    /// 드레이닝 여부를(무중단 배포), <c>HealthProbe.Liveness</c> 는 실행 모델 스레드 생존을 본다.
+    /// 내장 체크(수용 상태 readiness·실행 모델 liveness)는 조립 시점에 자동 등록되고,
+    /// 사용자 체크는 <c>ServerBuilder.AddHealthCheck</c> 로 더한다.
+    /// </para>
+    /// <para>
+    /// <b>HTTP 노출은 별도 어댑터 몫이다(후속).</b> 이 프로퍼티는 프로그래밍 접점이다 —
+    /// k8s 프로브용 <c>/healthz</c>·<c>/readyz</c> 엔드포인트는 이 서비스를 감싸는 관리
+    /// 서버가 담당한다(HTTP 호스팅은 별개 축).
+    /// </para>
+    /// </remarks>
+    public HealthCheckService Health { get; }
+
     /// <summary>수용을 시작한다.</summary>
     /// <param name="cancellationToken">시작 작업의 취소 토큰.</param>
     /// <exception cref="InvalidOperationException">이미 시작했을 때.</exception>
@@ -74,6 +95,9 @@ public sealed class ChServerMServer : IAsyncDisposable
         }
 
         await _transport.BindAsync(_handler, cancellationToken).ConfigureAwait(false);
+
+        // 바인드 성공 = 수용 중. readiness 가 이제 Healthy 를 보고한다.
+        _lifecycle.Set(ServerState.Accepting);
     }
 
     /// <summary>신규 수용을 멈춘다. 기존 커넥션은 유지한다.</summary>
@@ -82,8 +106,13 @@ public sealed class ChServerMServer : IAsyncDisposable
     /// 무중단 배포의 첫 단계다. 로드밸런서가 트래픽을 돌리는 동안 이미 붙어 있는
     /// 클라이언트는 하던 일을 끝낸다.
     /// </remarks>
-    public ValueTask UnbindAsync(CancellationToken cancellationToken = default) =>
-        _transport.UnbindAsync(cancellationToken);
+    public ValueTask UnbindAsync(CancellationToken cancellationToken = default)
+    {
+        // 드레이닝으로 먼저 전이한다 — 언바인드가 진행되는 동안에도 readiness 프로브가
+        // 즉시 not-ready 를 보고해 로드밸런서가 트래픽을 뺀다(디레지스터 신호를 지연시키지 않는다).
+        _lifecycle.Set(ServerState.Draining);
+        return _transport.UnbindAsync(cancellationToken);
+    }
 
     /// <summary>남은 커넥션을 드레인하고 멈춘다.</summary>
     /// <param name="cancellationToken">드레인 제한 시간.</param>
@@ -99,6 +128,9 @@ public sealed class ChServerMServer : IAsyncDisposable
         {
             await _executionModel.DisposeAsync().ConfigureAwait(false);
         }
+
+        // 멈춤. liveness·readiness 모두 이제 not-healthy 다(실행 모델 스레드도 종료됐다).
+        _lifecycle.Set(ServerState.Stopped);
     }
 
     /// <inheritdoc />

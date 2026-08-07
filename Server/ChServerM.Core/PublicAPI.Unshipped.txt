@@ -539,3 +539,37 @@ static ChServerM.Handshake.VersionHandshakeCodec.WriteRejection(System.Span<byte
 static ChServerM.Handshake.VersionHandshakeCodec.WriteServerHello(System.Span<byte> destination, ushort selectedVersion) -> void
 static ChServerM.Identity.FrameworkMessageIds.ClientHello.get -> ChServerM.Identity.MessageId
 static ChServerM.Identity.FrameworkMessageIds.ServerHello.get -> ChServerM.Identity.MessageId
+ChServerM.Diagnostics.HealthCheckResult
+ChServerM.Diagnostics.HealthCheckResult.Description.get -> string?
+ChServerM.Diagnostics.HealthCheckResult.Equals(ChServerM.Diagnostics.HealthCheckResult other) -> bool
+ChServerM.Diagnostics.HealthCheckResult.HealthCheckResult() -> void
+ChServerM.Diagnostics.HealthCheckResult.HealthCheckResult(ChServerM.Diagnostics.HealthStatus status, string? description = null) -> void
+ChServerM.Diagnostics.HealthCheckResult.Status.get -> ChServerM.Diagnostics.HealthStatus
+ChServerM.Diagnostics.HealthReport
+ChServerM.Diagnostics.HealthReport.Entries.get -> System.Collections.Generic.IReadOnlyList<ChServerM.Diagnostics.HealthReportEntry>!
+ChServerM.Diagnostics.HealthReport.HealthReport(ChServerM.Diagnostics.HealthStatus status, System.Collections.Generic.IReadOnlyList<ChServerM.Diagnostics.HealthReportEntry>! entries) -> void
+ChServerM.Diagnostics.HealthReport.Status.get -> ChServerM.Diagnostics.HealthStatus
+ChServerM.Diagnostics.HealthReportEntry
+ChServerM.Diagnostics.HealthReportEntry.Description.get -> string?
+ChServerM.Diagnostics.HealthReportEntry.Equals(ChServerM.Diagnostics.HealthReportEntry other) -> bool
+ChServerM.Diagnostics.HealthReportEntry.HealthReportEntry() -> void
+ChServerM.Diagnostics.HealthReportEntry.HealthReportEntry(string! name, ChServerM.Diagnostics.HealthStatus status, string? description) -> void
+ChServerM.Diagnostics.HealthReportEntry.Name.get -> string!
+ChServerM.Diagnostics.HealthReportEntry.Status.get -> ChServerM.Diagnostics.HealthStatus
+ChServerM.Diagnostics.HealthStatus
+ChServerM.Diagnostics.HealthStatus.Degraded = 1 -> ChServerM.Diagnostics.HealthStatus
+ChServerM.Diagnostics.HealthStatus.Healthy = 2 -> ChServerM.Diagnostics.HealthStatus
+ChServerM.Diagnostics.HealthStatus.Unhealthy = 0 -> ChServerM.Diagnostics.HealthStatus
+ChServerM.Diagnostics.IHealthCheck
+ChServerM.Diagnostics.IHealthCheck.CheckAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Diagnostics.HealthCheckResult>
+override ChServerM.Diagnostics.HealthCheckResult.Equals(object? obj) -> bool
+override ChServerM.Diagnostics.HealthCheckResult.GetHashCode() -> int
+override ChServerM.Diagnostics.HealthReportEntry.Equals(object? obj) -> bool
+override ChServerM.Diagnostics.HealthReportEntry.GetHashCode() -> int
+static ChServerM.Diagnostics.HealthCheckResult.Degraded(string? description = null) -> ChServerM.Diagnostics.HealthCheckResult
+static ChServerM.Diagnostics.HealthCheckResult.Healthy(string? description = null) -> ChServerM.Diagnostics.HealthCheckResult
+static ChServerM.Diagnostics.HealthCheckResult.operator !=(ChServerM.Diagnostics.HealthCheckResult left, ChServerM.Diagnostics.HealthCheckResult right) -> bool
+static ChServerM.Diagnostics.HealthCheckResult.operator ==(ChServerM.Diagnostics.HealthCheckResult left, ChServerM.Diagnostics.HealthCheckResult right) -> bool
+static ChServerM.Diagnostics.HealthCheckResult.Unhealthy(string? description = null) -> ChServerM.Diagnostics.HealthCheckResult
+static ChServerM.Diagnostics.HealthReportEntry.operator !=(ChServerM.Diagnostics.HealthReportEntry left, ChServerM.Diagnostics.HealthReportEntry right) -> bool
+static ChServerM.Diagnostics.HealthReportEntry.operator ==(ChServerM.Diagnostics.HealthReportEntry left, ChServerM.Diagnostics.HealthReportEntry right) -> bool
