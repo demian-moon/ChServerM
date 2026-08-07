@@ -335,13 +335,13 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 
 - [x] `ChServerM.Observability` — OpenTelemetry 트레이스·메트릭 (2026-08-06 1차 증분 `ca3b331`+`79babde`+`4186d84`, ADR-0020: `IMetricsSink`(Core) + `MeterMetricsSink`(BCL `System.Diagnostics.Metrics` — dotnet-counters 즉시, OTel 은 Meter 구독으로 얹는다). 트레이스는 후속 증분)
 - [ ] ZLogger 어댑터 (무할당 구조적 로깅)
-- [x] 핵심 메트릭 정의 — 커넥션 수, RPS, 레이턴시 히스토그램, 큐 깊이, 풀 사용률, 오류율 (이름 계약 `MetricNames`/`TagNames` 는 2026-08-04 확정. 2026-08-06 `IMetricsSink` 배선: 커넥션 수립·활성·디스패치 지연 히스토그램·처리량·실패가 데코레이터로 실물. 프레임당 바이트·큐 깊이·풀 사용률은 후속 증분 — 읽기 루프/파티션 계측)
-- [ ] 분산 트레이싱 — 메시지 흐름 상관관계(correlation ID) 전파 (진행 중: `ActivityNames` 계약은 있음, `ActivitySource` 배선 미착수)
+- [x] 핵심 메트릭 정의 — 커넥션 수, RPS, 레이턴시 히스토그램, 큐 깊이, 풀 사용률, 오류율 (이름 계약 `MetricNames`/`TagNames` 는 2026-08-04 확정. 2026-08-06 `IMetricsSink` 배선: 커넥션 수립·활성·디스패치 지연 히스토그램·처리량·실패가 데코레이터로 실물. 2026-08-07 `5c9059b`: 파티션 백프레셔 관측 배선 — `PartitionWorkRejected`(포화 거부)·`PartitionQueueDepth`(게이지)가 `ExecutionPartition` 에서 방출(TryPost 프로덕션 호출자는 후속). 프레임당 바이트·풀 사용률은 남은 후속 증분)
+- [ ] 분산 트레이싱 — 메시지 흐름 상관관계(correlation ID) 전파 (진행 중: 2026-08-07 `05a5ca6` 디스패치 span + fast-path 완료(ADR-0022) — `connection_id`·`message_id` 태그로 상관, 리스너 없음 8ns/0B. 남은 것: 커넥션 span·크로스 스레드 부모 전파(`Activity.Current` 가 파티션 스레드로 안 흐름 — `ActivityContext` 를 `MessageContext` 로 실어야 함))
 - [ ] 헬스체크 / 라이브 진단 엔드포인트 — liveness / readiness 구분
 - [ ] 런타임 진단 — 커넥션 덤프, 스레드 상태, 풀 상태를 운영 중에 조회
-- [x] `EventSource` / `DiagnosticSource` — `dotnet-counters`/`dotnet-trace` 연동 (2026-08-06: `MeterMetricsSink` 가 `System.Diagnostics.Metrics.Meter` 를 쓰므로 `dotnet-counters` 가 별도 작업 없이 메트릭을 읽는다. 트레이스(`dotnet-trace`) 연동은 트레이싱 증분과 함께)
+- [x] `EventSource` / `DiagnosticSource` — `dotnet-counters`/`dotnet-trace` 연동 (2026-08-06: `MeterMetricsSink` 가 `System.Diagnostics.Metrics.Meter` 를 쓰므로 `dotnet-counters` 가 별도 작업 없이 메트릭을 읽는다. 2026-08-07 `05a5ca6`: `TracingMiddleware` 가 `ActivitySource`("ChServerM")로 span 을 내므로 `dotnet-trace` 도 별도 작업 없이 트레이스를 읽는다)
 - [ ] 로그 레벨 런타임 변경 — 재시작 없이 디버그 로그 활성화
-- [x] ⚠ **관측 오버헤드 측정** — 메트릭·트레이싱 데코레이터가 핫패스에 미치는 비용. 켠 상태와 끈 상태를 모두 벤치마크. 관측이 성능을 먹으면 프로덕션에서 꺼지고, 꺼진 관측은 없는 것과 같다 (2026-08-06 완료 `bf99ebf`: 4변형 실측 — 켠 비용 ~72ns/프레임·**전 변형 할당 0**, 끈 관측(NullMetricsSink) 6ns=기준선. 비용 대부분은 Meter 가 아니라 미들웨어 async 래퍼. BENCHMARKS.md 관측 절)
+- [x] ⚠ **관측 오버헤드 측정** — 메트릭·트레이싱 데코레이터가 핫패스에 미치는 비용. 켠 상태와 끈 상태를 모두 벤치마크. 관측이 성능을 먹으면 프로덕션에서 꺼지고, 꺼진 관측은 없는 것과 같다 (2026-08-06 완료 `bf99ebf`: 메트릭 4변형 실측 — 켠 비용 ~72ns/프레임·**전 변형 할당 0**, 끈 관측(NullMetricsSink) 6ns=기준선. 비용 대부분은 Meter 가 아니라 미들웨어 async 래퍼. 2026-08-07 `05a5ca6`: 트레이싱 3변형 실측 — fast-path(리스너 없음) 8ns/0B 로 그 async 래퍼 비용을 회피, span 생성은 170ns/560B(관측될 때만). BENCHMARKS.md 관측·추적 절)
 
 **게이트**: 관측을 켠 상태의 오버헤드가 측정·기록되고 허용 범위 안일 때.
 (2026-08-06 **충족** — 켠 오버헤드 ~72ns/프레임·할당 0 실측 기록, 끈 상태 6ns. 메트릭 축 첫 증분으로 게이트 통과. 트레이싱·헬스체크·ZLogger 등 나머지 항목은 게이트 조건과 무관하게 후속 증분)
