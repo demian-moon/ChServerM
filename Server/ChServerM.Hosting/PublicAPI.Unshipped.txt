@@ -201,3 +201,18 @@ ChServerM.Hosting.ServerState.Accepting = 1 -> ChServerM.Hosting.ServerState
 ChServerM.Hosting.ServerState.Created = 0 -> ChServerM.Hosting.ServerState
 ChServerM.Hosting.ServerState.Draining = 2 -> ChServerM.Hosting.ServerState
 ChServerM.Hosting.ServerState.Stopped = 3 -> ChServerM.Hosting.ServerState
+ChServerM.Hosting.PerAddressConnectionRateAdmissionControl
+ChServerM.Hosting.PerAddressConnectionRateAdmissionControl.PerAddressConnectionRateAdmissionControl(ChServerM.Hosting.PerAddressConnectionRateOptions! options, System.TimeProvider? timeProvider = null) -> void
+ChServerM.Hosting.PerAddressConnectionRateAdmissionControl.TryAdmit(System.Net.EndPoint? remoteEndPoint) -> ChServerM.Resilience.AdmissionDecision
+ChServerM.Hosting.PerAddressConnectionRateOptions
+ChServerM.Hosting.PerAddressConnectionRateOptions.BurstCapacity.get -> int
+ChServerM.Hosting.PerAddressConnectionRateOptions.BurstCapacity.set -> void
+ChServerM.Hosting.PerAddressConnectionRateOptions.IPv6PrefixLength.get -> int
+ChServerM.Hosting.PerAddressConnectionRateOptions.IPv6PrefixLength.set -> void
+ChServerM.Hosting.PerAddressConnectionRateOptions.PerAddressConnectionRateOptions() -> void
+ChServerM.Hosting.PerAddressConnectionRateOptions.PermitsPerSecond.get -> double
+ChServerM.Hosting.PerAddressConnectionRateOptions.PermitsPerSecond.set -> void
+ChServerM.Hosting.PerAddressConnectionRateOptions.SlotCount.get -> int
+ChServerM.Hosting.PerAddressConnectionRateOptions.SlotCount.set -> void
+ChServerM.Hosting.PerAddressConnectionRateOptions.Validate() -> void
+const ChServerM.Hosting.PerAddressConnectionRateOptions.AbsoluteMaxSlotCount = 4194304 -> int
