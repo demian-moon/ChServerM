@@ -67,3 +67,4 @@ ChServerM.Transport.Tcp.TcpTransportOptions.RejectionNotice.get -> System.ReadOn
 ChServerM.Transport.Tcp.TcpTransportOptions.RejectionNotice.set -> void
 ChServerM.Transport.Tcp.TcpTransportOptions.UseVectoredSend.get -> bool
 ChServerM.Transport.Tcp.TcpTransportOptions.UseVectoredSend.set -> void
+ChServerM.Transport.Tcp.TcpServerTransport.CheckAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Diagnostics.HealthCheckResult>

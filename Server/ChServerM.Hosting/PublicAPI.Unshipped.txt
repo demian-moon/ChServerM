@@ -216,3 +216,5 @@ ChServerM.Hosting.PerAddressConnectionRateOptions.SlotCount.get -> int
 ChServerM.Hosting.PerAddressConnectionRateOptions.SlotCount.set -> void
 ChServerM.Hosting.PerAddressConnectionRateOptions.Validate() -> void
 const ChServerM.Hosting.PerAddressConnectionRateOptions.AbsoluteMaxSlotCount = 4194304 -> int
+ChServerM.Hosting.ProcessFaultHandlers
+static ChServerM.Hosting.ProcessFaultHandlers.Install(ChServerM.Diagnostics.IServerLogger! logger) -> System.IDisposable!

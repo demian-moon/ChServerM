@@ -34,7 +34,7 @@ namespace ChServerM.Transport.Tcp;
 /// </para>
 /// <para><b>스레드 규약.</b> 스레드 안전하다.</para>
 /// </remarks>
-public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimits
+public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimits, IHealthCheck
 {
     private static readonly EventId AcceptFaultedEvent = new(1020, "AcceptFaulted");
     private static readonly EventId ConnectionRejectedEvent = new(1004, "ConnectionRejected");
@@ -54,6 +54,23 @@ public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimit
 #pragma warning restore CA2213
     private IConnectionHandler? _handler;
     private Task _acceptLoop = Task.CompletedTask;
+
+    /// <summary>수락 루프를 멈춘 예외. <see langword="null"/> 이면 정상(수락 중이거나 정상 종료).</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>존재 이유 — 조용한 죽음을 없앤다.</b> 수락 루프가 예상 밖 예외로 죽으면 서버는
+    /// <b>살아 있지만 신규 연결을 하나도 받지 못하는</b> 상태가 된다. 그런데 <c>_acceptLoop</c>
+    /// 태스크는 <c>UnbindAsync</c> 에서야 <c>await</c> 되므로 <b>종료 시점까지 아무도 모른다</b> —
+    /// 헬스는 여전히 "수용 중" 을 보고하고, 오케스트레이터는 멀쩡한 줄 알고 트래픽을 계속 보낸다.
+    /// 이 필드가 그 상태를 <see cref="CheckAsync"/> 로 드러낸다.
+    /// </para>
+    /// <para>
+    /// <b>정상 종료는 기록하지 않는다.</b> <c>Unbind</c>·취소로 루프가 끝나는 것은 고장이 아니다.
+    /// </para>
+    /// <para><b>스레드 규약(9.3).</b> 수락 루프가 쓰고 헬스 프로브가 다른 스레드에서 읽는다 —
+    /// 양쪽 모두 <see cref="Volatile"/> 로 접근한다.</para>
+    /// </remarks>
+    private Exception? _acceptFault;
     private int _nextSlot;
     private int _bound;
     private int _disposed;
@@ -313,6 +330,24 @@ public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimit
         // 서버 시작이 클라이언트 연결을 기다리게 된다.
         await Task.Yield();
 
+        // 최종 방어선. StartConnection 은 사용자 공급 컴포넌트(IAdmissionControl)를 부르므로
+        // 소켓 예외가 아닌 무엇이든 던질 수 있다. 그것이 이 루프를 뚫고 나가면 수락 루프가
+        // 조용히 죽고(태스크는 Unbind 때까지 관측되지 않는다) 서버는 "살아 있지만 아무도
+        // 못 받는" 상태가 된다 — 그 조용한 죽음을 여기서 끊는다(_acceptFault 문서).
+        try
+        {
+            await AcceptUntilStoppedAsync(listenSocket, handler).ConfigureAwait(false);
+        }
+#pragma warning disable CA1031 // 수락 루프는 어떤 예외로도 조용히 죽으면 안 된다 — 기록하고 헬스로 드러낸다.
+        catch (Exception exception)
+#pragma warning restore CA1031
+        {
+            MarkAcceptFaulted(exception);
+        }
+    }
+
+    private async Task AcceptUntilStoppedAsync(Socket listenSocket, IConnectionHandler handler)
+    {
         while (!_stopping.IsCancellationRequested)
         {
             Socket accepted;
@@ -356,7 +391,8 @@ public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimit
             catch (SocketException exception)
             {
                 // 수락 소켓 자체가 죽었다. 계속 돌면 무한 루프가 된다.
-                LogAcceptFaulted(exception);
+                // 이것도 고장이다 — 로그만 남기고 끝내면 헬스가 계속 "수용 중" 을 보고한다.
+                MarkAcceptFaulted(exception);
                 return;
             }
 
@@ -492,7 +528,53 @@ public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimit
         }
     }
 
-    private void LogAcceptFaulted(SocketException exception)
+    /// <summary>수락 루프가 고장으로 끝났음을 기록하고 헬스에 드러낸다.</summary>
+    /// <remarks>
+    /// 로그는 즉시(운영자가 원인을 본다), 상태는 <see cref="CheckAsync"/> 로(오케스트레이터가
+    /// 트래픽을 뺀다). 둘 다 필요하다 — 로그만 남기면 자동화된 대응이 없고, 상태만 두면
+    /// 원인을 알 수 없다.
+    /// </remarks>
+    private void MarkAcceptFaulted(Exception exception)
+    {
+        Volatile.Write(ref _acceptFault, exception);
+        LogAcceptFaulted(exception);
+    }
+
+    /// <summary>수락 능력에 대한 헬스 판정 (Phase 10 크래시 처리, ADR-0028).</summary>
+    /// <param name="cancellationToken">쓰이지 않는다 — 로컬 상태를 읽는 즉시 완료다.</param>
+    /// <returns>
+    /// 수락 루프가 고장으로 끝났으면 <see cref="HealthStatus.Unhealthy"/>(사유 포함),
+    /// 그 외에는 <see cref="HealthStatus.Healthy"/>.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// <b>readiness 신호다.</b> 수락 루프가 죽은 서버는 <b>신규 트래픽을 받을 수 없으므로</b>
+    /// 로드밸런서에서 빠져야 한다. 기존 커넥션은 여전히 처리되므로 즉시 재시작(liveness 실패)
+    /// 대상으로 두지 않는다 — 진행 중인 작업을 끊는 것이 더 큰 피해일 수 있다.
+    /// </para>
+    /// <para>
+    /// <b>다만 이 고장은 회복되지 않는다.</b> 루프는 다시 돌지 않으므로 not-ready 가 지속되면
+    /// 운영·오케스트레이터가 재시작으로 escalate 해야 한다(수락 재시작을 자동화하지 않는 이유:
+    /// 원인이 지속적이면 무한 예외 루프로 코어를 태운다, ADR-0028).
+    /// </para>
+    /// <para>
+    /// 호스팅은 전송이 <see cref="IHealthCheck"/> 를 구현하면 프로브에 자동 등록한다 —
+    /// Core 전송 계약(<see cref="IServerTransport"/>)에 진단 멤버를 얹지 않는 접점이다
+    /// (실행 모델 liveness 와 같은 규율, ADR-0023).
+    /// </para>
+    /// </remarks>
+    public ValueTask<HealthCheckResult> CheckAsync(CancellationToken cancellationToken = default)
+    {
+        Exception? fault = Volatile.Read(ref _acceptFault);
+
+        HealthCheckResult result = fault is null
+            ? HealthCheckResult.Healthy("수락 루프 정상")
+            : HealthCheckResult.Unhealthy($"수락 루프가 중단됐다 — 신규 연결을 받지 못한다: {fault.Message}");
+
+        return ValueTask.FromResult(result);
+    }
+
+    private void LogAcceptFaulted(Exception exception)
     {
         if (_logger.IsEnabled(LogLevel.Critical))
         {

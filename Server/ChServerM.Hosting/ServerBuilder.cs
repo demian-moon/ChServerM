@@ -376,6 +376,14 @@ public sealed class ServerBuilder
             registrations.Add(new HealthCheckRegistration("execution-model", executionModelHealth, HealthProbe.Liveness));
         }
 
+        // 전송이 헬스를 낼 수 있으면 readiness 로 등록한다 — 수락 루프가 죽으면 신규 트래픽을
+        // 받을 수 없으므로 로드밸런서에서 빠져야 한다(기존 커넥션은 계속 처리되므로 재시작
+        // 대상은 아니다, ADR-0028).
+        if (_transport is IHealthCheck transportHealth)
+        {
+            registrations.Add(new HealthCheckRegistration("transport", transportHealth, HealthProbe.Readiness));
+        }
+
         // 사용자 등록은 뒤에 — 보고서 항목 순서가 내장 → 사용자다.
         registrations.AddRange(_healthChecks);
         return registrations;
