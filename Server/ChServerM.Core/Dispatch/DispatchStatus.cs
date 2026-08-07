@@ -37,6 +37,24 @@ public enum DispatchStatus : byte
     DeserializationFailed = 4,
 
     /// <summary>큐 포화로 받지 못했다. <b>거부가 붕괴보다 낫다</b>(CLAUDE.md 9.6).</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>현재 실행 모델에는 이 값을 만드는 자연 생산자가 없다 — 설계상 그렇다.</b>
+    /// 메시지 디스패치 주 경로(<c>PartitionDispatchGate</c>→<c>TryEnqueueExclusive</c>)는
+    /// <b>자연 백프레셔</b>를 쓴다: 커넥션당 in-flight 프레임은 항상 1건이고, 읽기 루프가
+    /// 그 완료를 기다리며 소켓 읽기를 멈춘다(ADR-0008). 그래서 이 경로의 큐는 넘칠 수 없고,
+    /// 넘치지 않으니 백프레셔로 거부할 일이 없다. 유계 큐가 실제로 포화하는 곳은
+    /// <c>IExecutionPartition.TryPost</c>(타이머·크로스 파티션 주입)이며, 그것은
+    /// <see cref="DispatchStatus"/>(메시지 단위 결과)가 아니라
+    /// <see cref="Diagnostics.MetricNames.PartitionWorkRejected"/> 카운터로 관측된다.
+    /// </para>
+    /// <para>
+    /// 따라서 이 값은 <b>큐잉 디스패치 모델(채널 워커 풀 등, 축 표의 후보)이 도입될 때를 위해
+    /// 예약</b>돼 있다 — 그 모델에서는 디스패치 = 유계 풀 게시이고, 포화가 곧 이 상태다.
+    /// <c>FramedConnectionHandler</c> 의 매핑(자원 한계 종료)은 그날을 위한 방어적 배선이다.
+    /// 지금 억지 생산자를 만들면 위의 자연 백프레셔와 충돌한다.
+    /// </para>
+    /// </remarks>
     RejectedByBackpressure = 5,
 
     /// <summary>핸들러가 예외를 던졌다.</summary>

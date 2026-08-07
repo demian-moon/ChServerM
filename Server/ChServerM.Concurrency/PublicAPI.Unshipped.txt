@@ -13,7 +13,7 @@ ChServerM.Concurrency.PartitionedExecutionModel.DisposeAsync() -> System.Threadi
 ChServerM.Concurrency.PartitionedExecutionModel.GetPartition(ChServerM.Identity.PartitionKey key) -> ChServerM.Execution.IExecutionPartition!
 ChServerM.Concurrency.PartitionedExecutionModel.GetPartition(int index) -> ChServerM.Execution.IExecutionPartition!
 ChServerM.Concurrency.PartitionedExecutionModel.PartitionCount.get -> int
-ChServerM.Concurrency.PartitionedExecutionModel.PartitionedExecutionModel(ChServerM.Concurrency.PartitionedExecutionOptions? options = null, ChServerM.Diagnostics.IServerLogger? logger = null) -> void
+ChServerM.Concurrency.PartitionedExecutionModel.PartitionedExecutionModel(ChServerM.Concurrency.PartitionedExecutionOptions? options = null, ChServerM.Diagnostics.IServerLogger? logger = null, ChServerM.Diagnostics.IMetricsSink? metricsSink = null) -> void
 ChServerM.Concurrency.PartitionedExecutionModel.TotalExecutedCount.get -> long
 ChServerM.Concurrency.PartitionedExecutionModel.TotalRejectedCount.get -> long
 ChServerM.Concurrency.PartitionedExecutionOptions

@@ -44,10 +44,21 @@ public sealed class PartitionedExecutionModel : IExecutionModel
     /// <summary>실행 모델을 만들고 파티션 스레드를 시작한다.</summary>
     /// <param name="options">설정. <see langword="null"/>이면 기본값.</param>
     /// <param name="logger">진단 로거.</param>
+    /// <param name="metricsSink">
+    /// 메트릭 싱크. 주어지면 각 파티션이 백프레셔 관측
+    /// (<see cref="MetricNames.PartitionWorkRejected"/> 카운터·
+    /// <see cref="MetricNames.PartitionQueueDepth"/> 게이지)을 방출한다.
+    /// <see langword="null"/>이면 <see cref="NullMetricsSink"/> — 수집하지 않는다.
+    /// <b>서버에 <c>UseMetrics</c> 로 넘긴 것과 같은 싱크를 여기에도 넘겨야</b> 파티션 큐
+    /// 포화가 다른 프레임워크 메트릭과 같은 대시보드에 모인다. 실행 모델은 사용자가
+    /// 조립해 <c>UseExecutionModel</c> 로 주입하므로(로거와 동일), 프레임워크가 대신
+    /// 배선해 줄 수 없다 — 이 인자가 그 접점이다.
+    /// </param>
     /// <exception cref="InvalidOperationException">설정이 유효하지 않을 때.</exception>
     public PartitionedExecutionModel(
         PartitionedExecutionOptions? options = null,
-        IServerLogger? logger = null)
+        IServerLogger? logger = null,
+        IMetricsSink? metricsSink = null)
     {
         options ??= new PartitionedExecutionOptions();
 
@@ -56,12 +67,13 @@ public sealed class PartitionedExecutionModel : IExecutionModel
         options.Validate();
 
         logger ??= NullServerLogger.Instance;
+        metricsSink ??= NullMetricsSink.Instance;
         _shutdownTimeout = options.ShutdownTimeout;
         _partitions = new ExecutionPartition[options.PartitionCount];
 
         for (int i = 0; i < _partitions.Length; i++)
         {
-            _partitions[i] = new ExecutionPartition(i, options, logger);
+            _partitions[i] = new ExecutionPartition(i, options, logger, metricsSink);
         }
 
         // 모든 파티션을 다 만든 뒤에 시작한다. 생성 도중 시작하면 아직 초기화되지 않은
@@ -89,7 +101,10 @@ public sealed class PartitionedExecutionModel : IExecutionModel
     }
 
     /// <summary>모든 파티션이 실행한 작업 수의 합.</summary>
-    /// <remarks>진단·테스트용이다. 메트릭은 Phase 11 에서 정식으로 붙인다.</remarks>
+    /// <remarks>
+    /// 진단·테스트용 누적값이다. 백프레셔는 주입된 <see cref="IMetricsSink"/> 로 방출된다
+    /// (<see cref="MetricNames.PartitionWorkRejected"/>·<see cref="MetricNames.PartitionQueueDepth"/>).
+    /// </remarks>
     public long TotalExecutedCount
     {
         get

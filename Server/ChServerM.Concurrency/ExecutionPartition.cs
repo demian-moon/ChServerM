@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -86,6 +87,15 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
     private readonly int _queueCapacity;
     private readonly TimeSpan _shutdownTimeout;
     private readonly IServerLogger _logger;
+    private readonly IMetricsSink _metricsSink;
+
+    /// <summary>이 파티션의 메트릭 태그(<c>partition</c> 인덱스). 생성 시 한 번 만들어 재사용한다.</summary>
+    /// <remarks>
+    /// 인덱스는 불변이므로 태그도 불변이다. 게시마다 새로 만들면 그것이 곧 할당이다 —
+    /// 배열 하나를 붙들어 게시·완료·거부 방출이 <see cref="ReadOnlySpan{T}"/> 로 공유한다.
+    /// 파티션당 하나뿐이고 카디널리티가 파티션 수로 유계다(<see cref="TagNames"/> 규약).
+    /// </remarks>
+    private readonly MetricTag[] _metricTags;
     private int _disposed;
 
     /// <summary>외부에서 들어와 아직 처리되지 않은 작업 수.</summary>
@@ -100,12 +110,18 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
     private long _executedCount;
     private long _rejectedCount;
 
-    internal ExecutionPartition(int index, PartitionedExecutionOptions options, IServerLogger logger)
+    internal ExecutionPartition(
+        int index,
+        PartitionedExecutionOptions options,
+        IServerLogger logger,
+        IMetricsSink metricsSink)
     {
         Index = index;
         _queueCapacity = options.QueueCapacity;
         _shutdownTimeout = options.ShutdownTimeout;
         _logger = logger;
+        _metricsSink = metricsSink;
+        _metricTags = [new MetricTag(TagNames.Partition, index.ToString(CultureInfo.InvariantCulture))];
 
         // 단일 소비자다. 채널에 알려주면 내부 동기화가 줄어든다.
         _queue = Channel.CreateUnbounded<object>(new UnboundedChannelOptions
@@ -136,7 +152,11 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
     public TaskScheduler Scheduler => _scheduler;
 
     /// <summary>이 파티션이 지금까지 실행한 작업 수.</summary>
-    /// <remarks>진단·테스트용이다. 메트릭은 Phase 11 에서 정식으로 붙인다.</remarks>
+    /// <remarks>
+    /// 진단·테스트용 누적값이다. 백프레셔 관측(<see cref="MetricNames.PartitionWorkRejected"/>·
+    /// <see cref="MetricNames.PartitionQueueDepth"/>)은 주입된 <see cref="IMetricsSink"/> 로
+    /// 방출된다 — 이 속성은 그 방출과 별개로 테스트가 정확한 실행 수를 확인하는 용도로 남긴다.
+    /// </remarks>
     public long ExecutedCount => Interlocked.Read(ref _executedCount);
 
     /// <summary>큐 포화로 거부한 작업 수.</summary>
@@ -165,6 +185,11 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
             Interlocked.Decrement(ref _pendingExternalWork.Value);
             Interlocked.Increment(ref _rejectedCount);
             LogRejected();
+
+            // 유계 큐 포화 = 백프레셔. 조용한 유실을 만들지 않는 것이 이 카운터의 목적이다
+            // (9.6). 0이 아니면 용량이 부족한 것이고, 대시보드·알람이 이 값을 본다.
+            // 방출은 거부 경로(저빈도)에서만 — 정상 게시 핫패스에는 카운터가 없다.
+            _metricsSink.Count(MetricNames.PartitionWorkRejected, 1, _metricTags);
             return false;
         }
 
@@ -174,6 +199,10 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
 
         if (_writer.TryWrite(box))
         {
+            // 게시 성공 = 큐 깊이 +1. 완료 시 Execute 의 finally 가 -1 로 대칭을 맞춘다.
+            // 배타 작업·스케줄러 연속은 이 게이지에 잡히지 않는다 — 유입 통제를 받는
+            // 외부 작업만이 백프레셔의 대상이기 때문이다(PendingExternalWork 와 같은 의미).
+            _metricsSink.AdjustGauge(MetricNames.PartitionQueueDepth, 1, _metricTags);
             return true;
         }
 
@@ -378,6 +407,10 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
                 // 실행이 실패해도 카운터와 박스는 반드시 되돌린다.
                 // 이것을 빠뜨리면 예외 하나가 파티션을 영구 정지시킨다 (CLAUDE.md 9.2).
                 Interlocked.Decrement(ref _pendingExternalWork.Value);
+
+                // 큐 깊이 -1. TryPost 의 +1 과 대칭이다 — 게시가 실패(종료 중)했다면 +1 도
+                // 방출되지 않았으므로 여기 -1 도 도달하지 않는다(그 작업은 큐에 없다).
+                _metricsSink.AdjustGauge(MetricNames.PartitionQueueDepth, -1, _metricTags);
                 (work as IReturnableWorkBox)?.Return();
             }
         }

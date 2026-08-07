@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using ChServerM.Concurrency;
+using ChServerM.Diagnostics;
 using ChServerM.Execution;
 using ChServerM.Identity;
 using Xunit;
@@ -384,6 +385,181 @@ public sealed class PartitionedExecutionModelTests
     {
         Assert.Throws<InvalidOperationException>(
             () => new PartitionedExecutionModel(new PartitionedExecutionOptions { QueueCapacity = 0 }));
+    }
+
+    [Fact]
+    public async Task QueueFull_EmitsPartitionWorkRejectedMetric()
+    {
+        // 유계 큐 포화(백프레셔)는 메트릭으로 관측돼야 한다. 카운터가 없으면 거부가
+        // 조용한 유실이 된다 — 대시보드가 이 값을 보고 용량 부족을 안다(9.6).
+        RecordingMetricsSink sink = new();
+        await using PartitionedExecutionModel model = new(
+            new PartitionedExecutionOptions { PartitionCount = 1, QueueCapacity = 16 },
+            logger: null,
+            metricsSink: sink);
+
+        IExecutionPartition partition = model.GetPartition(0);
+
+        // 소비 스레드를 붙잡아 큐가 비워지지 않게 한다(수명 규약은 아래 finally 참조).
+        ManualResetEventSlim gate = new();
+        ManualResetEventSlim started = new();
+        Task blocker;
+
+        try
+        {
+            blocker = Task.Factory.StartNew(
+                () =>
+                {
+                    started.Set();
+                    gate.Wait(TimeSpan.FromSeconds(10));
+                },
+                CancellationToken.None,
+                TaskCreationOptions.DenyChildAttach,
+                partition.Scheduler);
+
+            Assert.True(started.Wait(TimeSpan.FromSeconds(5)), "파티션 스레드가 시작되지 않았다.");
+
+            int rejected = 0;
+            for (int i = 0; i < 100; i++)
+            {
+                if (!partition.TryPost(new NoOpWork()))
+                {
+                    rejected++;
+                }
+            }
+
+            Assert.Equal(84, rejected);
+
+            // 방출된 카운터가 실제 거부 수와 일치하고, 파티션 태그가 붙는다.
+            Assert.Equal(rejected, sink.CounterValue(MetricNames.PartitionWorkRejected));
+            Assert.Equal(model.TotalRejectedCount, sink.CounterValue(MetricNames.PartitionWorkRejected));
+            Assert.Equal("0", sink.LastPartitionTag);
+        }
+        finally
+        {
+            gate.Set();
+        }
+
+        await blocker;
+        gate.Dispose();
+        started.Dispose();
+    }
+
+    [Fact]
+    public async Task QueueDepth_GaugeRisesWhilePendingAndReturnsToZero()
+    {
+        // 게이지는 게시(+1)와 완료(-1)가 대칭이어야 한다 — 어긋나면 큐 깊이가 실제와
+        // 달라져 관측이 거짓말을 한다. 소비를 막아 쌓인 깊이를 관측하고, 드레인 후 0 을 확인한다.
+        RecordingMetricsSink sink = new();
+        await using PartitionedExecutionModel model = new(
+            new PartitionedExecutionOptions { PartitionCount = 1, QueueCapacity = 32 },
+            logger: null,
+            metricsSink: sink);
+
+        IExecutionPartition partition = model.GetPartition(0);
+
+        ManualResetEventSlim gate = new();
+        ManualResetEventSlim started = new();
+        Task blocker;
+
+        try
+        {
+            blocker = Task.Factory.StartNew(
+                () =>
+                {
+                    started.Set();
+                    gate.Wait(TimeSpan.FromSeconds(10));
+                },
+                CancellationToken.None,
+                TaskCreationOptions.DenyChildAttach,
+                partition.Scheduler);
+
+            Assert.True(started.Wait(TimeSpan.FromSeconds(5)), "파티션 스레드가 시작되지 않았다.");
+
+            for (int i = 0; i < 10; i++)
+            {
+                Assert.True(partition.TryPost(new NoOpWork()));
+            }
+
+            // 소비가 막혀 있으므로 게시한 10건이 그대로 큐에 남아 있다.
+            Assert.Equal(10, sink.QueueDepth);
+        }
+        finally
+        {
+            gate.Set();
+        }
+
+        await blocker;
+
+        // 드레인 후 게이지는 0 으로 돌아온다. 최고점은 10 이었다(전부 막힌 동안 게시됨).
+        await WaitUntilAsync(() => sink.QueueDepth == 0);
+        Assert.Equal(10, sink.QueueDepthPeak);
+
+        gate.Dispose();
+        started.Dispose();
+    }
+
+    /// <summary>방출된 메트릭을 집계해 검증하는 <see cref="IMetricsSink"/>.</summary>
+    /// <remarks>
+    /// 파티션 스레드들이 동시에 호출하므로 스레드 안전해야 한다(<see cref="IMetricsSink"/> 규약).
+    /// 게이지는 순증감 합과 최고점을 함께 기록해 대칭성과 피크를 모두 검증한다.
+    /// </remarks>
+    private sealed class RecordingMetricsSink : IMetricsSink
+    {
+        private readonly ConcurrentDictionary<string, long> _counters = new();
+        private long _queueDepth;
+        private long _queueDepthPeak;
+        private string? _lastPartitionTag;
+
+        public long QueueDepth => Interlocked.Read(ref _queueDepth);
+
+        public long QueueDepthPeak => Interlocked.Read(ref _queueDepthPeak);
+
+        public string? LastPartitionTag => Volatile.Read(ref _lastPartitionTag);
+
+        public long CounterValue(string name) => _counters.TryGetValue(name, out long value) ? value : 0;
+
+        public void Count(string name, long delta, ReadOnlySpan<MetricTag> tags)
+        {
+            _counters.AddOrUpdate(name, delta, (_, current) => current + delta);
+            CapturePartitionTag(tags);
+        }
+
+        public void Record(string name, double value, ReadOnlySpan<MetricTag> tags)
+        {
+            // 이 테스트는 히스토그램을 검증하지 않는다.
+        }
+
+        public void AdjustGauge(string name, long delta, ReadOnlySpan<MetricTag> tags)
+        {
+            long updated = Interlocked.Add(ref _queueDepth, delta);
+
+            // 최고점 CAS — 여러 파티션 스레드가 동시에 갱신해도 최댓값을 놓치지 않는다.
+            long peak = Interlocked.Read(ref _queueDepthPeak);
+            while (updated > peak)
+            {
+                long previous = Interlocked.CompareExchange(ref _queueDepthPeak, updated, peak);
+                if (previous == peak)
+                {
+                    break;
+                }
+
+                peak = previous;
+            }
+
+            CapturePartitionTag(tags);
+        }
+
+        private void CapturePartitionTag(ReadOnlySpan<MetricTag> tags)
+        {
+            foreach (MetricTag tag in tags)
+            {
+                if (string.Equals(tag.Name, TagNames.Partition, StringComparison.Ordinal))
+                {
+                    Volatile.Write(ref _lastPartitionTag, tag.Value);
+                }
+            }
+        }
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition)
