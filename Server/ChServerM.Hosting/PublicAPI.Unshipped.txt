@@ -230,3 +230,6 @@ ChServerM.Hosting.MemoryLoadLevelSource.Current.get -> ChServerM.Resilience.Load
 ChServerM.Hosting.MemoryLoadLevelSource.MemoryLoadLevelSource(double elevatedRatio = 0.75, double criticalRatio = 0.9, System.TimeSpan? refreshInterval = null, System.TimeProvider? timeProvider = null) -> void
 ChServerM.Hosting.MemoryLoadLevelSource.RefreshInterval.get -> System.TimeSpan
 static ChServerM.Hosting.MemoryLoadLevelSource.DefaultRefreshInterval.get -> System.TimeSpan
+ChServerM.Hosting.LoadLevelAdmissionControl
+ChServerM.Hosting.LoadLevelAdmissionControl.LoadLevelAdmissionControl(ChServerM.Resilience.ILoadLevelSource! loadLevel, ChServerM.Resilience.LoadLevel rejectAtOrAbove = ChServerM.Resilience.LoadLevel.Critical) -> void
+ChServerM.Hosting.LoadLevelAdmissionControl.TryAdmit(System.Net.EndPoint? remoteEndPoint) -> ChServerM.Resilience.AdmissionDecision

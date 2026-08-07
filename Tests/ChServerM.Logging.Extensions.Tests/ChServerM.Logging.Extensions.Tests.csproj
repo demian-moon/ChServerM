@@ -16,6 +16,8 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="coverlet.collector" />
+    <!-- 런타임 필터 변경 검증용 — 프로덕션 어댑터는 Abstractions 만 쓴다. -->
+    <PackageReference Include="Microsoft.Extensions.Logging" />
   </ItemGroup>
 
   <ItemGroup>
