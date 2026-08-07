@@ -191,7 +191,7 @@ public sealed class ServerBuilder
     /// 디스패치 파이프라인에 <see cref="Dispatch.TracingMiddleware"/> 를 끼워 프레임마다
     /// <see cref="ActivityNames.Dispatch"/> span 을 남긴다. 싱크 인자가 없는 것은
     /// <see cref="UseMetrics"/> 와의 핵심 차이다 — 추적의 교체 지점은 방출자가 아니라
-    /// <b>구독자</b>다. 익스포터(OpenTelemetry·Jaeger 등)는 <see cref="ActivitySource"/>
+    /// <b>구독자</b>다. 익스포터(OpenTelemetry·Jaeger 등)는 <see cref="System.Diagnostics.ActivitySource"/>
     /// 이름(<see cref="DiagnosticNames.ActivitySourceName"/>)으로 <c>ActivityListener</c> 를
     /// 걸어 프로세스 바깥에서 구독한다(ADR-0022).
     /// </para>
@@ -313,6 +313,14 @@ public sealed class ServerBuilder
         if (_metricsSink is not null)
         {
             handler = new MetricsConnectionHandler(handler, _metricsSink);
+        }
+
+        // 추적을 켜면 커넥션 span 데코레이터가 가장 바깥이다 — 핸드셰이크·활성 계측까지 포함한
+        // 커넥션 전 생애를 한 span 으로 덮고, 그 컨텍스트를 디스패치 span 의 부모로 실는다
+        // (크로스 스레드 전파, ADR-0022). 미들웨어(디스패치 span)는 ConfigureDispatcher 에서 이미 배선됐다.
+        if (_tracingEnabled)
+        {
+            handler = new TracingConnectionHandler(handler);
         }
 
         return new ChServerMServer(transport, handler, encoder, _executionModel);

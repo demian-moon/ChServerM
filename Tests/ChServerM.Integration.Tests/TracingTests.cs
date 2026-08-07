@@ -15,15 +15,23 @@ using Xunit;
 
 namespace ChServerM.Integration.Tests;
 
+/// <summary>추적 테스트 컬렉션 — 전역 <see cref="ActivityListener"/> 를 다루는 클래스를 묶는다.</summary>
+/// <remarks>
+/// <see cref="ActivityListener"/> 는 <b>프로세스 전역</b>이다. 리스너를 붙이는 두 클래스
+/// (<see cref="TracingTests"/>·<see cref="TracingEndToEndTests"/>)가 xUnit 기본 병렬로 동시에
+/// 돌면, 한쪽의 리스너가 다른 쪽의 "리스너 없음" 관측을 오염시킨다. 같은 컬렉션 + 병렬
+/// 비활성으로 순차 실행을 강제해 전역 상태 간섭을 없앤다.
+/// </remarks>
+[CollectionDefinition("Tracing", DisableParallelization = true)]
+public sealed class TracingCollection
+{
+}
+
 /// <summary>
 /// 분산 추적 미들웨어(ADR-0022)를 검증한다 — 디스패치 span 이 태그·상태와 함께 나고,
 /// 리스너가 없으면 데코레이터가 async 래퍼 없이 사라진다(fast-path).
 /// </summary>
-/// <remarks>
-/// <see cref="ActivityListener"/> 는 프로세스 전역이라 이 클래스 안에서만 붙였다 뗀다
-/// (각 테스트가 <c>using</c> 으로 해제). 다른 테스트 클래스는 <c>ChServerM</c> 원본을
-/// 구독하지 않으므로 fast-path 테스트의 "리스너 없음" 관측이 오염되지 않는다.
-/// </remarks>
+[Collection("Tracing")]
 public sealed class TracingTests
 {
     private static MessageContext MakeContext(ushort messageId)

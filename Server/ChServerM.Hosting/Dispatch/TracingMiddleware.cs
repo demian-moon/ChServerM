@@ -37,12 +37,12 @@ namespace ChServerM.Hosting.Dispatch;
 /// 라는 값싼 게이트가 있어 리스너 없는 조립을 near-zero 패스스루로 만들 수 있다.
 /// </para>
 /// <para>
-/// <b>부모 span 은 이번 증분에 없다.</b> <see cref="ActivityNames.Connection"/>(커넥션 전
-/// 생애) span 을 부모로 달지 않는다 — 실행 모델(ADR-0008)에서 디스패치는 파티션 스레드에서
-/// 돌고 <see cref="Activity.Current"/> 는 AsyncLocal 이라 채널 핸드오프를 넘지 못하므로,
-/// 부모 연결은 커넥션의 <see cref="ActivityContext"/> 를 <see cref="MessageContext"/> 로
-/// 실어 명시적으로 넘기는 별도 배선이 필요하다. 지금은 <see cref="TagNames.ConnectionId"/>
-/// 속성으로 트레이스를 상관시킨다.
+/// <b>부모 span — 크로스 스레드 전파.</b> 디스패치 span 은 <see cref="ActivityNames.Connection"/>
+/// span 의 자식이다. 실행 모델(ADR-0008)에서 디스패치는 파티션 스레드에서 돌고
+/// <see cref="Activity.Current"/> 는 AsyncLocal 이라 채널 핸드오프를 넘지 못하므로, 부모는
+/// <see cref="Activity.Current"/> 가 아니라 <see cref="TracingConnectionHandler"/> 가 커넥션
+/// 기능에 실어둔 <see cref="ConnectionTraceFeature.ParentContext"/> 에서 <b>명시적으로</b>
+/// 읽어 넘긴다. 커넥션 span 이 없으면(리스너 없음) 부모가 비어 디스패치 span 이 루트가 된다.
 /// </para>
 /// <para>
 /// <b>스레드 규약.</b> 인스턴스는 불변이라 모든 커넥션이 공유한다.
@@ -51,14 +51,6 @@ namespace ChServerM.Hosting.Dispatch;
 /// </remarks>
 public sealed class TracingMiddleware : IServerMiddleware
 {
-    /// <summary>프레임워크 추적 원본. 프로세스당 하나이며, 이름이 곧 구독 계약이다.</summary>
-    /// <remarks>
-    /// <see cref="ActivitySource"/> 는 장수명이 정상이다 — 프레임마다 만들면 그 자체가
-    /// 비용이다. 이름(<see cref="DiagnosticNames.ActivitySourceName"/>)으로 익스포터가
-    /// <see cref="ActivityListener"/> 를 건다. 테스트도 같은 이름으로 구독한다.
-    /// </remarks>
-    internal static readonly ActivitySource Source = new(DiagnosticNames.ActivitySourceName);
-
     /// <inheritdoc />
     public ValueTask<DispatchStatus> InvokeAsync(MessageContext context, MessageDelegate next)
     {
@@ -67,7 +59,8 @@ public sealed class TracingMiddleware : IServerMiddleware
 
         // 구독자가 없으면 span 도 async 상태 머신도 만들지 않고 next 를 그대로 돌려준다.
         // 리스너 없는 조립에서 이 데코레이터를 near-zero 로 만드는 fast-path 다(타입 문서).
-        if (!Source.HasListeners())
+        // 커넥션 기능 조회조차 이 게이트 뒤에서만 일어난다.
+        if (!ServerTracing.Source.HasListeners())
         {
             return next(context);
         }
@@ -77,9 +70,14 @@ public sealed class TracingMiddleware : IServerMiddleware
 
     private static async ValueTask<DispatchStatus> InvokeTracedAsync(MessageContext context, MessageDelegate next)
     {
+        // 부모는 Activity.Current(파티션 스레드로 안 흐름)가 아니라 커넥션 기능에서 명시적으로
+        // 읽는다(타입 문서의 크로스 스레드 전파). 커넥션 span 이 없으면 default → 루트 span.
+        ActivityContext parent = context.Connection.Features.Get<ConnectionTraceFeature>()?.ParentContext ?? default;
+
         // Server kind — 인바운드 요청을 처리하는 span 이다. HasListeners 가 true 여도
         // 리스너의 샘플러가 이 span 을 거부하면 null 이 온다 — 아래 null 검사가 그 경우다.
-        using Activity? activity = Source.StartActivity(ActivityNames.Dispatch, ActivityKind.Server);
+        using Activity? activity = ServerTracing.Source.StartActivity(
+            ActivityNames.Dispatch, ActivityKind.Server, parent);
 
         if (activity is not null)
         {
