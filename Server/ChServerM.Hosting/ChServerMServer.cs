@@ -42,7 +42,8 @@ public sealed class ChServerMServer : IAsyncDisposable
         IFrameEncoder encoder,
         IExecutionModel? executionModel,
         ServerLifecycleState lifecycle,
-        HealthCheckService health)
+        HealthCheckService health,
+        DiagnosticsService diagnostics)
     {
         _transport = transport;
         _handler = handler;
@@ -50,6 +51,7 @@ public sealed class ChServerMServer : IAsyncDisposable
         _lifecycle = lifecycle;
         Encoder = encoder;
         Health = health;
+        Diagnostics = diagnostics;
     }
 
     /// <summary>이 서버가 쓰는 프레임 인코더.</summary>
@@ -80,6 +82,20 @@ public sealed class ChServerMServer : IAsyncDisposable
     /// </para>
     /// </remarks>
     public HealthCheckService Health { get; }
+
+    /// <summary>런타임 진단 서비스 (Phase 11 관측).</summary>
+    /// <remarks>
+    /// <para>
+    /// <c>Diagnostics.Collect()</c> 가 커넥션·스레드·풀 상태의 <b>지금 이 순간 스냅샷</b>을
+    /// 평문으로 돌려준다. 메트릭이 카디널리티 때문에 담을 수 없는 상세
+    /// (어느 커넥션이 오래 조용한가, 어느 파티션이 멈췄는가)가 여기 있다.
+    /// </para>
+    /// <para>
+    /// 전송·실행 모델이 <see cref="ChServerM.Diagnostics.IDiagnosticsSource"/> 를 구현하면 자동으로 포함되고,
+    /// 그 밖의 소스는 <c>ServerBuilder.AddDiagnosticsSource</c> 로 더한다.
+    /// </para>
+    /// </remarks>
+    public DiagnosticsService Diagnostics { get; }
 
     /// <summary>수용을 시작한다.</summary>
     /// <param name="cancellationToken">시작 작업의 취소 토큰.</param>

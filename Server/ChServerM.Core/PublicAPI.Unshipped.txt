@@ -591,3 +591,9 @@ ChServerM.Resilience.LoadLevel
 ChServerM.Resilience.LoadLevel.Critical = 2 -> ChServerM.Resilience.LoadLevel
 ChServerM.Resilience.LoadLevel.Elevated = 1 -> ChServerM.Resilience.LoadLevel
 ChServerM.Resilience.LoadLevel.Normal = 0 -> ChServerM.Resilience.LoadLevel
+ChServerM.Diagnostics.IDiagnosticsSource
+ChServerM.Diagnostics.IDiagnosticsSource.Collect(ChServerM.Diagnostics.IDiagnosticsWriter! writer) -> void
+ChServerM.Diagnostics.IDiagnosticsSource.Name.get -> string!
+ChServerM.Diagnostics.IDiagnosticsWriter
+ChServerM.Diagnostics.IDiagnosticsWriter.Write(string! key, long value) -> void
+ChServerM.Diagnostics.IDiagnosticsWriter.Write(string! key, string? value) -> void

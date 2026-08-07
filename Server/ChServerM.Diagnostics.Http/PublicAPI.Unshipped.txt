@@ -1,7 +1,6 @@
 #nullable enable
 ChServerM.Diagnostics.Http.HealthHttpEndpoint
 ChServerM.Diagnostics.Http.HealthHttpEndpoint.DisposeAsync() -> System.Threading.Tasks.ValueTask
-ChServerM.Diagnostics.Http.HealthHttpEndpoint.HealthHttpEndpoint(System.Func<ChServerM.Diagnostics.HealthProbe, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<ChServerM.Diagnostics.HealthReport!>>! probe, ChServerM.Diagnostics.Http.HealthHttpOptions? options = null) -> void
 ChServerM.Diagnostics.Http.HealthHttpEndpoint.Start() -> void
 ChServerM.Diagnostics.Http.HealthHttpEndpoint.StopAsync() -> System.Threading.Tasks.ValueTask
 ChServerM.Diagnostics.Http.HealthHttpOptions
@@ -13,3 +12,6 @@ ChServerM.Diagnostics.Http.HealthHttpOptions.Prefix.set -> void
 ChServerM.Diagnostics.Http.HealthHttpOptions.ReadinessPath.get -> string!
 ChServerM.Diagnostics.Http.HealthHttpOptions.ReadinessPath.set -> void
 ChServerM.Diagnostics.Http.HealthHttpOptions.Validate() -> void
+ChServerM.Diagnostics.Http.HealthHttpEndpoint.HealthHttpEndpoint(System.Func<ChServerM.Diagnostics.HealthProbe, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<ChServerM.Diagnostics.HealthReport!>>! probe, ChServerM.Diagnostics.Http.HealthHttpOptions? options = null, System.Func<string!>? diagnostics = null) -> void
+ChServerM.Diagnostics.Http.HealthHttpOptions.DiagnosticsPath.get -> string?
+ChServerM.Diagnostics.Http.HealthHttpOptions.DiagnosticsPath.set -> void

@@ -9,3 +9,7 @@ ChServerM.Observability.MeterMetricsSink.Record(string! name, double value, Syst
 ChServerM.Observability.BufferPoolMetrics
 ChServerM.Observability.MeterMetricsSink.ObserveCounter(string! name, System.Func<long>! observe, System.ReadOnlySpan<ChServerM.Diagnostics.MetricTag> tags) -> void
 static ChServerM.Observability.BufferPoolMetrics.Register(ChServerM.Diagnostics.IMetricsSink! sink) -> void
+ChServerM.Observability.BufferPoolDiagnosticsSource
+ChServerM.Observability.BufferPoolDiagnosticsSource.BufferPoolDiagnosticsSource() -> void
+ChServerM.Observability.BufferPoolDiagnosticsSource.Collect(ChServerM.Diagnostics.IDiagnosticsWriter! writer) -> void
+ChServerM.Observability.BufferPoolDiagnosticsSource.Name.get -> string!

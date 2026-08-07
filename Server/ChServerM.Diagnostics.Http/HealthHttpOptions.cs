@@ -25,6 +25,18 @@ public sealed class HealthHttpOptions
     /// <summary>readiness 프로브 경로. 반드시 <c>/</c> 로 시작한다.</summary>
     public string ReadinessPath { get; set; } = "/readyz";
 
+    /// <summary>런타임 진단 스냅샷 경로. <see langword="null"/>이면 노출하지 않는다.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>기본이 <see langword="null"/>(미노출)인 이유.</b> 진단 스냅샷에는 클라이언트 주소
+    /// 표본이 들어가고 이 엔드포인트는 평문·무인증이다. 프로브(<c>/healthz</c>·<c>/readyz</c>)는
+    /// 오케스트레이터가 반드시 필요로 하지만 진단은 <b>사람이 필요할 때 켜는 것</b>이므로,
+    /// <b>명시적으로 켜야 열리게</b> 둔다 — 기본값이 덜 노출하는 쪽이어야 한다.
+    /// </para>
+    /// <para>켤 때는 admin 주소가 외부에 닿지 않는지 함께 확인한다.</para>
+    /// </remarks>
+    public string? DiagnosticsPath { get; set; }
+
     /// <summary>설정을 검증한다.</summary>
     /// <exception cref="InvalidOperationException">값이 유효하지 않을 때.</exception>
     public void Validate()
@@ -44,6 +56,21 @@ public sealed class HealthHttpOptions
         {
             throw new InvalidOperationException(
                 $"{nameof(LivenessPath)}와 {nameof(ReadinessPath)}가 같으면 프로브를 구분할 수 없다.");
+        }
+
+        if (DiagnosticsPath is not null)
+        {
+            if (!DiagnosticsPath.StartsWith('/'))
+            {
+                throw new InvalidOperationException($"{nameof(DiagnosticsPath)} 는 '/'로 시작해야 한다.");
+            }
+
+            if (string.Equals(DiagnosticsPath, LivenessPath, StringComparison.Ordinal)
+                || string.Equals(DiagnosticsPath, ReadinessPath, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"{nameof(DiagnosticsPath)} 가 프로브 경로와 같으면 진단이 프로브 응답을 가로챈다.");
+            }
         }
     }
 }

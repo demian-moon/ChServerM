@@ -44,6 +44,8 @@ public sealed class HealthHttpEndpoint : IAsyncDisposable
     private readonly string _prefix;
     private readonly string _livenessPath;
     private readonly string _readinessPath;
+    private readonly string? _diagnosticsPath;
+    private readonly Func<string>? _diagnostics;
     private readonly HttpListener _listener = new();
     private readonly CancellationTokenSource _stopping = new();
 
@@ -56,21 +58,39 @@ public sealed class HealthHttpEndpoint : IAsyncDisposable
     /// 프로브를 받아 헬스 보고서를 내는 델리게이트. 보통 <c>server.Health.CheckHealthAsync</c>.
     /// </param>
     /// <param name="options">설정. <see langword="null"/>이면 기본값(루프백 <c>:8081</c>).</param>
+    /// <param name="diagnostics">
+    /// 런타임 진단 스냅샷을 내는 델리게이트. 보통 <c>server.Diagnostics.Collect</c>.
+    /// <see cref="HealthHttpOptions.DiagnosticsPath"/> 를 지정했을 때만 필요하며,
+    /// 생략하면 진단 라우트가 열리지 않는다(기본은 미노출 — 스냅샷에 클라이언트 주소 표본이 들어간다).
+    /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="probe"/>가 <see langword="null"/>일 때.</exception>
-    /// <exception cref="InvalidOperationException">설정이 유효하지 않을 때.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// 설정이 유효하지 않거나, <see cref="HealthHttpOptions.DiagnosticsPath"/> 를 지정했는데
+    /// <paramref name="diagnostics"/> 를 넘기지 않았을 때.
+    /// </exception>
     public HealthHttpEndpoint(
         Func<HealthProbe, CancellationToken, ValueTask<HealthReport>> probe,
-        HealthHttpOptions? options = null)
+        HealthHttpOptions? options = null,
+        Func<string>? diagnostics = null)
     {
         ArgumentNullException.ThrowIfNull(probe);
 
         options ??= new HealthHttpOptions();
         options.Validate();
 
+        if (options.DiagnosticsPath is not null && diagnostics is null)
+        {
+            // 경로만 열고 소스가 없으면 그 라우트가 조용히 404 를 낸다 — 조립 실수를 여기서 잡는다.
+            throw new InvalidOperationException(
+                $"{nameof(HealthHttpOptions.DiagnosticsPath)} 를 지정했으면 {nameof(diagnostics)} 도 넘겨야 한다.");
+        }
+
         _probe = probe;
         _prefix = options.Prefix;
         _livenessPath = options.LivenessPath;
         _readinessPath = options.ReadinessPath;
+        _diagnosticsPath = diagnostics is null ? null : options.DiagnosticsPath;
+        _diagnostics = diagnostics;
         _listener.Prefixes.Add(_prefix);
     }
 
@@ -199,6 +219,15 @@ public sealed class HealthHttpEndpoint : IAsyncDisposable
         }
 
         string path = request.Url?.AbsolutePath ?? "/";
+
+        // 진단은 프로브와 다른 응답이다 — 상태코드가 아니라 본문이 산출물이라 항상 200 이다.
+        if (_diagnosticsPath is not null
+            && _diagnostics is not null
+            && string.Equals(path, _diagnosticsPath, StringComparison.Ordinal))
+        {
+            return ((int)HttpStatusCode.OK, _diagnostics());
+        }
+
         HealthProbe? probe = MatchProbe(path);
         if (probe is null)
         {

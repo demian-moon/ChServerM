@@ -45,8 +45,42 @@ namespace ChServerM.Concurrency;
 /// Concurrency 를 참조하지 않고도 배선되게 하는 접점이다.
 /// </para>
 /// </remarks>
-public sealed class PartitionedExecutionModel : IExecutionModel, IHealthCheck
+public sealed class PartitionedExecutionModel : IExecutionModel, IHealthCheck, IDiagnosticsSource
 {
+    /// <inheritdoc />
+    public string Name => "execution-model.partitioned";
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// <b>스레드 상태를 파티션별로 낸다</b> — 집계만으로는 "어느 파티션이 멈췄는가" 를 답할 수
+    /// 없고, 그것이 장애 중에 가장 먼저 알아야 할 것이다. 파티션 수는 시작 시 고정이고 상한이
+    /// 512 라(<see cref="PartitionedExecutionOptions.AbsoluteMaxPartitionCount"/>) 전부 내도
+    /// 출력이 유계다 — 커넥션 목록과 달리 표본을 뽑을 이유가 없다.
+    /// </remarks>
+    public void Collect(IDiagnosticsWriter writer)
+    {
+        ArgumentNullException.ThrowIfNull(writer);
+
+        long now = Environment.TickCount64;
+        long stallThresholdMilliseconds = (long)_stallThreshold.TotalMilliseconds;
+
+        writer.Write("partitions", _partitions.Length);
+        writer.Write("stall_threshold_ms", stallThresholdMilliseconds);
+        writer.Write("executed.total", TotalExecutedCount);
+        writer.Write("rejected.total", TotalRejectedCount);
+
+        foreach (ExecutionPartition partition in _partitions)
+        {
+            string prefix = $"partition.{partition.Index}.";
+
+            writer.Write(prefix + "thread_alive", partition.IsThreadAlive ? "yes" : "no");
+            writer.Write(prefix + "stalled", partition.IsStalled(now, stallThresholdMilliseconds) ? "yes" : "no");
+            writer.Write(prefix + "executed", partition.ExecutedCount);
+            writer.Write(prefix + "rejected", partition.RejectedCount);
+            writer.Write(prefix + "pending", partition.PendingExternalWork);
+        }
+    }
+
     private readonly ExecutionPartition[] _partitions;
     private readonly TimeSpan _shutdownTimeout;
     private readonly TimeSpan _stallThreshold;

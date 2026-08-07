@@ -34,7 +34,7 @@ namespace ChServerM.Transport.Tcp;
 /// </para>
 /// <para><b>스레드 규약.</b> 스레드 안전하다.</para>
 /// </remarks>
-public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimits, IHealthCheck
+public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimits, IHealthCheck, IDiagnosticsSource
 {
     private static readonly EventId AcceptFaultedEvent = new(1020, "AcceptFaulted");
     private static readonly EventId ConnectionRejectedEvent = new(1004, "ConnectionRejected");
@@ -525,6 +525,74 @@ public sealed class TcpServerTransport : IServerTransport, ITransportBufferLimit
                 exception,
                 static (delay, ex) =>
                     $"소켓 핸들이 고갈됐다({ex?.Message}). {delay.TotalMilliseconds:F0}ms 뒤 수락을 재시도한다.");
+        }
+    }
+
+    /// <summary>진단 스냅샷에서 개별 커넥션을 몇 개까지 낼지.</summary>
+    /// <remarks>
+    /// <b>전체를 쏟지 않는 이유는 둘이다.</b> (1) 1만 접속이면 응답이 MB 급이라 진단 조회가
+    /// 그 자체로 부하가 된다. (2) 커넥션 목록은 곧 <b>클라이언트 주소 목록</b>이고 admin
+    /// 엔드포인트는 대개 평문·무인증이다. 집계로 규모를 답하고, 개별 항목은
+    /// <b>가장 오래 조용한 것부터</b> 이만큼만 낸다 — 문제 있는 커넥션이 먼저 보이는 순서다.
+    /// </remarks>
+    private const int ConnectionSampleLimit = 20;
+
+    /// <inheritdoc />
+    public string Name => "transport.tcp";
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// 집계(총수·상한·수락 상태) 다음에 <b>가장 오래 조용한 커넥션 표본</b>을 낸다
+    /// (<see cref="ConnectionSampleLimit"/> 개). 살아 있는 목록을 순회하므로 스냅샷은 정확한
+    /// 한 시점이 아니다 — 순회 중 커넥션이 들고 난다. 진단 용도에는 그 근사로 충분하고,
+    /// 잠그면 진단이 데이터 경로를 막는다.
+    /// </remarks>
+    public void Collect(IDiagnosticsWriter writer)
+    {
+        ArgumentNullException.ThrowIfNull(writer);
+
+        writer.Write("endpoint", _bindEndPoint?.ToString());
+        writer.Write("bound", Volatile.Read(ref _bound) == 1 ? "yes" : "no");
+        writer.Write("accept_fault", Volatile.Read(ref _acceptFault)?.Message ?? "none");
+        writer.Write("connections.active", _connections.Count);
+        writer.Write("connections.max", _options.MaxConnections);
+
+        long now = Environment.TickCount64;
+
+        // 가장 오래 조용한 순으로 상한만큼 고른다. 전체 정렬 대신 상한 크기의 삽입 정렬이라
+        // 커넥션이 많아도 비용이 표본 크기에 묶인다.
+        List<(long IdleMs, SocketConnection Connection)> sample = new(ConnectionSampleLimit + 1);
+
+        foreach (ActiveConnection active in _connections.Values)
+        {
+            long idleMs = now - active.Connection.LastActivityTicks;
+
+            int index = sample.FindIndex(entry => idleMs > entry.IdleMs);
+            if (index >= 0)
+            {
+                sample.Insert(index, (idleMs, active.Connection));
+            }
+            else if (sample.Count < ConnectionSampleLimit)
+            {
+                sample.Add((idleMs, active.Connection));
+            }
+
+            if (sample.Count > ConnectionSampleLimit)
+            {
+                sample.RemoveAt(sample.Count - 1);
+            }
+        }
+
+        writer.Write("connections.sampled", sample.Count);
+
+        for (int i = 0; i < sample.Count; i++)
+        {
+            (long idleMs, SocketConnection connection) = sample[i];
+            string prefix = $"connection.{i}.";
+
+            writer.Write(prefix + "id", connection.Id.ToString());
+            writer.Write(prefix + "remote", connection.RemoteEndPoint?.ToString());
+            writer.Write(prefix + "idle_ms", idleMs);
         }
     }
 

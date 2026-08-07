@@ -50,6 +50,7 @@ public sealed class ServerBuilder
     private IMetricsSink? _metricsSink;
     private bool _tracingEnabled;
     private readonly List<HealthCheckRegistration> _healthChecks = [];
+    private readonly List<IDiagnosticsSource> _diagnosticsSources = [];
     private IServerLogger _logger = NullServerLogger.Instance;
     private TimeProvider _timeProvider = TimeProvider.System;
 
@@ -209,6 +210,28 @@ public sealed class ServerBuilder
         return this;
     }
 
+    /// <summary>진단 소스를 등록한다 (Phase 11 관측).</summary>
+    /// <param name="source">운영 중 조회할 상태를 내놓는 소스.</param>
+    /// <returns>메서드 체이닝을 위한 자기 자신.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="source"/>가 <see langword="null"/>일 때.</exception>
+    /// <remarks>
+    /// <para>
+    /// 전송·실행 모델이 <see cref="IDiagnosticsSource"/> 를 구현하면 <b>자동 등록</b>되므로 여기
+    /// 다시 넣지 않는다. 이 메서드는 그 밖의 소스를 위한 것이다 — 예: 버퍼 풀
+    /// (<c>ChServerM.Observability.BufferPoolDiagnosticsSource</c>)이나 앱 고유 상태.
+    /// </para>
+    /// <para>
+    /// 결과는 <see cref="ChServerMServer.Diagnostics"/> 로 조회한다. HTTP 노출은
+    /// <c>ChServerM.Diagnostics.Http</c> 어댑터의 몫이다.
+    /// </para>
+    /// </remarks>
+    public ServerBuilder AddDiagnosticsSource(IDiagnosticsSource source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        _diagnosticsSources.Add(source);
+        return this;
+    }
+
     /// <summary>헬스 체크를 등록한다 (Phase 11 관측).</summary>
     /// <param name="name">체크 이름(보고서 키). 비어 있을 수 없다.</param>
     /// <param name="check">헬스 체크.</param>
@@ -351,8 +374,10 @@ public sealed class ServerBuilder
         // 헬스 체크 조립 — 내장(수용 상태 readiness·실행 모델 liveness) + 사용자 등록.
         ServerLifecycleState lifecycle = new();
         HealthCheckService health = new(BuildHealthRegistrations(lifecycle));
+        DiagnosticsService diagnostics = new(BuildDiagnosticsSources());
 
-        return new ChServerMServer(transport, handler, encoder, _executionModel, lifecycle, health);
+        return new ChServerMServer(
+            transport, handler, encoder, _executionModel, lifecycle, health, diagnostics);
     }
 
     /// <summary>내장 헬스 체크와 사용자 등록을 하나의 목록으로 모은다.</summary>
@@ -362,6 +387,31 @@ public sealed class ServerBuilder
     /// 대신 실행 모델이 <see cref="IHealthCheck"/> 를 구현하면 liveness 프로브에 자동 등록한다.
     /// Core 실행 모델 계약에 진단 멤버를 얹지 않고 배선을 얻는 접점이다(ADR 근거).
     /// </remarks>
+    /// <summary>진단을 낼 수 있는 축과 사용자 등록을 모은다.</summary>
+    /// <remarks>
+    /// <b>옵트인으로 배선한다</b> — 전송·실행 모델이 <see cref="IDiagnosticsSource"/> 를 구현하면
+    /// 자동으로 수집된다. Core 의 축 계약에 진단 멤버를 얹지 않는 접점이며, 헬스와 같은 규율이다
+    /// (ADR-0023). 버퍼 풀처럼 Core 를 못 보는 어셈블리의 소스는 사용자가
+    /// <c>AddDiagnosticsSource</c> 로 더한다(<c>BufferPoolDiagnosticsSource</c>).
+    /// </remarks>
+    private List<IDiagnosticsSource> BuildDiagnosticsSources()
+    {
+        List<IDiagnosticsSource> sources = [];
+
+        if (_transport is IDiagnosticsSource transportDiagnostics)
+        {
+            sources.Add(transportDiagnostics);
+        }
+
+        if (_executionModel is IDiagnosticsSource executionModelDiagnostics)
+        {
+            sources.Add(executionModelDiagnostics);
+        }
+
+        sources.AddRange(_diagnosticsSources);
+        return sources;
+    }
+
     private List<HealthCheckRegistration> BuildHealthRegistrations(ServerLifecycleState lifecycle)
     {
         List<HealthCheckRegistration> registrations =

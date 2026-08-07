@@ -37,3 +37,5 @@ ChServerM.Concurrency.PartitionedExecutionModel.CountStalledPartitions(System.Ti
 ChServerM.Concurrency.PartitionedExecutionOptions.StallThreshold.get -> System.TimeSpan
 ChServerM.Concurrency.PartitionedExecutionOptions.StallThreshold.set -> void
 static ChServerM.Concurrency.PartitionedExecutionOptions.DefaultStallThreshold.get -> System.TimeSpan
+ChServerM.Concurrency.PartitionedExecutionModel.Collect(ChServerM.Diagnostics.IDiagnosticsWriter! writer) -> void
+ChServerM.Concurrency.PartitionedExecutionModel.Name.get -> string!

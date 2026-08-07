@@ -233,3 +233,9 @@ static ChServerM.Hosting.MemoryLoadLevelSource.DefaultRefreshInterval.get -> Sys
 ChServerM.Hosting.LoadLevelAdmissionControl
 ChServerM.Hosting.LoadLevelAdmissionControl.LoadLevelAdmissionControl(ChServerM.Resilience.ILoadLevelSource! loadLevel, ChServerM.Resilience.LoadLevel rejectAtOrAbove = ChServerM.Resilience.LoadLevel.Critical) -> void
 ChServerM.Hosting.LoadLevelAdmissionControl.TryAdmit(System.Net.EndPoint? remoteEndPoint) -> ChServerM.Resilience.AdmissionDecision
+ChServerM.Hosting.ChServerMServer.Diagnostics.get -> ChServerM.Hosting.DiagnosticsService!
+ChServerM.Hosting.DiagnosticsService
+ChServerM.Hosting.DiagnosticsService.Collect() -> string!
+ChServerM.Hosting.DiagnosticsService.DiagnosticsService(System.Collections.Generic.IEnumerable<ChServerM.Diagnostics.IDiagnosticsSource!>! sources) -> void
+ChServerM.Hosting.DiagnosticsService.SourceCount.get -> int
+ChServerM.Hosting.ServerBuilder.AddDiagnosticsSource(ChServerM.Diagnostics.IDiagnosticsSource! source) -> ChServerM.Hosting.ServerBuilder!
