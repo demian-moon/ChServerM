@@ -82,6 +82,29 @@ public sealed class MeterMetricsSink : IMetricsSink, IDisposable
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// BCL <see cref="ObservableCounter{T}"/> 로 위임한다 — 수집 시점에
+    /// <paramref name="observe"/> 를 호출하는 것이 이 계측기의 정의된 동작이라,
+    /// pull 계약이 어댑터에서 그대로 성립한다(중간 저장·주기 타이머가 필요 없다).
+    /// <see cref="Meter"/> 가 생성한 계측기를 붙들고 있으므로 GC 로 사라지지 않는다.
+    /// </remarks>
+    public void ObserveCounter(string name, Func<long> observe, ReadOnlySpan<MetricTag> tags)
+    {
+        ArgumentNullException.ThrowIfNull(observe);
+
+        if (tags.IsEmpty)
+        {
+            _meter.CreateObservableCounter(name, observe);
+            return;
+        }
+
+        // 태그가 있으면 측정값에 실어 보낸다. 태그는 등록 시점에 고정이므로 여기서 복사한다 —
+        // 스팬은 콜백이 호출되는 시점까지 살아 있지 않다.
+        TagList captured = ToTagList(tags);
+        _meter.CreateObservableCounter(name, () => new Measurement<long>(observe(), captured));
+    }
+
+    /// <inheritdoc />
     public void Dispose() => _meter.Dispose();
 
     /// <summary>중립 태그 스팬을 BCL <see cref="TagList"/>(무할당 struct)로 옮긴다.</summary>

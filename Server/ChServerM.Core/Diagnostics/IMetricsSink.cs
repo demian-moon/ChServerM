@@ -52,6 +52,33 @@ public interface IMetricsSink
     /// <param name="delta">증감량. 커넥션 수립 <c>+1</c>, 종료 <c>-1</c>.</param>
     /// <param name="tags">분류 태그. 없으면 빈 스팬.</param>
     void AdjustGauge(string name, long delta, ReadOnlySpan<MetricTag> tags);
+
+    /// <summary>이미 유지되고 있는 누적값을 <b>수집 시점에 읽어가도록</b> 등록한다(풀 카운터 등).</summary>
+    /// <param name="name">메트릭 이름(<see cref="MetricNames"/>).</param>
+    /// <param name="observe">수집 시점에 호출되어 현재 누적값을 돌려주는 콜백.</param>
+    /// <param name="tags">분류 태그. 없으면 빈 스팬.</param>
+    /// <remarks>
+    /// <para>
+    /// <b>왜 push(<see cref="Count"/>)가 아니라 pull 인가.</b> 어떤 값은 <b>이미 세어지고 있다</b> —
+    /// 버퍼 풀의 대여·반납 카운터가 그렇다(<c>BufferPoolDiagnostics</c>). 그것을 push 로 내보내려면
+    /// 대여·반납<b>마다</b> 메트릭 호출이 붙는데, 그 지점은 프레임워크에서 가장 뜨거운 경로 중
+    /// 하나다. 이미 있는 값은 <b>수집 주기에 한 번 읽어가는 것</b>이 옳다 — 핫패스 비용이 0 이다.
+    /// </para>
+    /// <para>
+    /// <b>등록은 1회다.</b> 조립 시점에 부르고, 이후 <paramref name="observe"/> 를 어댑터가
+    /// 수집 주기마다 호출한다. 콜백은 <b>빠르고 예외를 던지지 않아야</b> 한다 — 수집 스레드에서
+    /// 호출되므로 블로킹하면 관측 파이프라인 전체가 늦어진다. 델리게이트 할당은 등록 1회뿐이다.
+    /// </para>
+    /// <para>
+    /// <b>기본 구현은 무동작이다.</b> pull 을 지원하지 않는 싱크(테스트용 기록 싱크 등)가
+    /// 이 메서드 때문에 깨지지 않게 한다 — 그 경우 해당 메트릭이 나오지 않을 뿐,
+    /// <see cref="NullMetricsSink"/> 와 같은 상태다.
+    /// </para>
+    /// </remarks>
+    void ObserveCounter(string name, Func<long> observe, ReadOnlySpan<MetricTag> tags)
+    {
+        // 의도적으로 비어 있다 — 위 remarks 참조.
+    }
 }
 
 /// <summary>아무것도 기록하지 않는 <see cref="IMetricsSink"/>.</summary>
@@ -82,6 +109,13 @@ public sealed class NullMetricsSink : IMetricsSink
 
     /// <inheritdoc />
     public void AdjustGauge(string name, long delta, ReadOnlySpan<MetricTag> tags)
+    {
+        // 의도적으로 비어 있다.
+    }
+
+    /// <inheritdoc />
+    /// <remarks>기본 무동작 구현을 명시적으로 재선언한다 — 이 타입의 "아무것도 안 한다" 계약을 코드로 못박는다.</remarks>
+    public void ObserveCounter(string name, Func<long> observe, ReadOnlySpan<MetricTag> tags)
     {
         // 의도적으로 비어 있다.
     }

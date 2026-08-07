@@ -12,8 +12,18 @@
     그래도 별도 어셈블리로 격리하는 이유: 관측 축은 "없음"(NullMetricsSink)이 유효한
     조립이라, 메트릭을 쓰지 않는 소비자가 Meter 관련 표면을 끌고 가지 않아야 한다.
   -->
+  <!--
+    Buffers 를 참조한다 — 풀 카운터(BufferPoolDiagnostics)를 싱크에 배선하기 위해서다
+    (BufferPoolMetrics, ADR-0025).
+
+    방향이 이쪽인 이유: ChServerM.Buffers 는 "Core 조차 참조하지 않는다" 가 의도된 결정이라
+    (그 csproj 주석) 풀 쪽에서 IMetricsSink 를 볼 수 없다. 그래서 <b>관측 배선은 관측
+    어셈블리가 가져간다</b> — 풀은 카운터를 계속 노출만 하고, 그것을 메트릭으로 바꾸는 책임은
+    여기에 둔다. 일방 의존(Observability → Buffers·Core)이라 순환이 없다.
+  -->
   <ItemGroup>
     <ProjectReference Include="..\ChServerM.Core\ChServerM.Core.csproj" />
+    <ProjectReference Include="..\ChServerM.Buffers\ChServerM.Buffers.csproj" />
   </ItemGroup>
 
 </Project>

@@ -51,10 +51,23 @@ public static class MetricNames
     /// <summary>디코딩에 실패한 프레임 수. <see cref="TagNames.ErrorCode"/>로 분류한다.</summary>
     public const string FramesDropped = DiagnosticNames.Prefix + ".frames.dropped";
 
-    /// <summary>수신 바이트.</summary>
+    /// <summary>수신 바이트 — <b>실제로 회선을 건넌</b> 바이트다.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>전송 계층이 낸다.</b> 소켓 경계만이 이 정의와 일치한다 — 상위 계층은 프레임·페이로드를
+    /// 보지 회선을 보지 않는다(압축·암호화 전후가 갈린다). 보안 축이 조립돼 있으면 이 값은
+    /// <b>암호문 기준</b>이다.
+    /// </para>
+    /// <para>
+    /// <b>회선이 없는 전송은 이 값을 내지 않는다.</b> 인메모리 전송은 파이프를 직접 건네므로
+    /// "회선을 건넌 바이트"가 존재하지 않는다 — 없는 개념을 억지로 세는 대신 내지 않는다.
+    /// 그 조립에서 이 메트릭이 0인 것은 정상이다.
+    /// </para>
+    /// </remarks>
     public const string BytesReceived = DiagnosticNames.Prefix + ".bytes.received";
 
-    /// <summary>송신 바이트.</summary>
+    /// <summary>송신 바이트 — <b>실제로 회선을 건넌</b> 바이트다.</summary>
+    /// <remarks>정의와 생산 주체는 <see cref="BytesReceived"/> 와 같다. 전송에 실패한 바이트는 세지 않는다.</remarks>
     public const string BytesSent = DiagnosticNames.Prefix + ".bytes.sent";
 
     /// <summary>메시지 처리 지연(초).</summary>
@@ -71,6 +84,24 @@ public static class MetricNames
 
     /// <summary>백프레셔로 대기한 시간(초).</summary>
     public const string BackpressureDuration = DiagnosticNames.Prefix + ".backpressure.duration";
+
+    /// <summary>버퍼 풀에서 대여한 누적 횟수.</summary>
+    /// <remarks>
+    /// <see cref="PoolBuffersReturned"/> 와의 차(대여 − 반납)가 <b>살아 있는 대여 수</b>다 —
+    /// 부하가 빠진 뒤에도 이 차이가 계속 크면 반납이 늦거나 새는 것이다. 두 값을 따로 내보내
+    /// 대시보드가 차이를 계산하게 한다(파생값을 프레임워크가 미리 정하지 않는다).
+    /// </remarks>
+    public const string PoolBuffersRented = DiagnosticNames.Prefix + ".pool.buffers.rented";
+
+    /// <summary>버퍼 풀에 반납한 누적 횟수(누수 회수 제외).</summary>
+    public const string PoolBuffersReturned = DiagnosticNames.Prefix + ".pool.buffers.returned";
+
+    /// <summary>반납 누락으로 파이널라이저가 회수한 누적 횟수. <b>0이 아니면 버그다 — 경보 대상.</b></summary>
+    /// <remarks>
+    /// 레거시의 <c>ArrayPool</c> 반납 누수는 어디에서도 관측되지 않아 풀이 조용히 새 배열을
+    /// 만들며 성능만 잠식했다. 이 카운터가 그 재발을 숫자로 드러낸다.
+    /// </remarks>
+    public const string PoolBuffersLeaked = DiagnosticNames.Prefix + ".pool.buffers.leaked";
 }
 
 /// <summary>메트릭·추적에 붙이는 태그 이름.</summary>

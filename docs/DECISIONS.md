@@ -1632,3 +1632,63 @@ publish 가 함께 검증한다.
 - 부정: HttpListener 는 일부 환경에서 URL ACL(Windows netsh)·방화벽 설정이 필요하다 —
   기본 루프백은 사이드카·같은 파드 안에서만 닿는다. 외부 인터페이스 노출은 운영이 함께 본다.
 - 부정: TLS·인증이 없는 평문 admin 엔드포인트다 — admin 포트를 외부에 노출하지 않는 전제다(관례).
+
+## ADR-0025: 바이트는 전송이 push, 풀 카운터는 pull(`ObserveCounter`) — 배선은 관측 어셈블리가 가져간다
+
+- **날짜**: 2026-08-07
+- **상태**: 채택
+- **영향 범위**: Core(`IMetricsSink.ObserveCounter` 기본 메서드 추가, 풀 메트릭 이름 3종) /
+  Observability(`ObserveCounter` 구현 + `BufferPoolMetrics` + Buffers 참조) / Transport.Tcp(바이트 계측)
+
+### 배경
+
+- Phase 11 의 남은 메트릭은 "프레임당 바이트·큐 깊이·풀 카운터"였다. 큐 깊이는 2026-08-07
+  백프레셔 증분에서 끝났고, 바이트와 풀이 남았다.
+- 조사에서 셋의 성격이 전혀 다름이 드러났다.
+  - **바이트**: 전송이 정확한 값을 안다(`SocketConnection` 수신 루프의 소켓 반환값). TCP·InMemory
+    옵션에 `MetricsSink` 가 이미 배선돼 있다(Phase 10).
+  - **풀**: `BufferPoolDiagnostics` 가 rented/returned/leaked 를 **이미 세고 있다**(정적·누적).
+    문제는 (a) `IMetricsSink` 가 push 전용이고 (b) `ChServerM.Buffers` 는 **"Core 조차 참조하지
+    않는다"가 의도된 결정**이라(csproj 주석) `IMetricsSink` 를 볼 수 없다는 것.
+  - **`FramesSent`**: `FrameWriter` 가 static 확장 메서드라 싱크를 주입할 수 없다 — 이번 범위 밖.
+
+### 결정
+
+1. **바이트는 전송 계층이 push 한다.** 소켓 경계가 `bytes.received`/`bytes.sent` 의 정의(실제로
+   회선을 건넌 바이트)와 일치하는 유일한 지점이다. 계측 호출이 **소켓 연산당 1회**라(프레임당이
+   아니다 — 한 번의 read 가 여러 프레임을 실어온다) syscall 비용에 묻힌다. 전송 실패한 바이트는
+   세지 않는다(`finally` 뒤에서 센다).
+2. **회선이 없는 전송은 이 메트릭을 내지 않는다.** 인메모리 전송은 파이프를 직접 건네므로
+   "회선을 건넌 바이트"가 존재하지 않는다 — 없는 개념을 억지로 만드는 대신(PipeReader/Writer
+   래핑은 핫패스에 가상 호출을 더한다) 내지 않고 계약에 명시했다. 그 조립에서 0인 것은 정상이다.
+3. **풀 카운터는 pull 이다.** `IMetricsSink.ObserveCounter(name, Func<long>, tags)` 를 추가하되
+   **기본 구현을 무동작으로 둔다**(default interface method) — 기존 구현체가 깨지지 않고,
+   pull 을 지원하지 않는 싱크는 그 메트릭이 안 나올 뿐이다. 어댑터는 BCL
+   `Meter.CreateObservableCounter` 로 위임하므로 pull 의미가 그대로 성립한다(중간 저장·타이머 불필요).
+   **push 였다면 대여·반납마다 메트릭 호출이 붙는데, 그 지점은 가장 뜨거운 경로 중 하나다.**
+4. **풀 배선은 관측 어셈블리가 가져간다.** `ChServerM.Observability` 가 Buffers 를 참조하고
+   `BufferPoolMetrics.Register(sink)` 를 둔다. 풀은 카운터를 노출만 하고, 그것을 메트릭 이름
+   계약에 잇는 책임은 관측 쪽이다 — **Buffers 의 무의존 결정을 깨지 않는다.** 일방 의존
+   (Observability → Buffers·Core)이라 순환이 없다.
+
+### 대안과 탈락 이유
+
+| 대안 | 탈락 이유 |
+|---|---|
+| 바이트를 커넥션 데코레이터(PipeReader/Writer 래핑)로 | 핫패스 읽기·쓰기마다 가상 호출이 붙고, 소비 위치 계산(SequencePosition 산술)이 까다롭다. 전송이 이미 정확한 값을 안다 |
+| 바이트를 디스패치 미들웨어에서(payload 길이) | 페이로드는 회선 바이트가 아니다(헤더 제외·압축 해제 후). 송신은 아예 못 본다(FrameWriter static) |
+| 풀 카운터를 push(대여·반납 시) | 가장 뜨거운 경로에 메트릭 호출. 이미 세어진 값을 다시 push 할 이유가 없다 |
+| `Buffers → Core` 참조 후 풀이 직접 배선 | csproj 에 명시된 "의존 0" 결정을 깬다 — superseding ADR 이 필요한 변경인데 얻는 것이 배선 위치뿐이다 |
+| 앱이 직접 배선 | 새 엣지는 0이지만 자동이 아니라 빠뜨리기 쉽다. 관측 배선은 관측 어셈블리의 몫이 일관적이다 |
+| `IMetricsSink` 에 메서드 추가 대신 별도 인터페이스 | 싱크 하나가 두 계약을 갖게 되고 어댑터가 캐스팅을 해야 한다. 기본 메서드가 더 단순하다 |
+
+### 결과
+
+- 긍정: `bytes.received`/`bytes.sent` 가 TCP 에서 실물로 나온다(회선 기준, 보안 축이 있으면 암호문 기준).
+  풀 카운터 3종이 `dotnet-counters` 에 즉시 보이고, **`pool.buffers.leaked != 0` 이 경보 대상**이 된다.
+- 긍정: pull 개념이 생겨, 앞으로 "이미 세어지고 있는 값"(세션 수·캐시 항목 등)을 핫패스 비용 0으로
+  내보낼 수 있다.
+- 부정: `FramesSent` 는 여전히 생산자가 없다 — `FrameWriter` 가 static 확장이라 싱크 주입 지점이
+  없다. 별도 판단이 필요한 API 문제로 남긴다.
+- 부정: 인메모리 조립에서는 바이트 메트릭이 0이다(설계상 정상이나, 대시보드를 두 전송에 공유하면
+  혼동할 수 있어 계약 문서에 명시했다).

@@ -6,3 +6,6 @@ ChServerM.Observability.MeterMetricsSink.Dispose() -> void
 ChServerM.Observability.MeterMetricsSink.MeterMetricsSink() -> void
 ChServerM.Observability.MeterMetricsSink.MeterMetricsSink(System.Diagnostics.Metrics.Meter! meter) -> void
 ChServerM.Observability.MeterMetricsSink.Record(string! name, double value, System.ReadOnlySpan<ChServerM.Diagnostics.MetricTag> tags) -> void
+ChServerM.Observability.BufferPoolMetrics
+ChServerM.Observability.MeterMetricsSink.ObserveCounter(string! name, System.Func<long>! observe, System.ReadOnlySpan<ChServerM.Diagnostics.MetricTag> tags) -> void
+static ChServerM.Observability.BufferPoolMetrics.Register(ChServerM.Diagnostics.IMetricsSink! sink) -> void

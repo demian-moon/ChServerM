@@ -578,3 +578,8 @@ ChServerM.Diagnostics.HealthProbe.All = ChServerM.Diagnostics.HealthProbe.Livene
 ChServerM.Diagnostics.HealthProbe.Liveness = 1 -> ChServerM.Diagnostics.HealthProbe
 ChServerM.Diagnostics.HealthProbe.None = 0 -> ChServerM.Diagnostics.HealthProbe
 ChServerM.Diagnostics.HealthProbe.Readiness = 2 -> ChServerM.Diagnostics.HealthProbe
+ChServerM.Diagnostics.IMetricsSink.ObserveCounter(string! name, System.Func<long>! observe, System.ReadOnlySpan<ChServerM.Diagnostics.MetricTag> tags) -> void
+ChServerM.Diagnostics.NullMetricsSink.ObserveCounter(string! name, System.Func<long>! observe, System.ReadOnlySpan<ChServerM.Diagnostics.MetricTag> tags) -> void
+const ChServerM.Diagnostics.MetricNames.PoolBuffersLeaked = "chserverm.pool.buffers.leaked" -> string!
+const ChServerM.Diagnostics.MetricNames.PoolBuffersRented = "chserverm.pool.buffers.rented" -> string!
+const ChServerM.Diagnostics.MetricNames.PoolBuffersReturned = "chserverm.pool.buffers.returned" -> string!

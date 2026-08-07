@@ -64,6 +64,15 @@ public sealed class SocketConnection : IConnection, IConnectionEndPointFeature
     private readonly TimeSpan _shutdownTimeout;
     private readonly IServerLogger _logger;
 
+    /// <summary>바이트 계측 싱크. 조립하지 않았으면 <see cref="NullMetricsSink"/>.</summary>
+    /// <remarks>
+    /// <b>바이트를 여기서 세는 이유.</b> 소켓 경계가 <c>bytes.received</c>/<c>bytes.sent</c> 의
+    /// 정의(실제로 회선을 건넌 바이트)와 일치하는 유일한 지점이다 — 상위 계층은 프레임·페이로드를
+    /// 보지 회선을 보지 않는다. 게다가 계측 호출이 <b>소켓 연산당 1회</b>라(프레임당이 아니다 —
+    /// 한 번의 read 가 여러 프레임을 실어온다) syscall 비용에 묻힌다.
+    /// </remarks>
+    private readonly IMetricsSink _metricsSink;
+
     /// <summary>벡터드 송신용 재사용 목록. 송신 펌프 단독 소유라 동기화가 없다.</summary>
     private List<ArraySegment<byte>>? _sendSegments;
 
@@ -88,6 +97,7 @@ public sealed class SocketConnection : IConnection, IConnectionEndPointFeature
         _useVectoredSend = options.UseVectoredSend;
         _shutdownTimeout = options.ShutdownTimeout;
         _logger = logger;
+        _metricsSink = options.MetricsSink ?? NullMetricsSink.Instance;
 
         PipeOptions pipeOptions = options.CreatePipeOptions();
         _receivePipe = new Pipe(pipeOptions);
@@ -292,6 +302,10 @@ public sealed class SocketConnection : IConnection, IConnectionEndPointFeature
                 }
 
                 Volatile.Write(ref _lastActivityTicks, Environment.TickCount64);
+
+                // 회선에서 실제로 읽은 바이트다. 소켓 연산당 1회 — 프레임당이 아니다(필드 주석).
+                _metricsSink.Count(MetricNames.BytesReceived, received, ReadOnlySpan<MetricTag>.Empty);
+
                 _receivePipe.Writer.Advance(received);
 
                 FlushResult flush = await _receivePipe.Writer.FlushAsync().ConfigureAwait(false);
@@ -363,6 +377,10 @@ public sealed class SocketConnection : IConnection, IConnectionEndPointFeature
                     // 무한히 다시 읽는다.
                     _sendPipe.Reader.AdvanceTo(buffer.End);
                 }
+
+                // 전송이 예외 없이 끝났을 때만 센다 — finally 뒤라 실패 경로는 여기 닿지 않는다.
+                // 실패한 전송을 "보낸 바이트"로 세면 대시보드가 거짓말을 한다.
+                _metricsSink.Count(MetricNames.BytesSent, buffer.Length, ReadOnlySpan<MetricTag>.Empty);
 
                 Volatile.Write(ref _lastActivityTicks, Environment.TickCount64);
 
