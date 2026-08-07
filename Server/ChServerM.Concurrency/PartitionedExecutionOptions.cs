@@ -28,6 +28,9 @@ public sealed class PartitionedExecutionOptions
     /// <summary>기본 종료 대기 시간.</summary>
     public static TimeSpan DefaultShutdownTimeout => TimeSpan.FromSeconds(5);
 
+    /// <summary>기본 정지 판정 임계 시간.</summary>
+    public static TimeSpan DefaultStallThreshold => TimeSpan.FromSeconds(30);
+
     /// <summary>파티션 개수.</summary>
     /// <remarks>
     /// <para>
@@ -74,6 +77,21 @@ public sealed class PartitionedExecutionOptions
     /// <remarks><b>상한 없는 대기는 종료를 영원히 막는다.</b></remarks>
     public TimeSpan ShutdownTimeout { get; set; } = DefaultShutdownTimeout;
 
+    /// <summary>작업 하나가 이 시간을 넘겨 실행 중이면 그 파티션을 "정지"로 본다.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>무엇을 잡는가.</b> 완료하지 않는 핸들러 하나가 파티션 전용 스레드를 붙들면 그 파티션에
+    /// 매핑된 <b>모든 커넥션이 함께 멈춘다</b>(배타성 보장의 대가, ADR-0008). 스레드는 살아 있어
+    /// 생존 신호로는 안 잡히므로, 이 임계가 그 사각지대를 메운다.
+    /// </para>
+    /// <para>
+    /// <b>보수적으로 잡는다.</b> 정상적으로 오래 걸리는 작업이 이 값을 넘으면 헬스가 저하로
+    /// 보고돼 잡음이 된다. 기본 30초는 "정상 디스패치라면 절대 넘지 않는" 값이라는 전제이며,
+    /// 배치성 핸들러를 파티션에서 돌리는 조립이라면 늘려 잡는다.
+    /// </para>
+    /// </remarks>
+    public TimeSpan StallThreshold { get; set; } = DefaultStallThreshold;
+
     /// <summary>설정을 검증한다.</summary>
     /// <exception cref="InvalidOperationException">값이 유효하지 않을 때.</exception>
     /// <remarks>
@@ -111,6 +129,13 @@ public sealed class PartitionedExecutionOptions
         {
             throw new InvalidOperationException(
                 $"{nameof(ShutdownTimeout)}는 0보다 커야 한다. 현재 값: {ShutdownTimeout}");
+        }
+
+        if (StallThreshold < TimeSpan.Zero)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(StallThreshold)}는 음수일 수 없다. 현재 값: {StallThreshold}. " +
+                "0 은 '진행 중인 작업을 전부 정지로 본다'는 뜻이며 테스트용으로만 유효하다.");
         }
     }
 }

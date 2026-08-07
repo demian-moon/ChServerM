@@ -35,17 +35,21 @@ namespace ChServerM.Concurrency;
 /// </para>
 /// <para><b>스레드 규약.</b> 스레드 안전하다.</para>
 /// <para>
-/// <b>헬스 기여(<see cref="IHealthCheck"/>).</b> 이 모델은 liveness 신호를 낸다 — 파티션
-/// 전용 스레드가 전부 살아 있는지. 스레드가 죽으면 그 파티션의 커넥션이 영영 멈추므로
-/// 확정적 고장이다. 호스팅은 실행 모델이 <see cref="IHealthCheck"/> 를 구현하면 liveness
-/// 프로브에 자동 등록한다 — Core 실행 모델 계약(<see cref="IExecutionModel"/>)에 진단
-/// 멤버를 얹지 않고, 호스팅이 Concurrency 를 참조하지 않고도 배선되게 하는 접점이다.
+/// <b>헬스 기여(<see cref="IHealthCheck"/>).</b> 이 모델은 두 신호를 낸다.
+/// <b>스레드 사망</b>은 확정적 고장이라 재시작 대상(<see cref="HealthStatus.Unhealthy"/>)이고,
+/// <b>정지</b>(한 작업이 임계 시간 이상 스레드를 붙듦)는 신호일 뿐이라
+/// <see cref="HealthStatus.Degraded"/> 다 — 정지는 스레드 생존으로는 잡히지 않는 사각지대이며
+/// (붙들린 스레드도 <c>IsAlive</c> 는 참이다) 그 파티션의 모든 커넥션이 함께 멈춘 상태를 뜻한다.
+/// 호스팅은 실행 모델이 <see cref="IHealthCheck"/> 를 구현하면 liveness 프로브에 자동 등록한다 —
+/// Core 실행 모델 계약(<see cref="IExecutionModel"/>)에 진단 멤버를 얹지 않고, 호스팅이
+/// Concurrency 를 참조하지 않고도 배선되게 하는 접점이다.
 /// </para>
 /// </remarks>
 public sealed class PartitionedExecutionModel : IExecutionModel, IHealthCheck
 {
     private readonly ExecutionPartition[] _partitions;
     private readonly TimeSpan _shutdownTimeout;
+    private readonly TimeSpan _stallThreshold;
     private int _disposed;
 
     /// <summary>실행 모델을 만들고 파티션 스레드를 시작한다.</summary>
@@ -76,6 +80,7 @@ public sealed class PartitionedExecutionModel : IExecutionModel, IHealthCheck
         logger ??= NullServerLogger.Instance;
         metricsSink ??= NullMetricsSink.Instance;
         _shutdownTimeout = options.ShutdownTimeout;
+        _stallThreshold = options.StallThreshold;
         _partitions = new ExecutionPartition[options.PartitionCount];
 
         for (int i = 0; i < _partitions.Length; i++)
@@ -142,16 +147,57 @@ public sealed class PartitionedExecutionModel : IExecutionModel, IHealthCheck
         }
     }
 
-    /// <summary>liveness 판정 — 파티션 전용 스레드가 전부 살아 있는지.</summary>
-    /// <param name="cancellationToken">쓰이지 않는다 — 로컬 플래그를 읽는 즉시 완료다.</param>
+    /// <summary>작업이 <paramref name="threshold"/> 이상 끝나지 않은 파티션 수를 센다.</summary>
+    /// <param name="threshold">이 시간을 넘겨 실행 중이면 정지로 본다.</param>
+    /// <returns>정지로 판정된 파티션 수. 0 이면 전부 정상 진행 중이거나 유휴다.</returns>
+    /// <remarks>
+    /// <para>
+    /// <b>왜 필요한가.</b> 완료하지 않는 핸들러 하나가 파티션 전용 스레드를 붙들면 그 파티션에
+    /// 매핑된 <b>모든 커넥션이 함께 멈춘다</b> — 그런데 <b>스레드는 살아 있어</b> 생존 신호로는
+    /// 잡히지 않는다. 이 질의가 그 사각지대를 메운다("한 기능의 장애가 전체를 마비시키지 않게",
+    /// Phase 10 Bulkhead 항목이 가리키는 실제 위험).
+    /// </para>
+    /// <para>
+    /// <b>모든 파티션을 한 기준 시각으로 본다</b> — 순회 중 시계가 흐르면 앞뒤 파티션의 판정
+    /// 기준이 달라져 결과가 흔들린다.
+    /// </para>
+    /// <para><b>스레드 규약.</b> 어느 스레드에서든 안전하다(<see cref="Volatile"/> 읽기).</para>
+    /// </remarks>
+    public int CountStalledPartitions(TimeSpan threshold)
+    {
+        long now = Environment.TickCount64;
+        long thresholdMilliseconds = (long)threshold.TotalMilliseconds;
+
+        int stalled = 0;
+        foreach (ExecutionPartition partition in _partitions)
+        {
+            if (partition.IsStalled(now, thresholdMilliseconds))
+            {
+                stalled++;
+            }
+        }
+
+        return stalled;
+    }
+
+    /// <summary>헬스 판정 — 파티션 스레드 생존(liveness)과 정지 여부(저하).</summary>
+    /// <param name="cancellationToken">쓰이지 않는다 — 로컬 상태를 읽는 즉시 완료다.</param>
     /// <returns>
-    /// 전부 살아 있으면 <see cref="HealthStatus.Healthy"/>, 하나라도 죽었으면
-    /// <see cref="HealthStatus.Unhealthy"/>(죽은 개수를 설명에 남긴다).
+    /// 스레드가 죽었으면 <see cref="HealthStatus.Unhealthy"/>, 살아 있지만 정지한 파티션이
+    /// 있으면 <see cref="HealthStatus.Degraded"/>, 그 외 <see cref="HealthStatus.Healthy"/>.
     /// </returns>
     /// <remarks>
-    /// 스레드 생존은 <b>확정적 고장</b>만 잡는다 — 살아서 교착한 파티션은 못 잡는다
-    /// (<see cref="ExecutionPartition.IsThreadAlive"/> 문서). 그 수준의 감지는 진행도 하트비트가
-    /// 필요한 후속 신호다. 지금은 "스레드가 죽어 커넥션이 영영 멈춘" 경우를 드러낸다.
+    /// <para>
+    /// <b>두 신호의 심각도가 다르다.</b> 스레드 사망은 <b>확정적 고장</b>이라 재시작 대상
+    /// (<see cref="HealthStatus.Unhealthy"/>)이다. 반면 정지는 <b>신호</b>일 뿐이다 — 오래
+    /// 걸리는 정상 작업도 임계를 넘을 수 있으므로 <see cref="HealthStatus.Degraded"/> 로 낸다.
+    /// 일시적 지연으로 프로세스를 재시작시키면 그것이 더 큰 장애다(<c>HealthProbe</c> 규약).
+    /// 저하는 프로브를 통과시키되(HTTP 200) 보고서와 대시보드에 남는다.
+    /// </para>
+    /// <para>
+    /// <b>정지는 스레드 생존으로 잡히지 않는다</b> — 붙들려 있는 스레드도 <c>IsAlive</c> 는
+    /// <see langword="true"/> 다. 그래서 두 신호를 함께 본다.
+    /// </para>
     /// </remarks>
     public ValueTask<HealthCheckResult> CheckAsync(CancellationToken cancellationToken = default)
     {
@@ -164,11 +210,21 @@ public sealed class PartitionedExecutionModel : IExecutionModel, IHealthCheck
             }
         }
 
-        HealthCheckResult result = dead == 0
-            ? HealthCheckResult.Healthy($"파티션 스레드 {_partitions.Length}개 전부 생존")
-            : HealthCheckResult.Unhealthy($"파티션 스레드 {_partitions.Length}개 중 {dead}개 죽음");
+        if (dead != 0)
+        {
+            return ValueTask.FromResult(
+                HealthCheckResult.Unhealthy($"파티션 스레드 {_partitions.Length}개 중 {dead}개 죽음"));
+        }
 
-        return ValueTask.FromResult(result);
+        int stalled = CountStalledPartitions(_stallThreshold);
+        if (stalled != 0)
+        {
+            return ValueTask.FromResult(HealthCheckResult.Degraded(
+                $"파티션 {_partitions.Length}개 중 {stalled}개가 {_stallThreshold} 이상 한 작업에 붙들려 있다"));
+        }
+
+        return ValueTask.FromResult(
+            HealthCheckResult.Healthy($"파티션 스레드 {_partitions.Length}개 전부 생존"));
     }
 
     /// <inheritdoc />

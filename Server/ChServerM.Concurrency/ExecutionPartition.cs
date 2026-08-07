@@ -110,6 +110,30 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
     private long _executedCount;
     private long _rejectedCount;
 
+    /// <summary>현재 실행 중인 항목의 시작 시각(<see cref="Environment.TickCount64"/>). <see cref="Idle"/> 면 유휴.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>존재 이유 — 이 파티션이 멈췄는지 밖에서 볼 수 있게 한다.</b> 배타 작업의 완료를
+    /// <see cref="WaitForExclusiveCompletion"/> 이 <b>무기한</b> 기다리는 것이 배타성 보장의
+    /// 실체다(ADR-0008). 그 대가로 <b>완료하지 않는 핸들러 하나가 이 파티션의 전용 스레드를
+    /// 영구 정지시키고, 이 파티션에 매핑된 모든 커넥션이 함께 멈춘다.</b> 스레드는 살아 있으므로
+    /// 생존 신호(<c>IsThreadAlive</c>)로는 잡히지 않는다 — 이 시각이 그 사각지대를 메운다.
+    /// </para>
+    /// <para>
+    /// <b>스레드 규약(9.3).</b> 소비 스레드가 쓰고 진단·헬스가 다른 스레드에서 읽는다.
+    /// <b>양쪽 모두 <see cref="Volatile"/> 로 접근한다</b> — 한쪽만 <c>Volatile</c> 이고
+    /// 다른 쪽이 평문이면 안 된다(레거시 <c>TimingWheelSlotM</c> 이 정확히 그 상태였다).
+    /// </para>
+    /// <para>
+    /// <b>프레임당 비용은 long 쓰기 2회</b>다 — 이미 하고 있는 채널 읽기·Interlocked 증가에 묻힌다.
+    /// 할당은 없다.
+    /// </para>
+    /// </remarks>
+    private long _currentItemStartedTicks = Idle;
+
+    /// <summary>유휴를 나타내는 시각 표식. <see cref="Environment.TickCount64"/> 는 음수가 되지 않으므로 안전한 표식이다.</summary>
+    private const long Idle = -1;
+
     internal ExecutionPartition(
         int index,
         PartitionedExecutionOptions options,
@@ -181,6 +205,24 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
     /// 사실상 없지만, 그 최후의 보루가 뚫렸는지를 이 값이 드러낸다.
     /// </remarks>
     internal bool IsThreadAlive => _thread.IsAlive;
+
+    /// <summary>진행 중인 항목이 <paramref name="thresholdMilliseconds"/> 이상 끝나지 않았는지.</summary>
+    /// <param name="nowTicks">기준 시각(<see cref="Environment.TickCount64"/>). 여러 파티션을 한 기준으로 보기 위해 호출자가 준다.</param>
+    /// <param name="thresholdMilliseconds">이 시간을 넘겨 실행 중이면 정지로 본다.</param>
+    /// <returns>정지로 판정되면 <see langword="true"/>. 유휴이거나 임계 미만이면 <see langword="false"/>.</returns>
+    /// <remarks>
+    /// <b>정지는 고장의 확정이 아니라 신호다.</b> 오래 걸리는 정상 작업(대용량 배치)도 여기에
+    /// 걸릴 수 있으므로, 이 값은 <b>재시작 대상(liveness 실패)이 아니라 저하(Degraded)</b> 로
+    /// 보고된다 — 일시적 지연으로 프로세스를 재시작시키면 그것이 더 큰 장애다
+    /// (<c>HealthProbe</c> 의 프로브 의미 규약).
+    /// </remarks>
+    internal bool IsStalled(long nowTicks, long thresholdMilliseconds)
+    {
+        long started = Volatile.Read(ref _currentItemStartedTicks);
+
+        // 유휴면 정지가 아니다. 시계 역행(음수 경과)도 정지로 보지 않는다.
+        return started != Idle && nowTicks - started >= thresholdMilliseconds;
+    }
 
     internal void Start() => _thread.Start();
 
@@ -390,6 +432,10 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
 
     private void Execute(object item)
     {
+        // 진행 중 표식. 항목 종류를 가리지 않고 감싼다 — 배타 작업뿐 아니라 스케줄러 연속·
+        // 외부 작업도 완료하지 않으면 똑같이 이 스레드를 붙든다.
+        Volatile.Write(ref _currentItemStartedTicks, Environment.TickCount64);
+
         // 항목별 try/catch. 나쁜 항목 하나가 이 파티션의 모든 커넥션을 죽이지 않게 한다.
         try
         {
@@ -432,6 +478,9 @@ public sealed class ExecutionPartition : IExecutionPartition, IDisposable
 #pragma warning restore CA1031
         finally
         {
+            // 9.2 — 표식 해제를 finally 에 둔다. 빠뜨리면 예외 하나로 이 파티션이 영원히
+            // "정지 중" 으로 보고돼 진단이 거짓말을 한다.
+            Volatile.Write(ref _currentItemStartedTicks, Idle);
             Interlocked.Increment(ref _executedCount);
         }
     }

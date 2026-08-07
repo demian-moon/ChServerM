@@ -33,3 +33,7 @@ const ChServerM.Concurrency.PartitionedExecutionOptions.AbsoluteMaxPartitionCoun
 const ChServerM.Concurrency.PartitionedExecutionOptions.DefaultQueueCapacity = 4096 -> int
 static ChServerM.Concurrency.PartitionedExecutionOptions.DefaultShutdownTimeout.get -> System.TimeSpan
 ChServerM.Concurrency.PartitionedExecutionModel.CheckAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Diagnostics.HealthCheckResult>
+ChServerM.Concurrency.PartitionedExecutionModel.CountStalledPartitions(System.TimeSpan threshold) -> int
+ChServerM.Concurrency.PartitionedExecutionOptions.StallThreshold.get -> System.TimeSpan
+ChServerM.Concurrency.PartitionedExecutionOptions.StallThreshold.set -> void
+static ChServerM.Concurrency.PartitionedExecutionOptions.DefaultStallThreshold.get -> System.TimeSpan
