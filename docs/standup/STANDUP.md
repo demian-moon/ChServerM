@@ -1,7 +1,7 @@
 # ChServerM — 현재 상태
 
 **최종 갱신**: 2026-08-07
-**현재 단계**: **Part III — Phase 11 관측**(분산 트레이싱 ✅ / 헬스 체크 ✅ liveness·readiness·HTTP 엔드포인트). Phase 9 보안 ✅ / Phase 10 복원력 게이트 실질 충족 / Phase 11 메트릭 게이트 충족
+**현재 단계**: **Part III — Phase 11 관측**(트레이싱 ✅ / 헬스 체크 ✅ / 바이트·풀 카운터 ✅ — 남은 것은 ZLogger·런타임 로그 레벨·런타임 진단). Phase 9 보안 ✅ / Phase 10 복원력 게이트 실질 충족 / Phase 11 메트릭 게이트 충족
 **진행률**: 103/222 항목 (Phase 0 `13/17` · 1 `15/21` · 2 `7/11` · 3 `4/6` · 4 `10/10` · 5 `12/12` · 6 `7/7` · 7 `5/7` · 8 `8/16` · 9 `13/13` · 10 `3/10` · 11 `6/9`)
 
 ## 완료된 것
@@ -33,20 +33,29 @@
   **liveness**=`PartitionedExecutionModel` 이 `IHealthCheck` 구현(파티션 스레드 생존, 옵트인
   자동 등록). **HTTP 엔드포인트**(`3880020`): `ChServerM.Diagnostics.Http.HealthHttpEndpoint`
   (HttpListener, `/healthz`·`/readyz`, 200/503, Core 만 참조·프로브 델리게이트)로 k8s 프로브 직접 사용
-- 테스트 **666개** 통과, 전체 게이트(-WarnAsError 클린 빌드·audit·AOT publish+실행) 통과
+- **Phase 11 바이트·풀 카운터 ✅ (2026-08-07 `5a89ed6`, ADR-0025)** — **바이트**는 전송이 소켓
+  경계에서 push(`BytesReceived`/`BytesSent`, 회선 기준·소켓 연산당 1회. 회선 없는 인메모리는
+  내지 않음 — 계약 명시). **풀**은 `IMetricsSink.ObserveCounter`(기본 무동작 default 메서드)로
+  **pull** — 이미 세어지는 값이라 핫패스 비용 0. `Observability → Buffers` +
+  `BufferPoolMetrics.Register(sink)` 로 배선(Buffers 무의존 결정 유지).
+  `pool.buffers.leaked != 0` 이면 버그
+- 테스트 **671개** 통과, 전체 게이트(-WarnAsError 클린 빌드·audit·AOT publish+실행) 통과
 
 ## 진행 중
 
-- **Phase 11 후속** — 프레임당 바이트·풀 카운터(읽기 루프·풀 계측) / ZLogger / 런타임 로그 레벨
+- **Phase 11 잔여** — ZLogger 어댑터(무할당 구조적 로깅) / 런타임 로그 레벨 / 런타임 진단
+  (커넥션 덤프·스레드·풀 상태 조회)
+- **`FramesSent` 생산자 없음** — `FrameWriter` 가 static 확장 메서드라 싱크 주입 지점이 없다.
+  API 설계 분기(별도 판단)
 - **Phase 10 후속(게이트 조건 아님)** — 서킷 브레이커·Bulkhead / 전역·IP별 속도 제한
   (System.Threading.RateLimiting) / 정식 24h soak 를 CI 에 스케줄
 
 ## 다음 (우선순위 순)
 
-1. **Phase 11 — 프레임당 바이트·풀 카운터** — 남은 메트릭. 읽기 루프·풀 계측
-2. **Phase 10 후속** — IP별 속도 제한(System.Threading.RateLimiting, 새 라이브러리 ADR) / 서킷 브레이커
-3. **Phase 11 — ZLogger 어댑터** / 런타임 로그 레벨
-4. **Part II 잔여** — Phase 7(누락 핸들러 검출) / Phase 8(코어 제한 재측정)
+1. **Phase 10 후속** — IP별 속도 제한(System.Threading.RateLimiting, 새 라이브러리 ADR) / 서킷 브레이커
+2. **Phase 11 — ZLogger 어댑터** / 런타임 로그 레벨
+3. **Part II 잔여** — Phase 7(누락 핸들러 검출) / Phase 8(코어 제한 재측정)
+4. **`FramesSent` API 판단** — FrameWriter static 확장 제약을 어떻게 풀지
 
 ## 블로커 / 열린 결정
 
@@ -87,6 +96,15 @@
 - **어댑터는 델리게이트로 소스를 받아 계층을 지킨다** — HTTP 헬스 어댑터가 HealthCheckService
   (Hosting) 대신 프로브 델리게이트(Core 타입)를 받으니 "Server 어셈블리 → Hosting" 첫 사례를
   만들지 않고 일방 의존을 유지. 값 타입(HealthProbe)을 Core 로 올리는 작은 이동이 그것을 가능케 함
+- **"이미 세어지고 있는 값"은 push 가 아니라 pull 이다** — 풀 카운터를 push 하면 가장 뜨거운
+  경로(대여·반납)에 메트릭 호출이 붙는다. 값이 이미 있으면 수집 주기에 읽어가는 것이 옳고
+  (`ObserveCounter`), BCL ObservableCounter 가 정확히 그 계약이다. 세션 수·캐시 항목도 같은 길
+- **없는 개념을 억지로 만들지 않는다** — 인메모리 전송에는 "회선을 건넌 바이트"가 없다. 전송 간
+  대칭을 위해 PipeReader/Writer 를 래핑하면 핫패스 비용만 는다. 0이 정상임을 계약에 적는 것이
+  더 정직하다(`RejectedByBackpressure` 를 예약으로 남긴 것과 같은 규율)
+- **의존 방향이 배선의 위치를 정한다** — Buffers 가 Core 를 안 보므로 풀은 자기 카운터를 메트릭
+  으로 못 낸다. 그 결정을 깨는 대신 **관측 배선을 관측 어셈블리가 가져가면** 기존 결정을 지키면서
+  자동 배선을 얻는다
 
 ## 작업 방식
 
@@ -113,6 +131,7 @@ powershell -File eng/build.ps1 -Configuration Release -WarnAsError
   벤치를 직접 `dotnet run` 할 때도 이 환경변수를 손수 얹어야 한다
 - 부하 측정: `dotnet run -c Release --project Bench/ChServerM.Bench.LoadRunner -- server|client ...`
 - 메트릭 관찰: `UseMetrics(new MeterMetricsSink())` 조립 후 `dotnet-counters monitor --name <프로세스> ChServerM`
+  (풀 카운터는 `BufferPoolMetrics.Register(sink)` 를 프로세스당 **1회** 더 부른다 — 두 번 부르면 중복 보고)
 - 추적 관찰: `UseTracing()` 조립 후 `dotnet-trace collect --name <프로세스> --providers ChServerM`
 - 헬스 프로브: `new HealthHttpEndpoint(server.Health.CheckHealthAsync).Start()` 후
   `curl -i localhost:8081/healthz`(liveness)·`/readyz`(readiness) — 200/503
@@ -122,7 +141,7 @@ powershell -File eng/build.ps1 -Configuration Release -WarnAsError
 ## 참조
 
 - 계획: `docs/ROADMAP.md` / 설계 결정: `docs/DECISIONS.md`
-  (ADR-0000·0001·0002·0004~0024 채택 / 0003 폐기 — 미결 ADR 없음)
+  (ADR-0000·0001·0002·0004~0025 채택 / 0003 폐기 — 미결 ADR 없음)
 - 위협 모델: `docs/THREAT-MODEL.md` (T-04·05·06·08~22 대부분 ✅)
 - 진단 규칙: `docs/DIAGNOSTICS.md` / 메트릭 이름: `DiagnosticNames`/`MetricNames`/`TagNames`
 - 성능 수치: `docs/BENCHMARKS.md` (ENV-A: 9900X 12/24 · ENV-B: 7945HX 16/32)
