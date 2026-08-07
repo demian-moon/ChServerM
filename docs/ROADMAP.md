@@ -336,7 +336,7 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 - [x] `ChServerM.Observability` — OpenTelemetry 트레이스·메트릭 (2026-08-06 1차 증분 `ca3b331`+`79babde`+`4186d84`, ADR-0020: `IMetricsSink`(Core) + `MeterMetricsSink`(BCL `System.Diagnostics.Metrics` — dotnet-counters 즉시, OTel 은 Meter 구독으로 얹는다). 트레이스는 후속 증분)
 - [ ] ZLogger 어댑터 (무할당 구조적 로깅)
 - [x] 핵심 메트릭 정의 — 커넥션 수, RPS, 레이턴시 히스토그램, 큐 깊이, 풀 사용률, 오류율 (이름 계약 `MetricNames`/`TagNames` 는 2026-08-04 확정. 2026-08-06 `IMetricsSink` 배선: 커넥션 수립·활성·디스패치 지연 히스토그램·처리량·실패가 데코레이터로 실물. 2026-08-07 `5c9059b`: 파티션 백프레셔 관측 배선 — `PartitionWorkRejected`(포화 거부)·`PartitionQueueDepth`(게이지)가 `ExecutionPartition` 에서 방출(TryPost 프로덕션 호출자는 후속). 프레임당 바이트·풀 사용률은 남은 후속 증분)
-- [ ] 분산 트레이싱 — 메시지 흐름 상관관계(correlation ID) 전파 (진행 중: 2026-08-07 `05a5ca6` 디스패치 span + fast-path 완료(ADR-0022) — `connection_id`·`message_id` 태그로 상관, 리스너 없음 8ns/0B. 남은 것: 커넥션 span·크로스 스레드 부모 전파(`Activity.Current` 가 파티션 스레드로 안 흐름 — `ActivityContext` 를 `MessageContext` 로 실어야 함))
+- [x] 분산 트레이싱 — 메시지 흐름 상관관계(correlation ID) 전파 (2026-08-07 완료: `05a5ca6` 디스패치 span + fast-path(ADR-0022, 리스너 없음 8ns/0B) → `1417941` 커넥션 span + **크로스 스레드 부모 전파**. `TracingConnectionHandler` 가 커넥션 span 의 `ActivityContext` 를 `ConnectionTraceFeature`(커넥션 기능)에 실어, 파티션 스레드에서 도는 디스패치 span 이 명시적 부모로 읽는다(`Activity.Current` 는 그 스레드로 안 흐름). 실행 모델 e2e 로 자식 링크 고정. 전 생애 부모 span — 볼륨은 head 샘플링으로 조절)
 - [ ] 헬스체크 / 라이브 진단 엔드포인트 — liveness / readiness 구분
 - [ ] 런타임 진단 — 커넥션 덤프, 스레드 상태, 풀 상태를 운영 중에 조회
 - [x] `EventSource` / `DiagnosticSource` — `dotnet-counters`/`dotnet-trace` 연동 (2026-08-06: `MeterMetricsSink` 가 `System.Diagnostics.Metrics.Meter` 를 쓰므로 `dotnet-counters` 가 별도 작업 없이 메트릭을 읽는다. 2026-08-07 `05a5ca6`: `TracingMiddleware` 가 `ActivitySource`("ChServerM")로 span 을 내므로 `dotnet-trace` 도 별도 작업 없이 트레이스를 읽는다)

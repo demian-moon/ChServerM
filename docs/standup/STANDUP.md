@@ -1,8 +1,8 @@
 # ChServerM — 현재 상태
 
 **최종 갱신**: 2026-08-07
-**현재 단계**: **Part III — Phase 11 관측**(분산 트레이싱 착수 — 디스패치 span·fast-path). Phase 9 보안 ✅ / Phase 10 복원력 게이트 실질 충족 / Phase 11 메트릭 게이트 충족
-**진행률**: 101/222 항목 (Phase 0 `13/17` · 1 `15/21` · 2 `7/11` · 3 `4/6` · 4 `10/10` · 5 `12/12` · 6 `7/7` · 7 `5/7` · 8 `8/16` · 9 `13/13` · 10 `3/10` · 11 `4/9`)
+**현재 단계**: **Part III — Phase 11 관측**(분산 트레이싱 ✅ 완료 — 디스패치 span·fast-path·커넥션 span 크로스 스레드 부모 전파). Phase 9 보안 ✅ / Phase 10 복원력 게이트 실질 충족 / Phase 11 메트릭 게이트 충족
+**진행률**: 102/222 항목 (Phase 0 `13/17` · 1 `15/21` · 2 `7/11` · 3 `4/6` · 4 `10/10` · 5 `12/12` · 6 `7/7` · 7 `5/7` · 8 `8/16` · 9 `13/13` · 10 `3/10` · 11 `5/9`)
 
 ## 완료된 것
 
@@ -20,17 +20,17 @@
 - **Phase 11 관측 — 메트릭 게이트 충족 ✅ (ADR-0020)** — `IMetricsSink`(Core) +
   `MeterMetricsSink`(BCL Meter). `UseMetrics()` 한 줄이 커넥션·디스패치·처리량·실패를 데코레이터로
   배선. 켠 ~72ns·할당 0
-- **Phase 11 분산 트레이싱 — 디스패치 span 착수 ✅ (2026-08-07, ADR-0022)** — `TracingMiddleware`
-  가 `ActivitySource`("ChServerM")로 프레임마다 `Dispatch` span(`message_id`·`connection_id`
+- **Phase 11 분산 트레이싱 ✅ 완료 (2026-08-07, ADR-0022)** — `TracingMiddleware` 가
+  `ActivitySource`("ChServerM")로 프레임마다 `Dispatch` span(`message_id`·`connection_id`
   태그, 비-Handled → Error). `UseTracing()` 한 줄. **fast-path**: 리스너 없으면 async 래퍼 없이
-  통과 → 8ns/0B(기준선 6ns) — 메트릭 미들웨어 async 비용(43ns)을 회피. `dotnet-trace` 즉시 연동
-- 테스트 **649개** 통과, 전체 게이트(-WarnAsError 클린 빌드·audit·AOT publish+실행) 통과
+  통과 → 8ns/0B(기준선 6ns) — 메트릭 미들웨어 async 비용(43ns)을 회피. **크로스 스레드 부모
+  전파**(`1417941`): `TracingConnectionHandler` 가 커넥션 span 컨텍스트를 `ConnectionTraceFeature`
+  로 실어, 파티션 스레드의 디스패치 span 이 명시적 부모로 읽는다(`Activity.Current` 안 흐름).
+  실행 모델 e2e 로 자식 링크 고정. `dotnet-trace` 즉시 연동
+- 테스트 **651개** 통과, 전체 게이트(-WarnAsError 클린 빌드·audit·AOT publish+실행) 통과
 
 ## 진행 중
 
-- **Phase 11 분산 트레이싱 — 부분 완료** — 디스패치 span 은 됨. 남은 것: **커넥션 span +
-  크로스 스레드 부모 전파**(`Activity.Current` 가 파티션 스레드로 안 흐름 — `ActivityContext` 를
-  `MessageContext` 로 실어 명시적 부모로 넘겨야 함). correlation ID 전파가 이 배선으로 완성됨
 - **Phase 11 후속** — 헬스체크 엔드포인트(liveness·readiness) / 프레임당 바이트·풀 카운터 /
   ZLogger / 런타임 로그 레벨
 - **Phase 10 후속(게이트 조건 아님)** — 서킷 브레이커·Bulkhead / 전역·IP별 속도 제한
@@ -38,10 +38,8 @@
 
 ## 다음 (우선순위 순)
 
-1. **Phase 11 — 커넥션 span·크로스 스레드 부모 전파** — 트레이싱을 완성(correlation ID 전파).
-   `ActivityContext` 를 `MessageContext` 에 실어 파티션 스레드의 디스패치 span 을 커넥션 span 의
-   자식으로. 장수명 span·export 시점 설계 판단 필요
-2. **Phase 11 — 헬스체크 엔드포인트** — 더 작고 운영 즉효(배포 준비도)
+1. **Phase 11 — 헬스체크 엔드포인트** — liveness·readiness 구분. 작고 운영 즉효(배포 준비도)
+2. **Phase 11 — 프레임당 바이트·풀 카운터** — 남은 메트릭. 읽기 루프·풀 계측
 3. **Phase 10 후속** — IP별 속도 제한(System.Threading.RateLimiting, 새 라이브러리 ADR) / 서킷 브레이커
 4. **Part II 잔여** — Phase 7(누락 핸들러 검출) / Phase 8(코어 제한 재측정)
 
@@ -68,6 +66,10 @@
   그대로 반환해 8ns/0B. 데코레이터가 "꺼졌는지" 값싸게 알 수 있으면 상태 머신을 통째로 건너뛴다
 - **Core 무의존 ≠ BCL 무사용** — `ActivitySource`·`Meter` 는 공유 프레임워크라 패키지 참조
   없이 Hosting 이 직접 쓸 수 있다. "무의존" 은 서드파티 패키지·벤더 타입 유입 금지이지 BCL 금지가 아니다
+- **크로스 스레드 컨텍스트는 값으로 나른다** — `Activity.Current`(AsyncLocal)는 채널·파티션
+  스레드 경계를 못 넘는다. 파티션 실행 모델에서 부모-자식 span 을 얻으려면 컨텍스트를
+  커넥션 기능에 실어야 한다("수립 시 Set·그 뒤 읽기만" 규약이 락 없이 가능케 함). 전역 상태
+  (`ActivityListener`)를 다루는 테스트는 `[Collection]` 병렬 비활성으로 순차화해야 오염이 없다
 
 ## 작업 방식
 
