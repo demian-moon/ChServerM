@@ -1,8 +1,8 @@
 # ChServerM — 현재 상태
 
 **최종 갱신**: 2026-08-07
-**현재 단계**: **Part III — Phase 11 관측**(분산 트레이싱 ✅ / 헬스 체크 축 — 생산·집계·프로그래밍 API, HTTP 노출만 후속). Phase 9 보안 ✅ / Phase 10 복원력 게이트 실질 충족 / Phase 11 메트릭 게이트 충족
-**진행률**: 102/222 항목 (Phase 0 `13/17` · 1 `15/21` · 2 `7/11` · 3 `4/6` · 4 `10/10` · 5 `12/12` · 6 `7/7` · 7 `5/7` · 8 `8/16` · 9 `13/13` · 10 `3/10` · 11 `5/9`)
+**현재 단계**: **Part III — Phase 11 관측**(분산 트레이싱 ✅ / 헬스 체크 ✅ liveness·readiness·HTTP 엔드포인트). Phase 9 보안 ✅ / Phase 10 복원력 게이트 실질 충족 / Phase 11 메트릭 게이트 충족
+**진행률**: 103/222 항목 (Phase 0 `13/17` · 1 `15/21` · 2 `7/11` · 3 `4/6` · 4 `10/10` · 5 `12/12` · 6 `7/7` · 7 `5/7` · 8 `8/16` · 9 `13/13` · 10 `3/10` · 11 `6/9`)
 
 ## 완료된 것
 
@@ -27,28 +27,25 @@
   전파**(`1417941`): `TracingConnectionHandler` 가 커넥션 span 컨텍스트를 `ConnectionTraceFeature`
   로 실어, 파티션 스레드의 디스패치 span 이 명시적 부모로 읽는다(`Activity.Current` 안 흐름).
   실행 모델 e2e 로 자식 링크 고정. `dotnet-trace` 즉시 연동
-- **Phase 11 헬스 체크 축 — 생산·집계·프로그래밍 API ✅ (2026-08-07 `a1c581d`, ADR-0023)** —
-  Core `IHealthCheck`/`HealthStatus`/`HealthReport`(무의존) + `HealthCheckService`(최악 우선
-  집계·항목별 try/catch). 내장 **readiness**=생명주기(`ServerLifecycleState`, `UnbindAsync`→
-  Draining=not-ready) · **liveness**=`PartitionedExecutionModel` 이 `IHealthCheck` 구현(파티션
-  스레드 생존, 호스팅이 옵트인 자동 등록). `server.Health.CheckHealthAsync(probe)`. HTTP 노출만 후속
-- 테스트 **660개** 통과, 전체 게이트(-WarnAsError 클린 빌드·audit·AOT publish+실행) 통과
+- **Phase 11 헬스 체크 ✅ 완료 (2026-08-07, ADR-0023·0024)** — Core `IHealthCheck`/`HealthStatus`/
+  `HealthReport`/`HealthProbe`(무의존) + `HealthCheckService`(최악 우선 집계·항목별 try/catch).
+  내장 **readiness**=생명주기(`ServerLifecycleState`, `UnbindAsync`→Draining=not-ready) ·
+  **liveness**=`PartitionedExecutionModel` 이 `IHealthCheck` 구현(파티션 스레드 생존, 옵트인
+  자동 등록). **HTTP 엔드포인트**(`3880020`): `ChServerM.Diagnostics.Http.HealthHttpEndpoint`
+  (HttpListener, `/healthz`·`/readyz`, 200/503, Core 만 참조·프로브 델리게이트)로 k8s 프로브 직접 사용
+- 테스트 **666개** 통과, 전체 게이트(-WarnAsError 클린 빌드·audit·AOT publish+실행) 통과
 
 ## 진행 중
 
-- **헬스 체크 — HTTP 노출만 남음** — 생산·집계·프로그래밍 API 는 됨. `/healthz`·`/readyz`
-  엔드포인트는 별개 축(HTTP 관리 서버: HttpListener vs Kestrel ADR)이라 후속. k8s 프로브가
-  직접 쓰려면 필요
-- **Phase 11 후속** — 프레임당 바이트·풀 카운터 / ZLogger / 런타임 로그 레벨
+- **Phase 11 후속** — 프레임당 바이트·풀 카운터(읽기 루프·풀 계측) / ZLogger / 런타임 로그 레벨
 - **Phase 10 후속(게이트 조건 아님)** — 서킷 브레이커·Bulkhead / 전역·IP별 속도 제한
   (System.Threading.RateLimiting) / 정식 24h soak 를 CI 에 스케줄
 
 ## 다음 (우선순위 순)
 
-1. **Phase 11 — HTTP 헬스 노출 어댑터** — `/healthz`·`/readyz`(HttpListener, 별도 admin 포트).
-   k8s 프로브가 직접 쓰게. HttpListener vs Kestrel ADR 필요
-2. **Phase 11 — 프레임당 바이트·풀 카운터** — 남은 메트릭. 읽기 루프·풀 계측
-3. **Phase 10 후속** — IP별 속도 제한(System.Threading.RateLimiting, 새 라이브러리 ADR) / 서킷 브레이커
+1. **Phase 11 — 프레임당 바이트·풀 카운터** — 남은 메트릭. 읽기 루프·풀 계측
+2. **Phase 10 후속** — IP별 속도 제한(System.Threading.RateLimiting, 새 라이브러리 ADR) / 서킷 브레이커
+3. **Phase 11 — ZLogger 어댑터** / 런타임 로그 레벨
 4. **Part II 잔여** — Phase 7(누락 핸들러 검출) / Phase 8(코어 제한 재측정)
 
 ## 블로커 / 열린 결정
@@ -82,6 +79,14 @@
   이 `IHealthCheck` 를 구현하고 호스팅이 `is IHealthCheck` 로 자동 등록한다. Core 축 계약
   (`IExecutionModel`)에 진단 멤버를 얹지 않고, 호스팅이 Concurrency 를 참조하지 않고도 배선된다.
   이미 있는 상태(생명주기 Draining)를 헬스가 공유하지 두 번째 진실을 만들지 않는 것도 같은 규율
+- **⚠ 게이트가 증분 캐시 위에서 통과하면 잠복 위반을 놓친다** — CA5398(Tls13 하드코딩)이 그동안
+  "게이트 authority·editorconfig 억제" 로 알려졌으나 **착오**였다. Tls 프로젝트가 여러 커밋 동안
+  안 바뀌어 <b>재분석되지 않았을 뿐</b>, 실제 억제는 없었다. 새 프로젝트 추가가 전체 재분석을
+  유발하자 CA5398·CA1515 가 드러났다(클린 CI 라면 실패). **게이트 통과 ≠ 위반 없음** — 잠복이
+  의심되면 대상 프로젝트를 클린 빌드(`obj/bin` 삭제 후 `-p:TreatWarningsAsErrors=true`)해 확인한다
+- **어댑터는 델리게이트로 소스를 받아 계층을 지킨다** — HTTP 헬스 어댑터가 HealthCheckService
+  (Hosting) 대신 프로브 델리게이트(Core 타입)를 받으니 "Server 어셈블리 → Hosting" 첫 사례를
+  만들지 않고 일방 의존을 유지. 값 타입(HealthProbe)을 Core 로 올리는 작은 이동이 그것을 가능케 함
 
 ## 작업 방식
 
@@ -109,13 +114,15 @@ powershell -File eng/build.ps1 -Configuration Release -WarnAsError
 - 부하 측정: `dotnet run -c Release --project Bench/ChServerM.Bench.LoadRunner -- server|client ...`
 - 메트릭 관찰: `UseMetrics(new MeterMetricsSink())` 조립 후 `dotnet-counters monitor --name <프로세스> ChServerM`
 - 추적 관찰: `UseTracing()` 조립 후 `dotnet-trace collect --name <프로세스> --providers ChServerM`
+- 헬스 프로브: `new HealthHttpEndpoint(server.Health.CheckHealthAsync).Start()` 후
+  `curl -i localhost:8081/healthz`(liveness)·`/readyz`(readiness) — 200/503
 - 24h soak 정식 판: `CHSM_SOAK_SECONDS=86400` 환경변수 + `dotnet test --filter SoakTests`
 - 측정 환경이 다르면 `BENCHMARKS.md` 에 ENV 프로필을 새로 등록한다(교차 비교 금지)
 
 ## 참조
 
 - 계획: `docs/ROADMAP.md` / 설계 결정: `docs/DECISIONS.md`
-  (ADR-0000·0001·0002·0004~0023 채택 / 0003 폐기 — 미결 ADR 없음)
+  (ADR-0000·0001·0002·0004~0024 채택 / 0003 폐기 — 미결 ADR 없음)
 - 위협 모델: `docs/THREAT-MODEL.md` (T-04·05·06·08~22 대부분 ✅)
 - 진단 규칙: `docs/DIAGNOSTICS.md` / 메트릭 이름: `DiagnosticNames`/`MetricNames`/`TagNames`
 - 성능 수치: `docs/BENCHMARKS.md` (ENV-A: 9900X 12/24 · ENV-B: 7945HX 16/32)
