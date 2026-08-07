@@ -86,6 +86,15 @@ public static class TagNames
     /// <summary>메시지 식별자. 앱이 정의하는 값이 유한할 때만 쓴다.</summary>
     public const string MessageId = "message_id";
 
+    /// <summary>커넥션 식별자.</summary>
+    /// <remarks>
+    /// <b>추적 span 속성 전용이다 — 메트릭 태그로 쓰지 않는다.</b> 커넥션 ID 는 값이
+    /// 무한(연결마다 새로 생성)해 메트릭 태그로 쓰면 시계열이 폭발한다(이 클래스 규약).
+    /// span 은 요청 단위라 고카디널리티 식별자를 담아도 안전하며, 오히려 트레이스끼리
+    /// 상관(correlation)시키는 핵심 축이다.
+    /// </remarks>
+    public const string ConnectionId = "connection_id";
+
     /// <summary><see cref="Diagnostics.ErrorCode"/> 값.</summary>
     public const string ErrorCode = "error_code";
 

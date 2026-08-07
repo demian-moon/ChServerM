@@ -289,6 +289,7 @@ const ChServerM.Diagnostics.MetricNames.FramesSent = "chserverm.frames.sent" -> 
 const ChServerM.Diagnostics.MetricNames.PartitionQueueDepth = "chserverm.partition.queue.depth" -> string!
 const ChServerM.Diagnostics.MetricNames.PartitionWorkRejected = "chserverm.partition.work.rejected" -> string!
 const ChServerM.Diagnostics.TagNames.CloseReason = "close_reason" -> string!
+const ChServerM.Diagnostics.TagNames.ConnectionId = "connection_id" -> string!
 const ChServerM.Diagnostics.TagNames.ErrorCode = "error_code" -> string!
 const ChServerM.Diagnostics.TagNames.MessageId = "message_id" -> string!
 const ChServerM.Diagnostics.TagNames.Partition = "partition" -> string!

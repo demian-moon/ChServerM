@@ -47,6 +47,7 @@ public sealed class ServerBuilder
     private VersionNegotiationOptions? _versionNegotiation;
     private IPayloadCodec? _payloadCodec;
     private IMetricsSink? _metricsSink;
+    private bool _tracingEnabled;
     private IServerLogger _logger = NullServerLogger.Instance;
     private TimeProvider _timeProvider = TimeProvider.System;
 
@@ -183,6 +184,29 @@ public sealed class ServerBuilder
         return this;
     }
 
+    /// <summary>분산 추적(<c>ActivitySource</c>)을 켠다 (Phase 11, ADR-0022).</summary>
+    /// <returns>메서드 체이닝을 위한 자기 자신.</returns>
+    /// <remarks>
+    /// <para>
+    /// 디스패치 파이프라인에 <see cref="Dispatch.TracingMiddleware"/> 를 끼워 프레임마다
+    /// <see cref="ActivityNames.Dispatch"/> span 을 남긴다. 싱크 인자가 없는 것은
+    /// <see cref="UseMetrics"/> 와의 핵심 차이다 — 추적의 교체 지점은 방출자가 아니라
+    /// <b>구독자</b>다. 익스포터(OpenTelemetry·Jaeger 등)는 <see cref="ActivitySource"/>
+    /// 이름(<see cref="DiagnosticNames.ActivitySourceName"/>)으로 <c>ActivityListener</c> 를
+    /// 걸어 프로세스 바깥에서 구독한다(ADR-0022).
+    /// </para>
+    /// <para>
+    /// <b>리스너가 없으면 거의 무비용이다.</b> <see cref="Dispatch.TracingMiddleware"/> 는
+    /// 구독자가 없을 때 <c>next</c> 를 async 래퍼 없이 그대로 통과시킨다 — 추적을 켜되
+    /// 익스포터를 붙이지 않은 조립의 오버헤드가 near-zero 다.
+    /// </para>
+    /// </remarks>
+    public ServerBuilder UseTracing()
+    {
+        _tracingEnabled = true;
+        return this;
+    }
+
     /// <summary>진단 로거를 지정한다.</summary>
     /// <param name="logger">로거.</param>
     /// <returns>메서드 체이닝을 위한 자기 자신.</returns>
@@ -256,6 +280,13 @@ public sealed class ServerBuilder
         if (_metricsSink is not null)
         {
             _dispatcher.PrependMiddleware(new MetricsMiddleware(_metricsSink, _timeProvider));
+        }
+
+        // 추적을 켜면 디스패치 span 이 파이프라인 전체를 감싼다. 메트릭보다 바깥에 두어
+        // (뒤에 Prepend) span 이 인증·인가·메트릭 미들웨어까지 포함하게 한다(Phase 11).
+        if (_tracingEnabled)
+        {
+            _dispatcher.PrependMiddleware(new TracingMiddleware());
         }
 
         // 실행 모델이 있으면 프레임 디스패치가 파티션 배타 구간에서 실행된다(ADR-0008).

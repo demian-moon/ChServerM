@@ -1446,3 +1446,57 @@ publish 가 함께 검증한다.
 - 부정: 첫 구현은 전역 속도라 단일 악성 IP 를 구분하지 못한다 — IP별 제한은 상태·정리
   정책이 필요한 별도 구현(후속). 전역 속도가 프로세스 CPU 를 지키는 1차 방어다
 - 부정: `IRateLimiter`·백프레셔 생산·24h soak 는 아직 없다 — Phase 10 은 다증분이다
+
+## ADR-0022: 분산 추적은 `ActivitySource` 를 Hosting 에서 직접 방출 (Core 중립 인터페이스 없음)
+
+- **날짜**: 2026-08-07
+- **상태**: 채택
+- **영향 범위**: Hosting(`TracingMiddleware`·`ServerBuilder.UseTracing`) / Core(태그 이름
+  `TagNames.ConnectionId` 만 추가 — 계약 상수). Core 는 트레이스 API 를 참조하지 않는다.
+
+### 배경
+
+- Phase 11 관측의 세 축(메트릭·로그·추적) 중 추적만 비어 있었다. 이름 계약
+  (`ActivityNames.Connection`·`ActivityNames.Dispatch`, `DiagnosticNames.ActivitySourceName`)은
+  2026-08-04 에 이미 정의돼 있었다 — 방출만 배선하면 되는 상태.
+- 메트릭은 `IMetricsSink`(Core 중립 인터페이스) + `MeterMetricsSink`(어댑터)로 감쌌다(ADR-0020).
+  추적도 대칭으로 `ITraceSink` 를 둘지가 갈림길이었다.
+
+### 결정
+
+1. **추적은 `System.Diagnostics.ActivitySource` 를 Hosting 에서 직접 방출한다.** Core 에 중립
+   `ITraceSink` 를 두지 않는다.
+2. **이유 — 추적의 교체 지점은 방출자가 아니라 구독자다.** OpenTelemetry·Jaeger·Application
+   Insights 는 전부 `Activity` 를 이름으로 **구독**(`ActivityListener`)하지 방출 API 를 바꾸지
+   않는다. 방출자는 하나뿐이고 대안 구현이 없으므로, Core 인터페이스는 "두 번째 구현이
+   오기 전의 가설"(CLAUDE.md 3)이고 프레임당 span 핸들 할당이라는 비용만 남긴다.
+3. **Core 무의존은 유지된다.** `ActivitySource`/`Activity` 는 공유 프레임워크(`Microsoft.NETCore.App`)라
+   패키지 참조가 없고(메트릭 `Meter` 와 동일), Core 는 이 API 를 참조하지 않는다 — span 은
+   Hosting 두 데코레이터에서만 난다.
+4. **fast-path — 리스너 없으면 데코레이터가 사라진다.** `TracingMiddleware` 는
+   `ActivitySource.HasListeners()` 가 false 면 `next` 를 **async 래퍼 없이 그대로 반환**한다.
+   이는 2026-08-06 관측 벤치가 남긴 "데코레이터 async 비용(Null 싱크에서도 6→43ns)"의 해법이다 —
+   추적에는 켜짐/꺼짐을 구분하는 값싼 신호가 있어 가능했다(측정: 리스너 없음 8ns/0B vs 기준선 6ns).
+5. **이번 증분은 디스패치 span 만.** `ActivityNames.Connection`(커넥션 전 생애) span 은 연기.
+   실행 모델(ADR-0008)에서 디스패치는 파티션 스레드에서 돌고 `Activity.Current` 는 AsyncLocal 이라
+   채널 핸드오프를 넘지 못한다 — 부모 연결은 커넥션의 `ActivityContext` 를 `MessageContext` 로
+   실어 명시적으로 넘기는 별도 배선이 필요하다. 지금은 `connection_id` span 속성으로 상관시킨다.
+
+### 대안과 탈락 이유
+
+| 대안 | 탈락 이유 |
+|---|---|
+| Core `ITraceSink` 중립 인터페이스(메트릭과 대칭) | 추적의 교체 지점은 구독자(ActivityListener)라 방출자 추상화는 두 번째 구현이 없다. 프레임당 span 핸들 할당(래퍼 객체) 또는 struct 핸들 API 확장 비용만 생긴다 |
+| 커넥션 span 을 이번에 함께 | 파티션 스레드 크로스로 `Activity.Current` 가 안 흘러 부모 배선이 별도 필요. 장수명 span·export 시점 문제도 별도 판단이 낫다 |
+| `UseTracing(sink)` 로 싱크 주입(메트릭처럼) | 방출자가 하나뿐이라 주입할 대상이 없다. 구독은 프로세스 밖 `ActivityListener` 가 한다 |
+| 항상 배선(opt-in 아님) | 관측은 조립 선택이어야 한다(축 규약). fast-path 로 비용이 낮아도 opt-in 을 유지 |
+
+### 결과
+
+- 긍정: 관측 3축(메트릭·로그·추적) 완성. 커넥션·메시지 종류별 트레이스 상관이
+  `connection_id`·`message_id` span 속성으로 가능하다
+- 긍정: fast-path 로 리스너 없는 조립이 8ns/0B — 메트릭 미들웨어의 async 래퍼 비용(43ns)을
+  추적에서는 회피했다. 이 패턴은 켜짐/꺼짐 신호가 있는 다른 데코레이터에도 적용 후보다
+- 부정: 커넥션 span·부모-자식 트리는 아직 없다 — 크로스 스레드 부모 배선이 후속
+- 부정: 추적은 Hosting 에 `ActivitySource` 를 직접 묶는다(메트릭보다 결합이 강함). 그러나
+  이는 표준 .NET 추적 계약이고 벤더 패키지가 아니므로 어댑터 격리가 불필요하다

@@ -53,6 +53,9 @@ ChServerM.Hosting.Dispatch.MessageStateFilterOptions.MessageStateFilterOptions()
 ChServerM.Hosting.Dispatch.MetricsMiddleware
 ChServerM.Hosting.Dispatch.MetricsMiddleware.InvokeAsync(ChServerM.Dispatch.MessageContext! context, ChServerM.Dispatch.MessageDelegate! next) -> System.Threading.Tasks.ValueTask<ChServerM.Dispatch.DispatchStatus>
 ChServerM.Hosting.Dispatch.MetricsMiddleware.MetricsMiddleware(ChServerM.Diagnostics.IMetricsSink! sink, System.TimeProvider? timeProvider = null) -> void
+ChServerM.Hosting.Dispatch.TracingMiddleware
+ChServerM.Hosting.Dispatch.TracingMiddleware.InvokeAsync(ChServerM.Dispatch.MessageContext! context, ChServerM.Dispatch.MessageDelegate! next) -> System.Threading.Tasks.ValueTask<ChServerM.Dispatch.DispatchStatus>
+ChServerM.Hosting.Dispatch.TracingMiddleware.TracingMiddleware() -> void
 ChServerM.Hosting.Dispatch.PerConnectionRateLimitOptions
 ChServerM.Hosting.Dispatch.PerConnectionRateLimitOptions.BurstCapacity.get -> int
 ChServerM.Hosting.Dispatch.PerConnectionRateLimitOptions.BurstCapacity.set -> void
@@ -92,6 +95,7 @@ ChServerM.Hosting.ServerBuilder.UseLogger(ChServerM.Diagnostics.IServerLogger! l
 ChServerM.Hosting.ServerBuilder.UseTimeProvider(System.TimeProvider! timeProvider) -> ChServerM.Hosting.ServerBuilder!
 ChServerM.Hosting.ServerBuilder.UseTransport(ChServerM.Transports.IServerTransport! transport) -> ChServerM.Hosting.ServerBuilder!
 ChServerM.Hosting.ServerBuilder.UseMetrics(ChServerM.Diagnostics.IMetricsSink! sink) -> ChServerM.Hosting.ServerBuilder!
+ChServerM.Hosting.ServerBuilder.UseTracing() -> ChServerM.Hosting.ServerBuilder!
 ChServerM.Hosting.ServerBuilder.UseTransportSecurity(ChServerM.Security.ITransportSecurity! security) -> ChServerM.Hosting.ServerBuilder!
 override ChServerM.Hosting.ClientSession.GetHashCode() -> int
 static ChServerM.Hosting.ClientSession.operator !=(ChServerM.Hosting.ClientSession left, ChServerM.Hosting.ClientSession right) -> bool
