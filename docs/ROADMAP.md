@@ -309,11 +309,11 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 ## Phase 10 — 복원력 & 과부하 제어
 
 - [x] `IRateLimiter` 구현 — IP별 / 세션별 / 메시지 타입별. `System.Threading.RateLimiting` 활용 (2026-08-06 완료 `a1cf3ec`+`c5876a7`: `IRateLimiter`(Core, `TryAcquire(MessageContext)`) + `RateLimitMiddleware` + 첫 구현 `PerConnectionRateLimiter`(커넥션별 토큰 버킷 — 상태를 `Connection.Features` 에 둬 순차 디스패치로 락-프리·축출 불필요). 거부 = `RejectedByRateLimit`(9)→6003, 무-종료(일시적 제한). 관측은 `DispatchFailures` 자동. 종단 5종. **System.Threading.RateLimiting 은 per-connection 에 과임** — 전역·IP별·메시지타입별 후속 구현이 그 라이브러리로 간다)
-- [x] `IAdmissionControl` — 과부하 시 신규 연결 거부. **거부가 붕괴보다 낫다** (2026-08-06 완료 `f8bbf5b`+`1faca86`, ADR-0021: `IAdmissionControl`(Core, `TryAdmit(EndPoint?)`) + 전송 옵션 주입 + 첫 구현 `ConnectionRateAdmissionControl`(신규 연결 토큰 버킷 — 정적 상한 안의 연결 폭주 방어, T-16) + `CompositeAdmissionControl`(AND·단락). 거부는 전송이 `ConnectionsRejected` 메트릭으로 방출(사유 태그). 종단 11종. IP별·워터마크는 후속 구현)
+- [x] `IAdmissionControl` — 과부하 시 신규 연결 거부. **거부가 붕괴보다 낫다** (2026-08-06 완료 `f8bbf5b`+`1faca86`, ADR-0021: `IAdmissionControl`(Core, `TryAdmit(EndPoint?)`) + 전송 옵션 주입 + 첫 구현 `ConnectionRateAdmissionControl`(신규 연결 토큰 버킷 — 정적 상한 안의 연결 폭주 방어, T-16) + `CompositeAdmissionControl`(AND·단락). 거부는 전송이 `ConnectionsRejected` 메트릭으로 방출(사유 태그). 종단 11종. 2026-08-07 `4cb9373`(ADR-0026): **주소별 구현 추가** — `PerAddressConnectionRateAdmissionControl`(고정 슬롯 배열이라 **축출 없이 구조적 유계** — Dictionary 였다면 소스 주소를 바꾸는 것만으로 맵을 키워 OOM 을 유발할 수 있다. 표적 충돌은 `HashCode` 의 프로세스별 랜덤 시드가 차단). **IPv6 는 /64 프리픽스로 집계**(/128 단위는 공격자에게 2^64 우회로), IPv4 매핑 IPv6 는 IPv4 로 환원. 컴포지트로 전역과 AND. 테스트 13종. 워터마크는 후속)
 - [ ] 리소스 상한 — 최대 커넥션 수, 커넥션당 메모리 상한, 전체 메모리 워터마크 (진행 중: 최대 커넥션 수(정적 `MaxConnections`)·커넥션당 메모리(Phase 5 실측 ~8KB)는 있음. 전체 메모리 워터마크 기반 수용 거부는 `IAdmissionControl` 후속 구현)
 - [ ] 연결 폭주 방어 — accept 큐 관리, SYN 폭주 대응, 핸드셰이크 타임아웃 (진행 중: SYN·재접속 폭주는 `ConnectionRateAdmissionControl`(2026-08-06)이 신규 연결 속도 제한으로 방어. 핸드셰이크 타임아웃은 버전 협상·TLS 에 있음. accept 큐(backlog) 튜닝은 후속)
-- [ ] 서킷 브레이커 / 재시도 미들웨어 — 외부 의존(DB/Redis) 장애 격리
-- [ ] Bulkhead — 한 기능의 장애가 전체를 마비시키지 않게 격리
+- [ ] 서킷 브레이커 / 재시도 미들웨어 — 외부 의존(DB/Redis) 장애 격리 (**보류 — 대상 부재**: 2026-08-07 조사(ADR-0027)에서 이 프레임워크에 **아웃바운드 호출 지점이 0** 임을 확인했다 — `Persistence.*` 어셈블리도 `ISessionStore`·`IClusterMembership` 계약도 없다. 지금 만들면 구현 0·호출 지점 0 인 추상화가 되고 실물이 올 때 계약이 틀린다("두 번째 구현 전까지 추상화는 가설", CLAUDE.md 3). **Phase 13 세션 저장소 / Phase 15 클러스터에서 첫 아웃바운드 호출과 함께 만든다**)
+- [ ] Bulkhead — 한 기능의 장애가 전체를 마비시키지 않게 격리 (진행 중: 파티션 간 격리는 실행 모델이 이미 제공(다른 키 = 다른 파티션, ADR-0005). 2026-08-07 `576f393`(ADR-0027): **파티션 내 정지 감지** 추가 — 완료하지 않는 핸들러가 전용 스레드를 무기한 붙들면 그 파티션의 모든 커넥션이 함께 멈추는데 **스레드는 살아 있어 생존 신호로는 안 잡히는** 사각지대를 메웠다(진행 표식 + `CountStalledPartitions`, 프레임당 long 쓰기 2회·할당 0, 헬스 **Degraded** — 일시 지연을 재시작으로 승격시키지 않는다). **남은 것: 강제(핸들러 타임아웃)** — 협조적 취소라 CPU 무한루프를 못 막고 프레임당 타이머 비용이 붙어 별도 판단)
 - [ ] 우아한 열화(graceful degradation) — 부하 시 비필수 기능 차단 순서 정의
 - [ ] 크래시 처리 — 미처리 예외 정책, 덤프 수집, 재시작 전략
 - [ ] 장애 주입 테스트 — 지연·패킷 손실·의존성 장애를 주입해 동작 확인

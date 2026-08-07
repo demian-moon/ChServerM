@@ -14,9 +14,13 @@
   상태 화이트리스트 / 인증(+리플레이 가드·해셔) / 인가 2단 / 압축(LZ4) / 시크릿 관리 /
   입력 검증 / `/security-review`(신규 취약점 0건)
 - **Phase 10 복원력 — 게이트 실질 충족 ✅** — 수용 제어 `IAdmissionControl`(ADR-0021) +
-  속도 제한 `IRateLimiter` + soak 하네스(짧은 판 평탄, 정식 24h 만 수동/CI). **2026-08-07 후속**:
-  파티션 백프레셔 관측 배선(`5c9059b`) — `PartitionWorkRejected`·`PartitionQueueDepth` 방출.
-  `RejectedByBackpressure`(DispatchStatus)는 자연 생산자 없음을 문서로 확정(큐잉 디스패치 모델용 예약)
+  속도 제한 `IRateLimiter` + soak 하네스(짧은 판 평탄, 정식 24h 만 수동/CI). **2026-08-07 후속 3건**:
+  ① 파티션 백프레셔 관측(`5c9059b`) — `RejectedByBackpressure` 는 자연 생산자 없음을 문서로 확정.
+  ② **주소별 연결 속도 제한**(`4cb9373`, ADR-0026) — 고정 슬롯 배열이라 **축출 없이 구조적 유계**
+  (Dictionary 였다면 소스 주소를 바꾸는 것만으로 OOM 유발 가능), IPv6 는 **/64 프리픽스 집계**,
+  표적 충돌은 `HashCode` 프로세스별 랜덤 시드가 차단. ③ **파티션 정지 감지**(`576f393`, ADR-0027) —
+  완료 안 하는 핸들러가 파티션을 붙들면 모든 커넥션이 함께 멈추는데 **스레드는 살아 있어 생존
+  신호로 안 잡히는** 사각지대를 메움(프레임당 할당 0, 헬스 **Degraded**)
 - **Phase 11 관측 — 메트릭 게이트 충족 ✅ (ADR-0020)** — `IMetricsSink`(Core) +
   `MeterMetricsSink`(BCL Meter). `UseMetrics()` 한 줄이 커넥션·디스패치·처리량·실패를 데코레이터로
   배선. 켠 ~72ns·할당 0
@@ -39,23 +43,25 @@
   **pull** — 이미 세어지는 값이라 핫패스 비용 0. `Observability → Buffers` +
   `BufferPoolMetrics.Register(sink)` 로 배선(Buffers 무의존 결정 유지).
   `pool.buffers.leaked != 0` 이면 버그
-- 테스트 **671개** 통과, 전체 게이트(-WarnAsError 클린 빌드·audit·AOT publish+실행) 통과
+- 테스트 **691개** 통과, 전체 게이트(-WarnAsError 클린 빌드·audit·AOT publish+실행) 통과
 
 ## 진행 중
 
+- **Phase 10 잔여** — 우아한 열화(부하 시 비필수 기능 차단 순서) / 크래시 처리(미처리 예외·덤프·
+  재시작 전략) / 장애 주입 테스트 / 메모리 워터마크 수용 제어 / 정식 24h soak 를 CI 에 스케줄
 - **Phase 11 잔여** — ZLogger 어댑터(무할당 구조적 로깅) / 런타임 로그 레벨 / 런타임 진단
   (커넥션 덤프·스레드·풀 상태 조회)
-- **`FramesSent` 생산자 없음** — `FrameWriter` 가 static 확장 메서드라 싱크 주입 지점이 없다.
-  API 설계 분기(별도 판단)
-- **Phase 10 후속(게이트 조건 아님)** — 서킷 브레이커·Bulkhead / 전역·IP별 속도 제한
-  (System.Threading.RateLimiting) / 정식 24h soak 를 CI 에 스케줄
+- **보류 — 대상이 생길 때 만든다**: **서킷 브레이커·재시도**(아웃바운드 호출 지점이 0 — Phase 13
+  세션 저장소 / Phase 15 클러스터에서 실물과 함께, ADR-0027)
+- **별도 설계 판단 대기**: `FramesSent`(`FrameWriter` 가 static 확장이라 싱크 주입 지점 없음) /
+  핸들러 타임아웃 강제(협조적 취소 한계·프레임당 타이머 비용)
 
 ## 다음 (우선순위 순)
 
-1. **Phase 10 후속** — IP별 속도 제한(System.Threading.RateLimiting, 새 라이브러리 ADR) / 서킷 브레이커
+1. **Phase 10 — 크래시 처리 / 우아한 열화** — 미처리 예외 정책·덤프 수집·부하 시 차단 순서
 2. **Phase 11 — ZLogger 어댑터** / 런타임 로그 레벨
 3. **Part II 잔여** — Phase 7(누락 핸들러 검출) / Phase 8(코어 제한 재측정)
-4. **`FramesSent` API 판단** — FrameWriter static 확장 제약을 어떻게 풀지
+4. **장애 주입 테스트** — 지연·패킷 손실·의존성 장애 주입(Phase 10)
 
 ## 블로커 / 열린 결정
 
@@ -105,6 +111,17 @@
 - **의존 방향이 배선의 위치를 정한다** — Buffers 가 Core 를 안 보므로 풀은 자기 카운터를 메트릭
   으로 못 낸다. 그 결정을 깨는 대신 **관측 배선을 관측 어셈블리가 가져가면** 기존 결정을 지키면서
   자동 배선을 얻는다
+- **방어 장치가 스스로 공격 표면이 되는지 먼저 본다** — IP별 제한의 상태 맵은 공격자가 소스 주소만
+  바꿔도 무한히 자란다. "무제한 큐 금지"(9.6)는 큐만의 규칙이 아니라 **공격자가 성장을 유도할 수
+  있는 모든 자료구조**의 규칙이다. 고정 크기로 만들면 축출·스윕·타이머가 통째로 사라진다
+- **패턴을 적용하기 전에 대상이 있는지 확인한다** — 서킷 브레이커는 교과서적으로 옳지만 이
+  프레임워크엔 아직 외부 호출이 없다. ROADMAP 에 있다고 지금 만들어야 하는 것은 아니다 —
+  **보류 근거를 남기는 것이 대상 없는 계약을 만드는 것보다 낫다**(ADR-0027)
+- **보장에는 대가가 따르고, 그 대가가 곧 사각지대다** — 배타성 보장(무기한 완료 대기)의 대가가
+  "한 핸들러가 파티션을 영구 정지" 다. 보장을 설계할 때 그 대가가 만드는 장애 모드와, 그것이
+  기존 신호로 관측되는지(스레드 생존으로는 안 잡힘)를 함께 봐야 한다
+- **심각도를 잘못 매기면 관측이 장애를 만든다** — 정지를 liveness 실패로 냈다면 일시적 지연에도
+  재시작 루프가 돈다. Degraded/Unhealthy 는 문서상 분류가 아니라 **운영 동작(재시작 여부)의 선택**이다
 
 ## 작업 방식
 
@@ -141,7 +158,7 @@ powershell -File eng/build.ps1 -Configuration Release -WarnAsError
 ## 참조
 
 - 계획: `docs/ROADMAP.md` / 설계 결정: `docs/DECISIONS.md`
-  (ADR-0000·0001·0002·0004~0025 채택 / 0003 폐기 — 미결 ADR 없음)
+  (ADR-0000·0001·0002·0004~0027 채택 / 0003 폐기 — 미결 ADR 없음)
 - 위협 모델: `docs/THREAT-MODEL.md` (T-04·05·06·08~22 대부분 ✅)
 - 진단 규칙: `docs/DIAGNOSTICS.md` / 메트릭 이름: `DiagnosticNames`/`MetricNames`/`TagNames`
 - 성능 수치: `docs/BENCHMARKS.md` (ENV-A: 9900X 12/24 · ENV-B: 7945HX 16/32)
