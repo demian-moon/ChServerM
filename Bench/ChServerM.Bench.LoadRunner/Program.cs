@@ -16,6 +16,7 @@ using ChServerM.Features;
 using ChServerM.Framing;
 using ChServerM.Hosting;
 using ChServerM.Identity;
+using ChServerM.Resilience;
 using ChServerM.Security;
 using ChServerM.Security.Tls;
 using ChServerM.Transport.Tcp;
@@ -61,6 +62,7 @@ internal static class Program
         {
             "server" => await RunServerAsync(options).ConfigureAwait(false),
             "client" => await RunClientAsync(options).ConfigureAwait(false),
+            "spike" => await RunSpikeAsync(options).ConfigureAwait(false),
             _ => Fail($"알 수 없는 모드: {args[0]}"),
         };
     }
@@ -72,10 +74,18 @@ internal static class Program
         Console.WriteLine("         [--transport socket|kestrel (기본 socket, kestrel 은 ADR-0001 벤치 대결용)]");
         Console.WriteLine("         [--vectored true|false (기본 false, 송신 배칭 A/B 측정용)]");
         Console.WriteLine("         [--tls true|false (기본 false. 자가서명 인증서로 TLS 1.3, ADR-0017 A/B 측정용)]");
+        Console.WriteLine("         [--defenses true|false (기본 false. 수용 제어를 켠다 — 스파이크 시나리오용)]");
+        Console.WriteLine("         [--accept-rate N] [--accept-burst N (defenses 켰을 때 초당 수용 한도)]");
         Console.WriteLine("  client --port 15000 --connections 512 [--payload 128] [--seconds 30]");
         Console.WriteLine("         [--rampup 5] [--active N (기본: 전부)] [--host 127.0.0.1]");
         Console.WriteLine("         [--pipeline P (기본 1=닫힌 루프. P>1 이면 burst P개 송신 후 P개 수신)]");
         Console.WriteLine("         [--tls true|false (기본 false. 서버와 같게 맞춘다)]");
+        Console.WriteLine("  spike  --port 15000 [--baseline 256] [--surge 2000] [--payload 128]");
+        Console.WriteLine("         [--baseline-seconds 10] [--surge-seconds 10] [--recovery-seconds 10]");
+        Console.WriteLine("         [--warmup-seconds 5 (측정에서 제외 — 티어드 JIT 승격 오염 방지)]");
+        Console.WriteLine("         [--host 127.0.0.1]");
+        Console.WriteLine("         스파이크 시나리오 — 기준 부하 위에 신규 접속 폭주를 얹고 구간별로 잰다.");
+        Console.WriteLine("         판정은 '빨랐는가' 가 아니라 '이미 붙은 손님이 살아남았는가' 다.");
     }
 
     private static int Fail(string message)
@@ -127,6 +137,23 @@ internal static class Program
             return Fail("kestrel 프로토타입은 TLS 조합을 지원하지 않는다 — ADR-0001 재현 전용이다.");
         }
 
+        // ⚠ 방어 장치는 기본 꺼짐이다 — 처리량 기준선 측정에 수용 제어가 끼면 재는 것이
+        // 서버가 아니라 토큰 버킷이 된다. 스파이크 시나리오에서만 켠다.
+        //
+        // **주소별 제한(ADR-0026)은 여기서 켜지 않는다.** 루프백 부하는 전부 127.0.0.1 한
+        // 주소에서 오므로 주소별 예산이 즉시 소진돼 아무것도 안 붙는다 — 방어가 동작하는
+        // 것이지만 시나리오가 퇴화한다. 주소별 제한의 실부하 검증은 다중 호스트 생성기가
+        // 필요하며 Phase 12 미완 항목이다.
+        bool defenses = options.TryGetValue("defenses", out string? defensesValue)
+            && bool.Parse(defensesValue);
+        IAdmissionControl? admission = defenses
+            ? new ConnectionRateAdmissionControl(new ConnectionRateAdmissionControlOptions
+            {
+                PermitsPerSecond = GetInt(options, "accept-rate", 500),
+                BurstCapacity = GetInt(options, "accept-burst", 500),
+            })
+            : null;
+
         if (string.Equals(transportKind, "kestrel", StringComparison.OrdinalIgnoreCase))
         {
             // ADR-0001 벤치 대결의 Kestrel 쪽. MaxConnections 상한 등 프로덕션 기능이
@@ -142,7 +169,12 @@ internal static class Program
 
             TcpServerTransport socket = new(
                 bindPoint,
-                new TcpTransportOptions { MaxConnections = maxConnections, UseVectoredSend = vectored });
+                new TcpTransportOptions
+                {
+                    MaxConnections = maxConnections,
+                    UseVectoredSend = vectored,
+                    AdmissionControl = admission,
+                });
             transport = socket;
             connectionCount = () => socket.ConnectionCount;
         }
@@ -409,6 +441,334 @@ internal static class Program
 
     /// <summary>커넥션 하나를 연결하고, TLS 가 켜져 있으면 핸드셰이크까지 마친다.</summary>
     /// <remarks>핸드셰이크 실패는 예외로 던져 램프업 루프의 연결 실패 계수에 잡히게 한다.</remarks>
+    // ── 스파이크 모드 ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// 기준 부하 위에 <b>신규 접속 폭주</b>를 얹고 구간별(기준·스파이크·회복)로 측정한다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>존재 이유 — Phase 9/10 방어의 유일한 종단 검증이다.</b> 수용 제어(ADR-0021)·속도
+    /// 제한·단계적 열화(ADR-0029)·부하 기반 수용 거부는 전부 "과부하가 왔을 때" 를 위한
+    /// 장치인데, 램프업·지속 시나리오는 <b>과부하를 만들지 않는다</b>. 통합 테스트가
+    /// 인메모리로 폭주를 흉내내고는 있지만(2026-08-07), 실제 소켓·accept 백로그·커널 경로가
+    /// 실린 폭주는 여기서만 볼 수 있다.
+    /// </para>
+    /// <para>
+    /// <b>⚠ 두 무리를 분리하는 것이 이 시나리오의 설계 핵심이다.</b> 하나로 합치면 아무것도
+    /// 판정할 수 없다 — 폭주 커넥션의 실패가 기준 커넥션의 실패와 섞이기 때문이다.
+    /// </para>
+    /// <list type="bullet">
+    ///   <item><b>기준 무리</b>: 시작부터 끝까지 유지되는 "이미 붙은 손님". 이들이 <b>살아남는
+    ///   것</b>이 방어의 목적이므로 구간별 지연·오류를 따로 잰다</item>
+    ///   <item><b>폭주 무리</b>: 스파이크 구간에만 한꺼번에 붙는 신규 접속. 이들의
+    ///   <b>거부는 실패가 아니라 성공 신호</b>다 — "거부가 붕괴보다 낫다"(CLAUDE.md 9.6)</item>
+    /// </list>
+    /// <para>
+    /// <b>따라서 판정 기준은 "빨랐는가" 가 아니다.</b> ① 기준 무리의 오류가 0 인가(붕괴하지
+    /// 않았는가) ② 스파이크 구간의 지연 악화가 회복 구간에 되돌아오는가(항구적 열화가
+    /// 아닌가). 폭주 무리가 많이 거부됐다는 것은 그 자체로 나쁜 결과가 아니다.
+    /// </para>
+    /// <para>
+    /// <b>램프업을 쓰지 않는다.</b> 폭주 무리는 의도적으로 한꺼번에 연결을 시도한다 —
+    /// 완만하게 붙이면 수용 제어의 토큰이 계속 차서 과부하가 재현되지 않는다.
+    /// </para>
+    /// </remarks>
+    private static async Task<int> RunSpikeAsync(Dictionary<string, string> options)
+    {
+        int port = GetInt(options, "port", 15000);
+        int baselineCount = GetInt(options, "baseline", 256);
+        int surgeCount = GetInt(options, "surge", 2000);
+        int payloadLength = GetInt(options, "payload", 128);
+        int baselineSeconds = GetInt(options, "baseline-seconds", 10);
+        int surgeSeconds = GetInt(options, "surge-seconds", 10);
+        int recoverySeconds = GetInt(options, "recovery-seconds", 10);
+        int warmupSeconds = GetInt(options, "warmup-seconds", 5);
+        string host = options.TryGetValue("host", out string? h) ? h : "127.0.0.1";
+
+        FramingOptions framing = new() { MaxPayloadLength = MaxPayloadLength };
+        FixedHeaderFrameDecoder decoder = new(framing);
+        FixedHeaderFrameEncoder encoder = new(framing);
+        IPEndPoint target = new(IPAddress.Parse(host), port);
+
+#pragma warning disable CA2007 // await using 선언에는 ConfigureAwait 를 붙일 수 없다. 콘솔 앱 — 컨텍스트 없음.
+        await using TcpClientTransport clientTransport = new(new TcpTransportOptions());
+#pragma warning restore CA2007
+
+        byte[] payload = new byte[payloadLength];
+#pragma warning disable CA5394 // 측정용 페이로드 — 보안 난수가 필요 없다.
+        Random.Shared.NextBytes(payload);
+#pragma warning restore CA5394
+
+        // 구간 0=기준, 1=스파이크, 2=회복. 기준 워커가 매 왕복마다 현재 구간을 읽어
+        // 해당 히스토그램에 기록한다 — 구간을 나누지 않으면 스파이크의 영향이 평균에
+        // 묻혀 "아무 일도 없었다" 로 보인다.
+        string[] phaseNames = ["기준", "스파이크", "회복"];
+        LatencyHistogram[] histograms = [new(), new(), new()];
+        long[] phaseRequests = new long[3];
+        double[] phaseElapsed = new double[3];
+        int currentPhase = 0;
+        long baselineErrors = 0;
+
+        Console.WriteLine($"기준 커넥션 {baselineCount}개 연결 중...");
+        List<IConnection> baselineConnections = new(capacity: baselineCount);
+        for (int i = 0; i < baselineCount; i++)
+        {
+            try
+            {
+                baselineConnections.Add(await ConnectOneAsync(clientTransport, target, null).ConfigureAwait(false));
+            }
+#pragma warning disable CA1031 // 기준 무리는 측정 전제다 — 못 붙으면 아래에서 중단한다.
+            catch (Exception)
+            {
+                // 아래 개수 검사로 처리.
+            }
+#pragma warning restore CA1031
+        }
+
+        if (baselineConnections.Count < baselineCount)
+        {
+            Console.WriteLine($"⚠ 기준 커넥션이 {baselineConnections.Count}/{baselineCount} 만 붙었다.");
+        }
+
+        if (baselineConnections.Count == 0)
+        {
+            return Fail("기준 커넥션이 하나도 성립하지 않았다 — 대상 서버를 확인한다.");
+        }
+
+        using CancellationTokenSource stop = new();
+        Task[] baselineWorkers = new Task[baselineConnections.Count];
+        for (int i = 0; i < baselineWorkers.Length; i++)
+        {
+            IConnection connection = baselineConnections[i];
+            baselineWorkers[i] = Task.Run(async () =>
+            {
+                try
+                {
+                    while (!stop.IsCancellationRequested)
+                    {
+                        long start = Stopwatch.GetTimestamp();
+                        await connection.WriteFrameAsync(
+                            encoder, new MessageId(EchoMessageId), payload,
+                            FrameFlags.None, sequence: 0).ConfigureAwait(false);
+                        await ReceiveFrameAsync(connection, decoder, stop.Token).ConfigureAwait(false);
+
+                        // 구간 경계에서 왕복이 걸쳐 있으면 어느 쪽에 넣어도 되지만, 시작이
+                        // 아니라 **완료 시점**의 구간에 넣는다 — 지연이 관측된 시점이 그때다.
+                        int phase = Volatile.Read(ref currentPhase);
+                        histograms[phase].Record(Stopwatch.GetElapsedTime(start));
+                        Interlocked.Increment(ref phaseRequests[phase]);
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    // 측정 종료.
+                }
+#pragma warning disable CA1031 // 오류 수 자체가 측정 결과다 — 기준 무리의 오류는 '붕괴' 신호다.
+                catch (Exception)
+                {
+                    Interlocked.Increment(ref baselineErrors);
+                }
+#pragma warning restore CA1031
+            });
+        }
+
+        List<IConnection> surgeConnections = [];
+        int surgeAccepted = 0;
+        int surgeRejected = 0;
+        double surgeConnectSeconds = 0;
+        long surgeAcceptedCount = 0;
+        long surgeRejectedByProbe = 0;
+        Task[] surgeWorkers = [];
+
+        using CancellationTokenSource surgeStop = new();
+
+        try
+        {
+            // ── 워밍업 (측정에서 버린다) ─────────────────────────────────────
+            //
+            // ⚠ 이 구간이 없으면 기준 구간이 티어드 JIT 승격 중에 측정되어 **부당하게
+            // 느리게** 나온다. 실제로 그렇게 재보니 스파이크 구간의 처리량이 기준보다
+            // 30% *높게* 나왔다 — 스파이크가 서버를 빠르게 만들 리 없으므로 그것은
+            // 스파이크의 효과가 아니라 기준 구간의 워밍업 오염이었다. 기준이 오염되면
+            // 스파이크의 실제 열화가 그만큼 상쇄되어 보이지 않는다.
+            if (warmupSeconds > 0)
+            {
+                Console.WriteLine($"[워밍업] {warmupSeconds}s (측정에서 제외)...");
+                await Task.Delay(TimeSpan.FromSeconds(warmupSeconds)).ConfigureAwait(false);
+                histograms[0] = new LatencyHistogram();
+                Interlocked.Exchange(ref phaseRequests[0], 0);
+            }
+
+            // ── 구간 0: 기준 ─────────────────────────────────────────────────
+            Console.WriteLine($"[기준] {baselineSeconds}s 관측...");
+            Stopwatch phaseClock = Stopwatch.StartNew();
+            await Task.Delay(TimeSpan.FromSeconds(baselineSeconds)).ConfigureAwait(false);
+            phaseElapsed[0] = phaseClock.Elapsed.TotalSeconds;
+
+            // ── 구간 1: 스파이크 ─────────────────────────────────────────────
+            Volatile.Write(ref currentPhase, 1);
+            phaseClock.Restart();
+            Console.WriteLine($"[스파이크] 신규 접속 {surgeCount}개 동시 시도 + 부하 생성...");
+
+            // ⚠ 램프업 없이 한꺼번에 — 완만하면 수용 제어 토큰이 계속 차서 과부하가 안 난다.
+            Stopwatch connectClock = Stopwatch.StartNew();
+            Task<IConnection>[] surging = new Task<IConnection>[surgeCount];
+            for (int i = 0; i < surgeCount; i++)
+            {
+                surging[i] = ConnectOneAsync(clientTransport, target, null);
+            }
+
+            List<IConnection> connected = new(capacity: surgeCount);
+            foreach (Task<IConnection> task in surging)
+            {
+                try
+                {
+                    connected.Add(await task.ConfigureAwait(false));
+                }
+#pragma warning disable CA1031 // 연결 실패 수가 측정 결과다.
+                catch (Exception)
+                {
+                    surgeRejected++;
+                }
+#pragma warning restore CA1031
+            }
+
+            surgeConnectSeconds = connectClock.Elapsed.TotalSeconds;
+
+            // ⚠⚠ **TCP 연결 성공은 수용을 뜻하지 않는다.**
+            //
+            // 수용 제어는 accept 이후에 판정하므로, 거부된 커넥션도 커널이 3-way 핸드셰이크를
+            // 이미 끝내 클라이언트의 ConnectAsync 는 **성공한다**. 서버는 그 뒤 조용히 닫는다
+            // (RejectionNotice 는 기본값이 비어 있어 통지도 없다). 실제로 이것 때문에 첫
+            // 측정에서 수용 제어를 켜고도 "거부 0" 이 나왔다 — 클라이언트가 볼 수 없었을 뿐이다.
+            //
+            // 따라서 **왕복 한 번을 성공해야 수용된 것**으로 센다. 그 왕복이 곧 부하의 시작이다.
+            surgeWorkers = new Task[connected.Count];
+            for (int i = 0; i < connected.Count; i++)
+            {
+                IConnection connection = connected[i];
+                surgeWorkers[i] = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await connection.WriteFrameAsync(
+                            encoder, new MessageId(EchoMessageId), payload,
+                            FrameFlags.None, sequence: 0).ConfigureAwait(false);
+                        await ReceiveFrameAsync(connection, decoder, surgeStop.Token).ConfigureAwait(false);
+                    }
+#pragma warning disable CA1031 // 왕복 실패 = 거부. 그 수가 측정 결과다.
+                    catch (Exception)
+                    {
+                        Interlocked.Increment(ref surgeRejectedByProbe);
+                        return;
+                    }
+#pragma warning restore CA1031
+
+                    Interlocked.Increment(ref surgeAcceptedCount);
+
+                    // 수용된 커넥션은 스파이크 구간 내내 부하를 만든다 — 커넥션 수만 늘리고
+                    // 놀고 있으면 그것은 스파이크가 아니라 그냥 접속 수 증가다.
+                    try
+                    {
+                        while (!surgeStop.IsCancellationRequested)
+                        {
+                            await connection.WriteFrameAsync(
+                                encoder, new MessageId(EchoMessageId), payload,
+                                FrameFlags.None, sequence: 0).ConfigureAwait(false);
+                            await ReceiveFrameAsync(connection, decoder, surgeStop.Token).ConfigureAwait(false);
+                        }
+                    }
+#pragma warning disable CA1031 // 스파이크 무리의 중도 실패는 정상 결과다(서버가 끊을 수 있다).
+                    catch (Exception)
+                    {
+                        // 측정 종료 또는 서버 측 종료.
+                    }
+#pragma warning restore CA1031
+                });
+            }
+
+            surgeConnections.AddRange(connected);
+
+            await Task.Delay(TimeSpan.FromSeconds(surgeSeconds)).ConfigureAwait(false);
+            phaseElapsed[1] = phaseClock.Elapsed.TotalSeconds;
+
+            await surgeStop.CancelAsync().ConfigureAwait(false);
+            await Task.WhenAll(surgeWorkers).ConfigureAwait(false);
+
+            surgeAccepted = (int)Interlocked.Read(ref surgeAcceptedCount);
+            surgeRejected += (int)Interlocked.Read(ref surgeRejectedByProbe);
+            Console.WriteLine(
+                $"  수용 {surgeAccepted} / 거부 {surgeRejected} ({surgeConnectSeconds:F1}s 안에 시도) " +
+                $"— 거부는 방어가 동작한 신호다");
+
+            // ── 구간 2: 회복 ─────────────────────────────────────────────────
+            // 폭주 무리를 걷어내고 기준 무리가 원래 성능으로 돌아오는지 본다.
+            // 돌아오지 않으면 스파이크가 **항구적 열화**를 남긴 것이다(슬롯 누수·상태 오염).
+            Console.WriteLine($"[회복] 폭주 커넥션 {surgeConnections.Count}개 해제 후 {recoverySeconds}s 관측...");
+            foreach (IConnection connection in surgeConnections)
+            {
+                await connection.DisposeAsync().ConfigureAwait(false);
+            }
+
+            surgeConnections.Clear();
+            Volatile.Write(ref currentPhase, 2);
+            phaseClock.Restart();
+            await Task.Delay(TimeSpan.FromSeconds(recoverySeconds)).ConfigureAwait(false);
+            phaseElapsed[2] = phaseClock.Elapsed.TotalSeconds;
+        }
+        finally
+        {
+            // 락-프리 상태와 같은 규율 — 정리를 finally 에 둔다(CLAUDE.md 9.2).
+            // 예외로 중도 이탈해도 폭주 워커가 살아남아 프로세스를 붙잡지 않게 한다.
+            await surgeStop.CancelAsync().ConfigureAwait(false);
+            await Task.WhenAll(surgeWorkers).ConfigureAwait(false);
+
+            await stop.CancelAsync().ConfigureAwait(false);
+            await Task.WhenAll(baselineWorkers).ConfigureAwait(false);
+
+            foreach (IConnection connection in surgeConnections)
+            {
+                await connection.DisposeAsync().ConfigureAwait(false);
+            }
+
+            foreach (IConnection connection in baselineConnections)
+            {
+                await connection.DisposeAsync().ConfigureAwait(false);
+            }
+        }
+
+        // ── 보고 ────────────────────────────────────────────────────────────
+        Console.WriteLine();
+        Console.WriteLine(
+            $"결과 — 기준 {baselineConnections.Count} 커넥션 유지, 폭주 {surgeCount} 시도, 페이로드 {payloadLength}B");
+        Console.WriteLine();
+        Console.WriteLine("  구간별 (기준 무리 = 이미 붙어 있던 커넥션)");
+        Console.WriteLine("  구간       | 요청 수    | RPS      | p50      | p99      | p999");
+        Console.WriteLine("  -----------|-----------|----------|----------|----------|----------");
+
+        for (int phase = 0; phase < 3; phase++)
+        {
+            long requests = Interlocked.Read(ref phaseRequests[phase]);
+            double rps = phaseElapsed[phase] > 0 ? requests / phaseElapsed[phase] : 0;
+            Console.WriteLine(
+                $"  {phaseNames[phase],-10} | {requests,9:N0} | {rps,8:N0} | " +
+                $"{histograms[phase].Percentile(0.50),8} | {histograms[phase].Percentile(0.99),8} | " +
+                $"{histograms[phase].Percentile(0.999),8}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine($"  폭주 무리     : 수용 {surgeAccepted} / 거부 {surgeRejected} ({surgeConnectSeconds:F1}s 안에 시도)");
+        Console.WriteLine($"  기준 무리 오류 : {Interlocked.Read(ref baselineErrors)}");
+        Console.WriteLine();
+        Console.WriteLine("  판정 기준 — '빨랐는가' 가 아니다:");
+        Console.WriteLine("    ① 기준 무리 오류 0  = 폭주가 이미 붙은 손님을 죽이지 않았다");
+        Console.WriteLine("    ② 회복 p99 ≈ 기준 p99 = 스파이크가 항구적 열화를 남기지 않았다");
+        Console.WriteLine("    ③ 폭주 거부는 실패가 아니다 — 거부가 붕괴보다 낫다 (CLAUDE.md 9.6)");
+
+        return 0;
+    }
+
     private static async Task<IConnection> ConnectOneAsync(
         TcpClientTransport transport, IPEndPoint target, TlsTransportSecurity? tlsSecurity)
     {
