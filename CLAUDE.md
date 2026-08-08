@@ -94,6 +94,7 @@ ChServerM/
 │  ├─ BENCHMARKS.md                 # 측정 결과 기록
 │  ├─ LEGACY-INVENTORY.md           # (구) 초판 인벤토리 → docs/legacy/ 로 이전, 포인터만 유지
 │  ├─ legacy/                       # 레거시 정밀 분석 14종. 인덱스: legacy/00-overview.md
+│  ├─ PROFILING.md                  # 프로파일링 워크플로 (CPU·할당·GC 를 뜨고 읽는 법)
 │  ├─ THREAT-MODEL.md               # 위협 모델 (Phase 9에서 작성)
 │  └─ standup/
 │     ├─ STANDUP.md                 # 최신 스탠드업 (항상 이 파일 하나만 최신)
