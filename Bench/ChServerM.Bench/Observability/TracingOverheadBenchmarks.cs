@@ -34,6 +34,7 @@ namespace ChServerM.Bench.Observability;
 /// </list>
 /// </remarks>
 [MemoryDiagnoser]
+[Config(typeof(BenchConfig))]
 public class TracingOverheadBenchmarks
 {
     private MessageContext _context = null!;

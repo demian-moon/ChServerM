@@ -23,6 +23,7 @@ namespace ChServerM.Bench.Compression;
 /// 비교군에게 최대한 유리한 조건이다(벤치 대결은 불리한 쪽에 기울여 설계한다).</para>
 /// </remarks>
 [MemoryDiagnoser]
+[Config(typeof(BenchConfig))]
 public class CompressionBenchmarks
 {
     private Lz4PayloadCodec _lz4 = null!;

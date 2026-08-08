@@ -3,6 +3,7 @@ using BenchmarkDotNet.Columns;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Diagnosers;
 using BenchmarkDotNet.Environments;
+using BenchmarkDotNet.Exporters.Json;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Loggers;
 using BenchmarkDotNet.Order;
@@ -22,11 +23,29 @@ namespace ChServerM.Bench;
 /// <b>할당량을 항상 함께 잰다.</b> 처리량만 보면 "빨라졌지만 GC 압력이 늘어난" 변경을
 /// 놓친다. 이 프로젝트는 무할당을 목표로 하므로 할당량이 1급 지표다.
 /// </para>
+/// <para>
+/// <b>게이트 모드(<c>CHSM_BENCH_GATE=1</c>).</b> CI 회귀 게이트(<c>eng/bench-gate.ps1</c>)가
+/// 켜는 모드로, 두 가지가 달라진다: ① 짧은 job(<see cref="Job.ShortRun"/>) — 게이트는 매 PR 에서
+/// 돌아야 하므로 정밀도를 시간과 맞바꾼다, ② JSON 내보내기 — 게이트 스크립트가 사람이 읽는
+/// 표가 아니라 기계가 읽는 결과를 파싱한다(콘솔 표는 로케일·컬럼 폭에 따라 달라져 파싱
+/// 대상으로 쓸 수 없다).
+/// </para>
+/// <para>
+/// <b>⚠ 짧은 job 의 정밀도 손실은 게이트가 <i>비율</i>만 보기 때문에 감당된다.</b> 게이트는
+/// 절대 시간을 판정하지 않는다 — 공용 CI 러너에서 절대 시간은 이웃 부하로 20~30% 흔들려
+/// 임계를 어떻게 잡아도 무용하거나 플래키다. 같은 실행 안의 두 팔 비율은 노이즈가 분자·분모에
+/// 함께 실려 상당 부분 상쇄된다. 절대 수치 기준선은 이 머신(ENV-B)의 전체 job 실행이 담당한다.
+/// </para>
 /// </remarks>
 internal sealed class BenchConfig : ManualConfig
 {
+    /// <summary>게이트 모드 스위치. <c>eng/bench-gate.ps1</c> 이 설정한다.</summary>
+    internal const string GateModeVariable = "CHSM_BENCH_GATE";
+
     public BenchConfig()
     {
+        bool gateMode = Environment.GetEnvironmentVariable(GateModeVariable) == "1";
+
         AddLogger(ConsoleLogger.Default);
         AddColumnProvider(DefaultColumnProviders.Instance);
 
@@ -40,7 +59,13 @@ internal sealed class BenchConfig : ManualConfig
         // 부분 결과를 근거로 성능 주장을 하는 것이 최악이다.
         WithOptions(ConfigOptions.StopOnFirstError);
 
-        AddJob(Job.Default
+        if (gateMode)
+        {
+            // 게이트 스크립트가 파싱할 기계 판독 결과. 콘솔 표는 파싱 대상이 아니다.
+            AddExporter(JsonExporter.Full);
+        }
+
+        AddJob((gateMode ? Job.ShortRun : Job.Default)
             .WithRuntime(CoreRuntime.Core10_0)
             .WithGcServer(true)
             .WithGcConcurrent(true));

@@ -45,9 +45,16 @@ internal static class Program
         UseUtf8Console();
         EnvironmentReport.Print();
 
+        // 설정은 각 벤치마크 클래스의 [Config(typeof(BenchConfig))] 가 준다.
+        // 여기서 전역 config 를 함께 넘기면 **같은 설정이 두 번 적용되어** BenchmarkDotNet 이
+        // "The exporter JsonExporter-full is already present in configuration" 경고를 낸다.
+        // 상시 켜진 경고는 사람이 출력을 무시하게 만들므로 중복을 없앤다.
+        //
+        // ⚠ 그 대가로 새 벤치마크 클래스가 속성을 빠뜨리면 기본 설정(ServerGC·MemoryDiagnoser
+        // 없음)으로 조용히 측정된다. 새 클래스를 만들 때 속성을 반드시 붙인다.
         BenchmarkSwitcher
             .FromAssembly(Assembly.GetExecutingAssembly())
-            .Run(args, new BenchConfig());
+            .Run(args);
     }
 
     /// <summary>콘솔 출력을 UTF-8 로 맞춘다.</summary>

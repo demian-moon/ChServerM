@@ -64,3 +64,44 @@ jobs:
           path: artifacts/coverage/**/coverage.cobertura.xml
           if-no-files-found: error
           retention-days: 14
+
+  # 성능 회귀 게이트. build 잡과 분리한 이유 둘:
+  #  ① 벤치마크는 느리다(로컬 ENV-B 에서 6분) — build·test 피드백을 늦추면 안 된다
+  #  ② OS 한 종류면 충분하다. 이 게이트는 절대 시간이 아니라 **같은 실행 안의 비율**을
+  #     보므로 플랫폼별로 값이 갈리지 않는다. 두 OS 로 돌리면 비용만 두 배다
+  bench-gate:
+    name: 성능 회귀 게이트 (비율)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-bench-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-bench-
+
+      # 공용 러너는 이웃 부하로 절대 시간이 20~30% 흔들린다. 그래서 이 게이트는
+      # 절대 수치를 판정하지 않고 두 팔의 비율만 본다 — 노이즈가 분자·분모에 함께
+      # 실려 상쇄된다. 명세와 임계 근거는 eng/bench-gate.json.
+      - name: Bench gate
+        shell: pwsh
+        run: ./eng/bench-gate.ps1
+
+      # 실패했을 때 사람이 원본 측정을 볼 수 있어야 한다. 게이트 출력만으로는
+      # "노이즈인가 진짜 회귀인가" 를 판단할 수 없다.
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-gate-results
+          path: BenchmarkDotNet.Artifacts/results/**
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,0 +1,95 @@
+{
+  "$comment": [
+    "성능 회귀 게이트 명세 — 절대 시간이 아니라 '같은 실행 안 두 팔의 비율'을 고정한다.",
+    "",
+    "왜 비율인가: CI 공용 러너(ubuntu/windows-latest)는 이웃 부하로 절대 시간이 20~30%",
+    "흔들린다. 임계를 좁게 잡으면 플래키하고 넓게 잡으면 아무것도 못 잡는다. 같은 실행 안의",
+    "두 팔은 노이즈가 분자·분모에 함께 실려 상당 부분 상쇄된다.",
+    "",
+    "게이트로 고를 자격: '이 비율이 무너지면 설계 전제가 무너지는가'. 단순히 재는 것이",
+    "가능하다는 이유로 넣지 않는다. 각 항목의 claim 이 곧 그 자격 증명이다.",
+    "",
+    "⚠ 임계(maxRatio)는 '노이즈 여유'가 아니라 '실제 회귀가 만드는 값'에서 역산한다.",
+    "처음에 tracing.fastpath 를 실측 0.049 에 3배 여유를 줘 0.15 로 잡았다. 그 뒤 fast-path 를",
+    "통째로 제거하는 고의 회귀를 넣었더니 비율이 0.126 까지만 올라 **게이트가 통과했다** —",
+    "리스너가 없으면 StartActivity 가 null 을 돌려주므로 fast-path 제거의 대가는 span 생성이",
+    "아니라 async 상태 머신 + 기능 조회뿐(2.6배)이었고, 내가 준 3배 여유가 그것보다 컸다.",
+    "임계는 반드시 '이 주장이 무너지면 비율이 얼마가 되는가' 를 실측해서 그 아래에 둔다.",
+    "regressionRatio 필드가 그 실측치이며, 없는 항목은 아직 검증되지 않은 임계라는 뜻이다.",
+    "",
+    "baselineRatio 는 명세 작성 시점의 실측치다. 실측이 임계에 근접하면 임계를 올리지 말고",
+    "왜 느려졌는지 본다."
+  ],
+
+  "measuredOn": "2026-08-08, ENV-B, CHSM_BENCH_GATE=1 (Job.ShortRun), 표준편차 0.0~2.2%",
+
+  "$runToRunDrift": [
+    "⚠ 표준편차(한 실행 안)와 실행 간 드리프트는 다르다. 같은 코드로 게이트를 두 번 돌린",
+    "실측에서 비율이 최대 21% 움직였다(framing.partial 0.045 -> 0.054, dispatch.production",
+    "0.352 -> 0.387). 조용한 개발 머신에서도 그렇다 — 공용 CI 러너는 더 클 것이다.",
+    "임계는 이 드리프트와 회귀 크기 **둘 다** 를 고려해야 한다. 회귀가 드리프트보다 작으면",
+    "그 비율은 게이트로 쓸 수 없다."
+  ],
+
+  "gates": [
+    {
+      "id": "dispatch.array-vs-dictionary",
+      "claim": "소스 제너레이터가 만드는 배열 인덱싱 라우팅이 딕셔너리 조회보다 빠르다 — 이것이 리플렉션·딕셔너리 대신 코드 생성을 강제하는(CLAUDE.md 2절) 성능 근거다",
+      "type": "ChServerM.Bench.Dispatch.DispatchBenchmarks",
+      "numerator": "ArrayTable",
+      "denominator": "DictionaryLookup",
+      "baselineRatio": 0.352,
+      "maxRatio": 0.60
+    },
+    {
+      "id": "dispatch.production-vs-reflection",
+      "claim": "프로덕션 디스패처(빌더 배열 + 파이프라인 전체)가 리플렉션 Invoke 폴백보다 빠르다 — 파이프라인 비용을 다 얹고도 리플렉션을 이겨야 '리플렉션 금지'가 성능 규칙으로 성립한다",
+      "type": "ChServerM.Bench.Dispatch.DispatchBenchmarks",
+      "numerator": "ProductionDispatcher",
+      "denominator": "ReflectionInvoke",
+      "baselineRatio": 0.352,
+      "maxRatio": 0.60
+    },
+    {
+      "id": "tracing.fastpath",
+      "claim": "리스너가 없으면 추적 미들웨어가 span 도 async 래퍼도 만들지 않는다 (ADR-0022) — 이 비율이 1 에 가까워지면 fast-path 가 사라진 것이고, 추적을 끈 사용자가 켠 비용을 내게 된다",
+      "type": "ChServerM.Bench.Observability.TracingOverheadBenchmarks",
+      "numerator": "TracingNoListener",
+      "denominator": "TracingWithListener",
+      "baselineRatio": 0.049,
+      "regressionRatio": 0.126,
+      "maxRatio": 0.09,
+      "$calibration": "regressionRatio 는 fast-path(`if (!HasListeners()) return next(context);`)를 제거하고 실측한 값이다. 0.126 이지 1.0 이 아닌 이유: 리스너가 없으면 StartActivity 가 null 을 돌려주므로 제거의 대가는 span 생성이 아니라 async 상태 머신 + 기능 조회뿐이다. 임계는 실측 0.049 와 회귀 0.126 사이에 둔다"
+    },
+    {
+      "id": "buffers.pooled-vs-per-request",
+      "claim": "재사용하는 풀 버퍼 라이터가 요청마다 새로 만드는 것보다 싸다 (ADR-0016) — 풀링이 이기지 못하면 풀 관리 복잡도를 정당화할 수 없다",
+      "type": "ChServerM.Bench.Buffers.BufferWriterBenchmarks",
+      "numerator": "PooledBufferWriterReused",
+      "denominator": "ArrayBufferWriterPerRequest",
+      "baselineRatio": 0.080,
+      "maxRatio": 0.25
+    },
+    {
+      "id": "framing.partial-receive-early-exit",
+      "claim": "헤더가 덜 도착한 프레임은 전체 디코드 경로를 타지 않고 즉시 NeedMoreData 로 빠진다 — 조각난 도착마다 전체 비용을 내면 느린(또는 악의적인) 클라이언트가 소량의 대역폭으로 서버 CPU 를 태울 수 있다. 이것은 성능 항목이자 가용성 항목이다",
+      "type": "ChServerM.Bench.Framing.FrameCodecBenchmarks",
+      "numerator": "DecodePartial",
+      "denominator": "DecodeSingleSegment",
+      "parameters": "PayloadLength=0",
+      "baselineRatio": 0.045,
+      "maxRatio": 0.15,
+      "$rejected": "처음에는 DecodeSingleSegment/DecodeAcrossSegments 를 넣었다(실측 0.853, 임계 0.95). 두 경로의 본질적 차이가 17% 뿐이라 여유가 12% 밖에 안 나왔고, 게이트가 통과해도 근접 경고가 상시 켜졌다. 항상 켜진 경고는 사람이 무시하게 만들어 게이트를 무력화한다 — 여유가 부족한 비율은 게이트로 쓰지 않는다"
+    },
+    {
+      "id": "serialization.memorypack-vs-protobuf",
+      "claim": "MemoryPack 역직렬화가 Protobuf 보다 빠르다 — MemoryPack 을 C#↔C# 기본으로 고른 근거(ADR-0002)이며, 뒤집히면 기본값을 재검토해야 한다",
+      "type": "ChServerM.Bench.Serialization.SerializationBenchmarks",
+      "numerator": "DeserializeMemoryPack",
+      "denominator": "DeserializeProtobuf",
+      "parameters": "Size=small",
+      "baselineRatio": 0.577,
+      "maxRatio": 0.85
+    }
+  ]
+}
