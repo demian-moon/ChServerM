@@ -133,7 +133,10 @@ ChServerM/
 
 ### 런타임 설정 (`Directory.Build.props`에 고정)
 - `net10.0`, `LangVersion=14`, `Nullable=enable`, `AllowUnsafeBlocks=true`
-- `ServerGarbageCollector=true`, `ConcurrentGarbageCollector=true`, `TieredPGO=true`
+- `ServerGarbageCollection=true`, `ConcurrentGarbageCollection=true`, `TieredPGO=true`
+  — ⚠ 이름은 `...Collection` 이다. `...Collector` 로 적으면 **MSBuild 가 조용히 무시**해
+  설정이 통째로 사라진다(실제로 그렇게 3개월간 Workstation GC 로 돌았다, ADR-0031).
+  **선언을 믿지 말고 `*.runtimeconfig.json` 의 `System.GC.Server` 를 확인한다**
 - 라이브러리 전체 `IsAotCompatible=true` — 리플렉션 유입을 컴파일 타임에 차단하는 장치로 쓴다
 - `InvariantGlobalization=true`, 배포 대상은 Native AOT 또는 R2R
 

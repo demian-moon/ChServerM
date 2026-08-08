@@ -2020,3 +2020,109 @@ publish 가 함께 검증한다.
   한다(그때는 Core 계약에 UTF8 경로를 더하는 쪽이 맞다).
 - 부정: `Logging.Abstractions` 버전을 기존 `Identity.Core 10.0.10` 의 전이 요구에 맞춰 10.0.10 으로
   고정했다 — 중앙 관리에서 낮은 버전을 쓰면 NU1109 다운그레이드 오류가 난다.
+
+---
+
+## ADR-0031: GC 설정은 선언이 아니라 runtimeconfig 로 검증한다 — 오타로 3개월간 Workstation GC 로 돌았다
+
+**상태**: 채택 (2026-08-08)
+
+### 배경
+
+Phase 12 의 "GC 튜닝 검증" 항목을 시작하면서 현재 GC 설정을 확인했다. CLAUDE.md 6절은
+`ServerGarbageCollector=true` / `ConcurrentGarbageCollector=true` 를 `Directory.Build.props`
+에 **"고정"** 했다고 못박고 있었고, `BENCHMARKS.md` 측정 규칙도 "Release 빌드, **ServerGC**,
+디버거 미연결 상태에서만 측정" 이라고 적혀 있었다.
+
+**둘 다 사실이 아니었다.**
+
+### 발견
+
+1. 생성된 `*.runtimeconfig.json` 에 `System.GC.Server` 항목이 **없었다.** 저장소 전체를
+   훑으니 **18개 중 0개** — 어느 실행 파일에도 반영되지 않았다. 같은 `PropertyGroup` 의
+   `TieredPGO` 는 정상 반영돼 있어서, 프로퍼티 자체가 무시된 것이 아니라 **이름 두 개만**
+   무시된 것이었다.
+2. 최소 재현 프로젝트에 `<ServerGarbageCollector>true</ServerGarbageCollector>` 만 넣고
+   `GCSettings.IsServerGC` 를 출력했다 → **`False`**.
+3. SDK 타겟에서 근거를 찾았다 (`Microsoft.NET.Sdk.targets:576):
+
+   ```xml
+   <RuntimeHostConfigurationOption Include="System.GC.Server"
+                                   Condition="'$(ServerGarbageCollection)' != ''"
+                                   Value="$(ServerGarbageCollection)" />
+   ```
+
+   **SDK 프로퍼티는 `ServerGarbageCollection` 이다 — `...Collector` 가 아니다.**
+   우리가 쓴 이름은 MSBuild 에 존재하지 않는 프로퍼티라서, 오류도 경고도 없이 그냥
+   무시됐다. MSBuild 에는 "알 수 없는 프로퍼티" 라는 개념이 없다.
+
+### 결정
+
+1. **프로퍼티 이름을 고친다** — `ServerGarbageCollection` / `ConcurrentGarbageCollection`.
+   값(`true`)은 CLAUDE.md 가 선언한 의도 그대로 유지한다.
+2. **`Directory.Build.props` 주석에 검증 방법을 남긴다** — 선언을 믿지 않고
+   `runtimeconfig.json` 을 본다. 이 결함의 본질은 오타가 아니라 **선언을 검증하지 않은 것**
+   이다. 같은 실수는 `InvariantGlobalization`, `TieredCompilation` 등 어느 이름에서든 재발한다.
+3. **`BENCHMARKS.md` 의 잘못된 라벨을 정정한다** (아래 "영향 범위" 참조).
+4. **DATAS 는 기본값(켜짐)을 유지하되 측정치와 함께 문서화한다.** 끄는 쪽이 p99 에 유리하지만
+   워킹셋이 10배가 된다 — 프레임워크 기본값으로 삼기에는 대가가 크다. 노브와 수치를 남기고
+   선택은 호스트에 맡긴다.
+
+### 영향 범위 — 어떤 기록이 오염됐나
+
+**BenchmarkDotNet 기록은 무사하다.** BDN 은 job 설정으로 GC 모드를 **자기가 적용**하며
+(실행 배너에 `Concurrent=True, Server=True` 가 찍힌다) 호스트의 runtimeconfig 를 따르지 않는다.
+따라서 직렬화·프레이밍·라우팅·파티션 확장성 등 마이크로 벤치마크 전부가 실제로 ServerGC 였다.
+
+**LoadRunner 기반 종단 부하 기록은 Workstation GC 였다** — Phase 5 게이트(169,180 RPS ·
+1만 접속 · 커넥션당 8KB), Kestrel A/B, 벡터드 send A/B, TLS A/B. 다만 아래 재측정이 보여주듯
+**이 워크로드는 GC 모드에 처리량이 사실상 둔감**해서, 상대 비교(A/B)의 결론은 전부 유지된다.
+절대값 라벨만 정정한다.
+
+### 재측정 결과가 말하는 것 (2026-08-08, BENCHMARKS.md 참조)
+
+512 커넥션 전체 활성, 3개 구성:
+
+| 구성 | RPS | p99 | 워킹셋 |
+|---|---:|---:|---:|
+| Workstation (그동안 실제로 돌던 것) | 162.5k (3회 평균) | 7.7~9.6ms | 62MB |
+| ServerGC + DATAS(기본) | 158.1k (2회 평균) | 11.2~14.2ms | 53MB |
+| ServerGC + DATAS 끔 | 165.1k | 7.3ms | **624MB** |
+
+**처리량 차이가 전부 ±2% 안이다 — 실행 간 편차(Workstation 단독으로 2.2%)와 구분되지 않는다.**
+
+이것은 실패가 아니라 **설계 주장의 검증**이다. 핫패스가 프레임당 0바이트를 할당하면
+(CLAUDE.md 2절) GC 모드는 처리량에 개입할 지점이 거의 없다. **GC 튜닝이 안 먹히는 것이
+무할당 설계가 작동한다는 증거다.**
+
+명확한 신호는 처리량이 아니라 두 부작용이다:
+- **DATAS 는 p99 를 악화시킨다**(7.7 → 11.2~14.2ms). 힙 개수를 계속 재조정하므로 지연
+  지터가 는다. 메모리 탄력이 필요한 클라우드 워크로드용 기능이지 지연 민감 서버용이 아니다
+- **DATAS 를 끈 ServerGC 는 워킹셋이 10배**(62 → 624MB). 32코어에서 코어별 힙에 큰 예산을
+  잡기 때문이다. 1만 접속 기준 "커넥션당 8KB" 같은 주장은 GC 모드를 명시하지 않으면 무의미하다
+
+### 고려한 대안
+
+- **값을 `false` 로 바꿔 현상 유지** — 지금까지 실제로 Workstation 이었고 이 측정에서 p99 가
+  가장 좋으므로 일관성은 있다. **탈락**: 루프백 단일 머신에서 서버·생성기가 32코어를
+  공유하는 조건이라 ServerGC 의 GC 스레드가 생성기 코어를 직접 빼앗는다 — ServerGC 에
+  **구조적으로 불리한 측정**이다. 이 조건의 수치로 프로덕션 기본값을 뒤집을 수 없다
+- **선언을 아예 제거하고 호스트에 맡긴다** — 프레임워크는 라이브러리를 배포하므로
+  runtimeconfig 는 어차피 호스트 실행 파일의 몫이라는 논리. **탈락(보류)**: 타당한 방향이지만
+  Samples/Bench 가 대표 구성으로 돌아야 하고, 이 판단에는 전용 머신 측정이 먼저다
+- **DATAS 를 기본으로 끈다** — p99 만 보면 옳다. **탈락**: 워킹셋 10배는 프레임워크가
+  말없이 부과할 비용이 아니다. 문서화된 노브로 남긴다
+
+### 남은 것
+
+**전용 머신(서버·생성기 분리) 재측정이 GC 기본값의 진짜 근거다.** 현재 수치는 코어를
+공유하는 조건이라 ServerGC 를 과소평가한다. 다중 머신 측정은 Phase 12 미완 항목이며,
+그때 이 ADR 을 supersede 할 수 있다.
+
+### 배운 것
+
+**"고정했다" 는 선언은 검증이 아니다.** CLAUDE.md 와 `Directory.Build.props` 와
+`BENCHMARKS.md` 세 곳이 3개월간 같은 거짓을 일관되게 말했다 — 문서가 서로를 인용하면
+**틀린 것도 일관되게 틀린다.** 사실의 근거는 생성된 산출물(`runtimeconfig.json`)이나
+런타임 관측치(`GCSettings.IsServerGC`)여야 한다. 이 프로젝트가 "측정 없는 최적화 금지" 를
+규칙으로 둔 이유가 정확히 이것인데, **설정 자체는 그 규칙의 예외로 방치돼 있었다.**

@@ -42,10 +42,20 @@
   <!--
     런타임 GC/JIT 설정. 라이브러리에는 영향이 없고 실행 가능 프로젝트의
     runtimeconfig.json 에만 반영된다.
+
+    ⚠ 프로퍼티 이름은 `...Collection` 이다 (`...Collector` 가 아니다).
+    2026-08-08 까지 `ServerGarbageCollector`/`ConcurrentGarbageCollector` 로 적혀 있었는데
+    그것은 **SDK 에 존재하지 않는 이름**이라 MSBuild 가 조용히 무시했다 — 선언은 있었지만
+    runtimeconfig.json 에 `System.GC.Server` 가 실리지 않아 **모든 실행 파일이 Workstation GC
+    로 돌았다**(실측: `GCSettings.IsServerGC == false`). 오타 하나가 "고정" 이라고 문서화된
+    설정을 통째로 무효화한 사례다.
+
+    설정이 실제로 걸렸는지는 **runtimeconfig.json 을 보고 확인한다** — 선언을 믿지 않는다:
+      grep '"System.GC' <프로젝트>/bin/Release/net10.0/*.runtimeconfig.json
   -->
   <PropertyGroup>
-    <ServerGarbageCollector>true</ServerGarbageCollector>
-    <ConcurrentGarbageCollector>true</ConcurrentGarbageCollector>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
     <TieredPGO>true</TieredPGO>
   </PropertyGroup>
 
