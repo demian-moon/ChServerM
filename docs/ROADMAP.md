@@ -369,7 +369,8 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 
 ## Phase 13 — 세션 & 영속화
 
-- [ ] `ChServerM.Persistence.InMemory` — 기본 구현
+- [x] **Core 계약 `ISessionStore`** — ⚠ **원래 목록에 없던 선행 항목이다.** 축 추가 순서는 Core 인터페이스 → 참조 구현 1개 → 벤치마크 → 두 번째 구현(CLAUDE.md 3절)인데 Phase 13 은 어댑터부터 시작하고 있었다 (2026-08-09, ADR-0033). **바이트 계약 + 버전(CAS) + 만료(TTL)**. 값을 제네릭 타입으로 두면 인메모리=참조 / 원격=사본 으로 **의미가 갈려 같은 핸들러 코드가 저장소마다 다르게 동작**한다(ADR-0004 위반) → 바이트로 양쪽 모두 값 의미. CAS·TTL 은 `PublicAPI.Shipped` 로 굳은 뒤엔 못 넣으므로 v1 에 둔다. ABA 방지를 계약으로 명시(버전은 같은 키에 재사용 금지)
+- [x] `ChServerM.Persistence.InMemory` — 기본 구현 (2026-08-09, 참조 구현). 값 의미(복사)·CAS·만료를 모두 지킨다. **지연 만료 + 주기적 청소** — 지연 판정만으로는 *다시 조회되지 않는 세션*(= 끊긴 클라이언트)이 영원히 남아 OOM 벡터가 된다. 타이머는 저장소당 하나(9.5). 저장 배열은 풀 대여가 아니라 정확한 크기(장기 보유는 풀 고갈 + 반납 지점 4곳 분산 = 누락 확정). 테스트 24종이 **축의 합격 기준** — Redis 어댑터가 같은 단언을 통과해야 한다
 - [ ] `ChServerM.Persistence.Redis` (StackExchange.Redis)
 - [ ] 로컬 KV 검토 (Tsavorite / Garnet)
 - [ ] MongoDB 어댑터 검토 — 레거시 `DBManager/MongoDBManagerM.cs` 판정 필요

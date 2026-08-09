@@ -9,6 +9,7 @@
     <Project Path="Server/ChServerM.Hosting/ChServerM.Hosting.csproj" />
     <Project Path="Server/ChServerM.Logging.Extensions/ChServerM.Logging.Extensions.csproj" />
     <Project Path="Server/ChServerM.Observability/ChServerM.Observability.csproj" />
+    <Project Path="Server/ChServerM.Persistence.InMemory/ChServerM.Persistence.InMemory.csproj" />
     <Project Path="Server/ChServerM.Security.AspNetIdentity/ChServerM.Security.AspNetIdentity.csproj" />
     <Project Path="Server/ChServerM.Security.Tls/ChServerM.Security.Tls.csproj" />
     <Project Path="Server/ChServerM.Serialization.FlatBuffers/ChServerM.Serialization.FlatBuffers.csproj" />
@@ -28,6 +29,7 @@
   <Folder Name="/Tests/">
     <Project Path="Tests/ChServerM.Buffers.Tests/ChServerM.Buffers.Tests.csproj" />
     <Project Path="Tests/ChServerM.Compression.LZ4.Tests/ChServerM.Compression.LZ4.Tests.csproj" />
+    <Project Path="Tests/ChServerM.Persistence.InMemory.Tests/ChServerM.Persistence.InMemory.Tests.csproj" />
     <Project Path="Tests/ChServerM.Core.Tests/ChServerM.Core.Tests.csproj" />
     <Project Path="Tests/ChServerM.Diagnostics.Http.Tests/ChServerM.Diagnostics.Http.Tests.csproj" />
     <Project Path="Tests/ChServerM.Framing.Tests/ChServerM.Framing.Tests.csproj" />

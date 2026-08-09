@@ -597,3 +597,43 @@ ChServerM.Diagnostics.IDiagnosticsSource.Name.get -> string!
 ChServerM.Diagnostics.IDiagnosticsWriter
 ChServerM.Diagnostics.IDiagnosticsWriter.Write(string! key, long value) -> void
 ChServerM.Diagnostics.IDiagnosticsWriter.Write(string! key, string? value) -> void
+ChServerM.Sessions.ISessionStore
+ChServerM.Sessions.ISessionStore.TryReadAsync(ChServerM.Identity.SessionId id, System.Buffers.IBufferWriter<byte>! destination, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Sessions.SessionReadResult>
+ChServerM.Sessions.ISessionStore.TryRemoveAsync(ChServerM.Identity.SessionId id, ChServerM.Sessions.SessionVersion expectedVersion, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
+ChServerM.Sessions.ISessionStore.TryRenewAsync(ChServerM.Identity.SessionId id, ChServerM.Sessions.SessionVersion expectedVersion, System.TimeSpan timeToLive, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
+ChServerM.Sessions.ISessionStore.TryWriteAsync(ChServerM.Identity.SessionId id, System.ReadOnlyMemory<byte> state, ChServerM.Sessions.SessionVersion expectedVersion, System.TimeSpan? timeToLive = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Sessions.SessionWriteResult>
+ChServerM.Sessions.SessionReadResult
+ChServerM.Sessions.SessionReadResult.Equals(ChServerM.Sessions.SessionReadResult other) -> bool
+ChServerM.Sessions.SessionReadResult.Found.get -> bool
+ChServerM.Sessions.SessionReadResult.Length.get -> int
+ChServerM.Sessions.SessionReadResult.SessionReadResult() -> void
+ChServerM.Sessions.SessionReadResult.Version.get -> ChServerM.Sessions.SessionVersion
+ChServerM.Sessions.SessionVersion
+ChServerM.Sessions.SessionVersion.Equals(ChServerM.Sessions.SessionVersion other) -> bool
+ChServerM.Sessions.SessionVersion.IsNone.get -> bool
+ChServerM.Sessions.SessionVersion.SessionVersion() -> void
+ChServerM.Sessions.SessionVersion.SessionVersion(ulong value) -> void
+ChServerM.Sessions.SessionVersion.Value.get -> ulong
+ChServerM.Sessions.SessionWriteResult
+ChServerM.Sessions.SessionWriteResult.Equals(ChServerM.Sessions.SessionWriteResult other) -> bool
+ChServerM.Sessions.SessionWriteResult.SessionWriteResult() -> void
+ChServerM.Sessions.SessionWriteResult.Succeeded.get -> bool
+ChServerM.Sessions.SessionWriteResult.Version.get -> ChServerM.Sessions.SessionVersion
+override ChServerM.Sessions.SessionReadResult.Equals(object? obj) -> bool
+override ChServerM.Sessions.SessionReadResult.GetHashCode() -> int
+override ChServerM.Sessions.SessionVersion.Equals(object? obj) -> bool
+override ChServerM.Sessions.SessionVersion.GetHashCode() -> int
+override ChServerM.Sessions.SessionVersion.ToString() -> string!
+override ChServerM.Sessions.SessionWriteResult.Equals(object? obj) -> bool
+override ChServerM.Sessions.SessionWriteResult.GetHashCode() -> int
+static ChServerM.Sessions.SessionReadResult.Hit(ChServerM.Sessions.SessionVersion version, int length) -> ChServerM.Sessions.SessionReadResult
+static ChServerM.Sessions.SessionReadResult.NotFound.get -> ChServerM.Sessions.SessionReadResult
+static ChServerM.Sessions.SessionReadResult.operator !=(ChServerM.Sessions.SessionReadResult left, ChServerM.Sessions.SessionReadResult right) -> bool
+static ChServerM.Sessions.SessionReadResult.operator ==(ChServerM.Sessions.SessionReadResult left, ChServerM.Sessions.SessionReadResult right) -> bool
+static ChServerM.Sessions.SessionVersion.None.get -> ChServerM.Sessions.SessionVersion
+static ChServerM.Sessions.SessionVersion.operator !=(ChServerM.Sessions.SessionVersion left, ChServerM.Sessions.SessionVersion right) -> bool
+static ChServerM.Sessions.SessionVersion.operator ==(ChServerM.Sessions.SessionVersion left, ChServerM.Sessions.SessionVersion right) -> bool
+static ChServerM.Sessions.SessionWriteResult.Conflict.get -> ChServerM.Sessions.SessionWriteResult
+static ChServerM.Sessions.SessionWriteResult.Ok(ChServerM.Sessions.SessionVersion version) -> ChServerM.Sessions.SessionWriteResult
+static ChServerM.Sessions.SessionWriteResult.operator !=(ChServerM.Sessions.SessionWriteResult left, ChServerM.Sessions.SessionWriteResult right) -> bool
+static ChServerM.Sessions.SessionWriteResult.operator ==(ChServerM.Sessions.SessionWriteResult left, ChServerM.Sessions.SessionWriteResult right) -> bool
