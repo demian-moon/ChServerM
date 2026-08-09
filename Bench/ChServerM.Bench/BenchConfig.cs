@@ -37,6 +37,12 @@ namespace ChServerM.Bench;
 /// 함께 실려 상당 부분 상쇄된다. 절대 수치 기준선은 이 머신(ENV-B)의 전체 job 실행이 담당한다.
 /// </para>
 /// </remarks>
+// CA1812 억제 — 이 타입은 [Config(typeof(BenchConfig))] 속성을 통해 BenchmarkDotNet 이
+// 리플렉션으로 생성한다. 분석기는 그 생성 지점을 볼 수 없다.
+// (2026-08-08 에 Program.cs 의 전역 config 를 없애면서 유일한 new 호출이 사라졌다.)
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Performance", "CA1812:내부 클래스는 인스턴스화되지 않습니다",
+    Justification = "BenchmarkDotNet 이 [Config] 속성으로 인스턴스화한다.")]
 internal sealed class BenchConfig : ManualConfig
 {
     /// <summary>게이트 모드 스위치. <c>eng/bench-gate.ps1</c> 이 설정한다.</summary>

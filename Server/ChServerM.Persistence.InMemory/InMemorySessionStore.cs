@@ -140,9 +140,16 @@ public sealed class InMemorySessionStore : ISessionStore, IDisposable
             return ValueTask.FromCanceled<SessionWriteResult>(cancellationToken);
         }
 
-        // 값 의미 — 호출자의 버퍼를 붙잡지 않는다. 호출이 끝나면 재사용해도 된다(계약).
-        byte[] copy = state.ToArray();
         long expiresAt = ComputeExpiry(timeToLive);
+
+        // ⚠ 복사는 **버전 검사를 통과한 뒤에** 한다.
+        //
+        // 처음에는 루프 앞에서 무조건 복사했는데, 그러면 충돌로 거부되는 호출도 상태 전체를
+        // 복사한 뒤 버렸다(1KB 상태에서 1,048 B). **거부 경로가 성공 경로만큼 비싸면 안 된다** —
+        // 경합이 심할수록 충돌이 늘어나므로 정확히 부하가 높을 때 GC 압력이 커진다
+        // (열화 거부 경로를 무할당으로 고정한 것과 같은 논리).
+        // 재시도 루프에서는 만들어 둔 사본을 재사용한다 — 우리 것이므로 안전하다.
+        byte[]? copy = null;
 
         while (true)
         {
@@ -153,6 +160,7 @@ public sealed class InMemorySessionStore : ISessionStore, IDisposable
                     return ValueTask.FromResult(SessionWriteResult.Conflict);
                 }
 
+                copy ??= state.ToArray();
                 SessionVersion next = NextVersion();
                 Entry replacement = new(copy, next, expiresAt);
 
@@ -171,6 +179,7 @@ public sealed class InMemorySessionStore : ISessionStore, IDisposable
                 return ValueTask.FromResult(SessionWriteResult.Conflict);
             }
 
+            copy ??= state.ToArray();
             SessionVersion created = NextVersion();
             Entry fresh = new(copy, created, expiresAt);
 
@@ -250,13 +259,16 @@ public sealed class InMemorySessionStore : ISessionStore, IDisposable
             }
 
             // ⚠ 버전을 올리지 않는다 — 상태가 바뀌지 않았으므로 다른 주체의 CAS 를 깨면 안 된다(계약).
-            // 배열은 공유해도 안전하다: 불변이다.
-            Entry renewed = new(existing.State, existing.Version, expiresAt);
-
-            if (_entries.TryUpdate(id, renewed, existing))
-            {
-                return ValueTask.FromResult(true);
-            }
+            //
+            // ⚠ 항목을 교체하지 않고 **만료 시각만 제자리 갱신**한다. 처음에는 새 Entry 를
+            // 만들어 TryUpdate 했는데 하트비트마다 40 B 를 할당했다 — 만료를 미루자고 객체를
+            // 만드는 것은 이 메서드의 존재 이유(상태를 다시 안 보내려고 만들었다)와 모순이다.
+            //
+            // 경쟁 상황은 전부 무해하다: 그 사이 다른 쓰기가 항목을 교체했다면 우리는 버려진
+            // 객체를 갱신한 것이고, 새 항목은 그 쓰기가 정한 만료를 갖는다. 삭제됐다면 역시
+            // 버려진 객체다. 어느 쪽도 살아 있는 상태를 오염시키지 않는다.
+            existing.Renew(expiresAt);
+            return ValueTask.FromResult(true);
         }
     }
 
@@ -318,19 +330,32 @@ public sealed class InMemorySessionStore : ISessionStore, IDisposable
     }
 
     /// <summary>
-    /// 보관 항목. <b>불변</b>이며 교체로만 갱신된다 — 그래서 읽기가 락 없이 안전하다.
+    /// 보관 항목. <b>상태와 버전은 불변</b>이고 교체로만 갱신된다 — 그래서 읽기가 락 없이 안전하다.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// 참조 타입인 이유: <see cref="ConcurrentDictionary{TKey,TValue}.TryUpdate"/> 의 비교가
     /// 참조 동등성으로 동작해야 <b>"내가 본 그 항목일 때만 교체"</b> 가 성립한다. 구조체면
     /// 값 비교가 되어 내용이 같은 다른 세대와 구분되지 않는다.
+    /// </para>
+    /// <para>
+    /// <b>⚠ 만료 시각만 가변이다.</b> 연장(<c>TryRenewAsync</c>)이 객체를 만들지 않게 하기
+    /// 위해서다. <b>불변인 것은 <see cref="State"/> 와 <see cref="Version"/></b> 이고, 락 없는
+    /// 읽기와 CAS 가 의존하는 것도 그 둘뿐이다 — 만료는 판정에만 쓰이므로 원자적 읽기/쓰기로
+    /// 충분하다(9.3: 여러 스레드가 보는 필드는 <see cref="Volatile"/> 을 일관 적용한다).
+    /// </para>
     /// </remarks>
     private sealed class Entry(byte[] state, SessionVersion version, long expiresAtTicks)
     {
+        private long _expiresAtTicks = expiresAtTicks;
+
         public byte[] State { get; } = state;
 
         public SessionVersion Version { get; } = version;
 
-        public long ExpiresAtTicks { get; } = expiresAtTicks;
+        public long ExpiresAtTicks => Volatile.Read(ref _expiresAtTicks);
+
+        /// <summary>만료 시각을 제자리에서 갱신한다. 상태·버전은 건드리지 않는다.</summary>
+        public void Renew(long expiresAtTicks) => Volatile.Write(ref _expiresAtTicks, expiresAtTicks);
     }
 }

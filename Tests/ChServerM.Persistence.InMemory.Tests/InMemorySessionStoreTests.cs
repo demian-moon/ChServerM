@@ -415,6 +415,59 @@ public sealed class InMemorySessionStoreTests
         }
     }
 
+    // ── 할당 고정 ───────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Conflicting_write_does_not_copy_the_state()
+    {
+        // ★ 벤치마크가 잡은 결함의 회귀 방어. 처음 구현은 버전 검사 **전에** state.ToArray()
+        // 를 해서, 거부되는 호출도 상태 전체를 복사한 뒤 버렸다(1KB 상태에서 1,048 B).
+        // 경합이 심할수록 충돌이 늘어나므로 **정확히 부하가 높을 때** GC 압력이 커진다.
+        using InMemorySessionStore store = Create();
+        byte[] large = new byte[4096];
+        SessionWriteResult created = await store.TryWriteAsync(Id(1), large, SessionVersion.None);
+
+        SessionVersion stale = new(ulong.MaxValue); // 절대 맞지 않는다
+
+        // 워밍업 — 첫 호출의 JIT 할당을 측정에서 뺀다.
+        await store.TryWriteAsync(Id(1), large, stale);
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 100; i++)
+        {
+            await store.TryWriteAsync(Id(1), large, stale);
+        }
+
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        // 100회 거부에 4KB 복사가 있었다면 400KB 다. 여유를 둬 8KB 로 잡는다.
+        Assert.True(allocated < 8_192, $"거부 경로가 할당했다: {allocated} 바이트 / 100회");
+        Assert.NotEqual(SessionVersion.None, created.Version);
+    }
+
+    [Fact]
+    public async Task Renew_does_not_allocate()
+    {
+        // ★ 같은 부류. 만료를 미루자고 객체를 만드는 것은 이 메서드의 존재 이유
+        // (상태를 다시 안 보내려고 만들었다)와 모순이다 — 하트비트는 잦은 경로다.
+        ManualTimeProvider time = new();
+        using InMemorySessionStore store = Create(time);
+        SessionWriteResult created = await store.TryWriteAsync(
+            Id(1), Bytes(1, 2, 3), SessionVersion.None, TimeSpan.FromHours(1));
+
+        await store.TryRenewAsync(Id(1), created.Version, TimeSpan.FromHours(1)); // 워밍업
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 1000; i++)
+        {
+            await store.TryRenewAsync(Id(1), created.Version, TimeSpan.FromHours(1));
+        }
+
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.True(allocated < 4_096, $"연장이 할당했다: {allocated} 바이트 / 1000회");
+    }
+
     /// <summary>테스트가 시간을 직접 움직인다 — 만료를 <c>Task.Delay</c> 로 재면 느리고 플래키하다.</summary>
     private sealed class ManualTimeProvider : TimeProvider
     {
