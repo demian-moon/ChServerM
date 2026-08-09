@@ -63,6 +63,7 @@ internal static class Program
             "server" => await RunServerAsync(options).ConfigureAwait(false),
             "client" => await RunClientAsync(options).ConfigureAwait(false),
             "spike" => await RunSpikeAsync(options).ConfigureAwait(false),
+            "raw" => await RunRawBaselineAsync(options).ConfigureAwait(false),
             _ => Fail($"알 수 없는 모드: {args[0]}"),
         };
     }
@@ -86,6 +87,9 @@ internal static class Program
         Console.WriteLine("         [--host 127.0.0.1]");
         Console.WriteLine("         스파이크 시나리오 — 기준 부하 위에 신규 접속 폭주를 얹고 구간별로 잰다.");
         Console.WriteLine("         판정은 '빨랐는가' 가 아니라 '이미 붙은 손님이 살아남았는가' 다.");
+        Console.WriteLine("  raw    --port 15000 [--seconds 60]");
+        Console.WriteLine("         비교 바닥선 — 프레임워크 없이 같은 와이어 포맷으로 에코하는 최소 Kestrel 서버.");
+        Console.WriteLine("         client 모드로 server 와 raw 를 각각 몰아 프레임워크 세금을 잰다.");
     }
 
     private static int Fail(string message)
@@ -441,6 +445,21 @@ internal static class Program
 
     /// <summary>커넥션 하나를 연결하고, TLS 가 켜져 있으면 핸드셰이크까지 마친다.</summary>
     /// <remarks>핸드셰이크 실패는 예외로 던져 램프업 루프의 연결 실패 계수에 잡히게 한다.</remarks>
+    // ── 바닥선 모드 ──────────────────────────────────────────────────────────
+
+    /// <summary>프레임워크를 걷어낸 비교 바닥선을 돌린다 (<see cref="RawKestrelEchoServer"/>).</summary>
+    private static async Task<int> RunRawBaselineAsync(Dictionary<string, string> options)
+    {
+        int port = GetInt(options, "port", 15000);
+        int seconds = GetInt(options, "seconds", 60);
+
+        await RawKestrelEchoServer
+            .RunAsync(new IPEndPoint(IPAddress.Loopback, port), MaxPayloadLength, seconds)
+            .ConfigureAwait(false);
+
+        return 0;
+    }
+
     // ── 스파이크 모드 ────────────────────────────────────────────────────────
 
     /// <summary>
