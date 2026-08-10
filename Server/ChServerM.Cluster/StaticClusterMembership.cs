@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using ChServerM.Identity;
 
 namespace ChServerM.Cluster;
 
@@ -12,23 +13,29 @@ namespace ChServerM.Cluster;
 /// <remarks>
 /// <para>
 /// <b>검증은 조립 시점에 전부 한다.</b> 구성원 목록이 잘못된 채로 기동하면 그 결과는
-/// "일부 키가 아무 데도 가지 않는" 형태로 나타나고, 그때는 원인이 설정에서 아주 멀어져 있다
-/// (Phase 2 옵션 검증과 같은 원칙).
+/// "일부 키가 아무 데도 가지 않는" 또는 "ObjectId 가 조용히 충돌하는" 형태로 나타나고,
+/// 그때는 원인이 설정에서 아주 멀어져 있다(Phase 2 옵션 검증과 같은 원칙).
 /// </para>
 /// <para><b>스레드 규약.</b> 조립 전용. 만들고 나면 멤버십이 값을 복사해 간다.</para>
 /// </remarks>
 public sealed class StaticClusterMembershipOptions
 {
-    /// <summary>이 프로세스의 노드 이름. <see cref="Nodes"/> 안에 있어야 한다.</summary>
-    public string SelfName { get; set; } = string.Empty;
+    /// <summary>
+    /// 이 프로세스의 노드 번호. <see cref="Nodes"/> 안에 있어야 한다.
+    /// </summary>
+    /// <remarks>
+    /// <b>이름이 아니라 번호로 지정한다.</b> 번호가 정체성이기 때문이다 —
+    /// <see cref="ObjectId"/> 에 실리는 값과 같아야 하고, 이름은 바뀔 수 있다.
+    /// </remarks>
+    public NodeId SelfId { get; set; }
 
-    /// <summary>구성원. 이름과 <b>노드 간 통신용</b> 주소의 쌍.</summary>
+    /// <summary>구성원. 번호·이름·<b>노드 간 통신용</b> 주소.</summary>
     /// <remarks>
     /// <b>⚠ 클라이언트 접속 주소가 아니다.</b> 둘이 다른 배포가 대부분이며, 섞으면
     /// 연결은 되는데 엉뚱한 경로로 가는 형태로 나타나 진단이 아주 나쁘다
     /// (<see cref="ClusterNode"/> 문서 참조).
     /// </remarks>
-    public IList<(string Name, EndPoint EndPoint)> Nodes { get; } = [];
+    public IList<(NodeId Id, string Name, EndPoint EndPoint)> Nodes { get; } = [];
 
     /// <summary>설정이 앞뒤가 맞는지 확인한다.</summary>
     /// <exception cref="InvalidOperationException">구성이 성립하지 않는다.</exception>
@@ -39,25 +46,18 @@ public sealed class StaticClusterMembershipOptions
     /// </remarks>
     public void Validate()
     {
-        if (string.IsNullOrWhiteSpace(SelfName))
-        {
-            throw new InvalidOperationException(
-                $"{nameof(SelfName)} 이 비어 있다. 이 프로세스가 클러스터에서 누구인지 반드시 정해야 한다.");
-        }
-
         if (Nodes.Count == 0)
         {
             throw new InvalidOperationException($"{nameof(Nodes)} 가 비어 있다. 최소한 자기 자신은 있어야 한다.");
         }
 
-        HashSet<string> names = new(StringComparer.Ordinal);
         bool selfFound = false;
 
-        foreach ((string name, EndPoint endPoint) in Nodes)
+        foreach ((NodeId id, string name, EndPoint endPoint) in Nodes)
         {
             if (string.IsNullOrWhiteSpace(name))
             {
-                throw new InvalidOperationException("노드 이름이 비어 있다.");
+                throw new InvalidOperationException($"노드 {id.Value} 의 이름이 비어 있다.");
             }
 
             if (endPoint is null)
@@ -65,18 +65,14 @@ public sealed class StaticClusterMembershipOptions
                 throw new InvalidOperationException($"노드 '{name}' 의 주소가 null 이다.");
             }
 
-            if (!names.Add(name))
-            {
-                throw new InvalidOperationException($"노드 이름이 중복된다: '{name}'");
-            }
-
-            selfFound |= string.Equals(name, SelfName, StringComparison.Ordinal);
+            selfFound |= id == SelfId;
         }
 
+        // 번호·이름 중복은 ClusterView 가 판정한다 — 그 규칙의 정본이 한 곳이어야 한다.
         if (!selfFound)
         {
             throw new InvalidOperationException(
-                $"{nameof(SelfName)} '{SelfName}' 이 {nameof(Nodes)} 에 없다. "
+                $"{nameof(SelfId)} {SelfId.Value} 가 {nameof(Nodes)} 에 없다. "
                 + "자기를 목록에서 빠뜨리면 이 노드만 자기에게 라우팅되지 않는다고 믿게 된다.");
         }
     }
@@ -114,9 +110,10 @@ public sealed class StaticClusterMembership : IClusterMembership
     private readonly ClusterView _view;
 
     /// <summary>설정에서 만든다.</summary>
-    /// <param name="options">구성원과 자기 이름.</param>
+    /// <param name="options">구성원과 자기 번호.</param>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> 가 <see langword="null"/> 이다.</exception>
     /// <exception cref="InvalidOperationException">설정이 성립하지 않는다.</exception>
+    /// <exception cref="ArgumentException">노드 번호나 이름이 중복이다.</exception>
     public StaticClusterMembership(StaticClusterMembershipOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -125,18 +122,19 @@ public sealed class StaticClusterMembership : IClusterMembership
         List<ClusterNode> nodes = new(options.Nodes.Count);
         ClusterNode? self = null;
 
-        foreach ((string name, EndPoint endPoint) in options.Nodes)
+        foreach ((NodeId id, string name, EndPoint endPoint) in options.Nodes)
         {
-            ClusterNode node = new(new NodeId(name), endPoint);
+            ClusterNode node = new(id, name, endPoint);
             nodes.Add(node);
 
-            if (string.Equals(name, options.SelfName, StringComparison.Ordinal))
+            if (id == options.SelfId)
             {
                 self = node;
             }
         }
 
         // 정적 목록은 세대가 늘지 않는다. 1 로 고정하는 것이 "한 번도 바뀌지 않았다" 의 표현이다.
+        // 중복 판정은 여기서 난다 — 규칙의 정본이 ClusterView 하나이기 때문이다.
         _view = new ClusterView(nodes, generation: 1);
 
         // Validate 가 이미 자기 존재를 보장한다. 여기 도달했는데 null 이면 그것은 이 타입의 버그다.
@@ -158,14 +156,14 @@ public sealed class StaticClusterMembership : IClusterMembership
             return new ValueTask<ClusterView>(_view);
         }
 
-        // 바뀔 일이 없다. 취소될 때까지 완료하지 않는 것이 정확한 답이다.
-        // ⚠ Task.Delay 대신 TCS + 등록을 쓴다 — 타이머를 잡지 않고, 취소되면 등록이
-        //   함께 풀려 대기하는 소비자 수만큼 자원이 늘지 않는다.
         if (cancellationToken.IsCancellationRequested)
         {
             return ValueTask.FromCanceled<ClusterView>(cancellationToken);
         }
 
+        // 바뀔 일이 없다. 취소될 때까지 완료하지 않는 것이 정확한 답이다.
+        // ⚠ Task.Delay 대신 TCS + 등록을 쓴다 — 타이머를 잡지 않고, 취소되면 등록이
+        //   함께 풀려 대기하는 소비자 수만큼 자원이 늘지 않는다.
         return new ValueTask<ClusterView>(NeverAsync(cancellationToken));
     }
 

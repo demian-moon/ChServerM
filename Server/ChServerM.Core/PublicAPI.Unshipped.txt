@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 ChServerM.Connections.CloseReason
 ChServerM.Connections.CloseReason.ApplicationError = 6 -> ChServerM.Connections.CloseReason
 ChServerM.Connections.CloseReason.ClientClosed = 1 -> ChServerM.Connections.CloseReason
@@ -708,29 +708,23 @@ static ChServerM.Handshake.VersionHandshakeCodec.WriteRejection(System.Span<byte
 static ChServerM.Identity.FrameworkMessageIds.ContentAccepted.get -> ChServerM.Identity.MessageId
 static ChServerM.Identity.FrameworkMessageIds.ContentOffer.get -> ChServerM.Identity.MessageId
 ChServerM.Cluster.ClusterNode
-ChServerM.Cluster.ClusterNode.ClusterNode(ChServerM.Cluster.NodeId id, System.Net.EndPoint! endPoint) -> void
+ChServerM.Cluster.ClusterNode.ClusterNode(ChServerM.Identity.NodeId id, string! name, System.Net.EndPoint! endPoint) -> void
 ChServerM.Cluster.ClusterNode.EndPoint.get -> System.Net.EndPoint!
-ChServerM.Cluster.ClusterNode.Id.get -> ChServerM.Cluster.NodeId
+ChServerM.Cluster.ClusterNode.Id.get -> ChServerM.Identity.NodeId
+ChServerM.Cluster.ClusterNode.Name.get -> string!
 ChServerM.Cluster.ClusterView
 ChServerM.Cluster.ClusterView.ClusterView(System.Collections.Generic.IReadOnlyList<ChServerM.Cluster.ClusterNode!>! nodes, int generation) -> void
-ChServerM.Cluster.ClusterView.Contains(ChServerM.Cluster.NodeId id) -> bool
+ChServerM.Cluster.ClusterView.Contains(ChServerM.Identity.NodeId id) -> bool
 ChServerM.Cluster.ClusterView.Count.get -> int
 ChServerM.Cluster.ClusterView.Generation.get -> int
 ChServerM.Cluster.ClusterView.Nodes.get -> System.Collections.Generic.IReadOnlyList<ChServerM.Cluster.ClusterNode!>!
-ChServerM.Cluster.ClusterView.TryGetNode(ChServerM.Cluster.NodeId id, out ChServerM.Cluster.ClusterNode? node) -> bool
+ChServerM.Cluster.ClusterView.TryGetNode(ChServerM.Identity.NodeId id, out ChServerM.Cluster.ClusterNode? node) -> bool
 ChServerM.Cluster.IClusterMembership
 ChServerM.Cluster.IClusterMembership.Current.get -> ChServerM.Cluster.ClusterView!
 ChServerM.Cluster.IClusterMembership.Self.get -> ChServerM.Cluster.ClusterNode!
 ChServerM.Cluster.IClusterMembership.WaitForChangeAsync(int knownGeneration, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<ChServerM.Cluster.ClusterView!>
-ChServerM.Cluster.NodeId
-ChServerM.Cluster.NodeId.Equals(ChServerM.Cluster.NodeId other) -> bool
-ChServerM.Cluster.NodeId.IsSet.get -> bool
-ChServerM.Cluster.NodeId.Name.get -> string!
-ChServerM.Cluster.NodeId.NodeId() -> void
-ChServerM.Cluster.NodeId.NodeId(string! name) -> void
+ChServerM.Cluster.IClusterRouter
+ChServerM.Cluster.IClusterRouter.GetOwners(ChServerM.Identity.PartitionKey key, System.Span<ChServerM.Cluster.ClusterNode?> destination) -> int
+ChServerM.Cluster.IClusterRouter.TryGetOwner(ChServerM.Identity.PartitionKey key, out ChServerM.Cluster.ClusterNode? owner) -> bool
+ChServerM.Cluster.IClusterRouter.View.get -> ChServerM.Cluster.ClusterView!
 override ChServerM.Cluster.ClusterNode.ToString() -> string!
-override ChServerM.Cluster.NodeId.Equals(object? obj) -> bool
-override ChServerM.Cluster.NodeId.GetHashCode() -> int
-override ChServerM.Cluster.NodeId.ToString() -> string!
-static ChServerM.Cluster.NodeId.operator !=(ChServerM.Cluster.NodeId left, ChServerM.Cluster.NodeId right) -> bool
-static ChServerM.Cluster.NodeId.operator ==(ChServerM.Cluster.NodeId left, ChServerM.Cluster.NodeId right) -> bool

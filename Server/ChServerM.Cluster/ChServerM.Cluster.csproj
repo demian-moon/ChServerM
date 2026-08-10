@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
 
@@ -13,8 +13,8 @@
 
   <!--
     벤더 의존 0. 이 어댑터는 BCL 만 쓴다 — 그래서 "참조 구현" 이다.
-    두 번째 구현(Consul/etcd/K8s)이 나오기 전까지 IClusterMembership 은 가설이고
-    (CLAUDE.md 3절), 이 프로젝트가 그 가설을 실행 가능한 형태로 고정한다.
+    두 번째 구현(Consul/etcd/K8s, 그리고 라우팅의 일관 해싱)이 나오기 전까지
+    이 축들은 가설이고(CLAUDE.md 3절), 이 프로젝트가 그 가설을 실행 가능한 형태로 고정한다.
   -->
 
 </Project>

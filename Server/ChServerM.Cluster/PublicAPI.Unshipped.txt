@@ -1,4 +1,9 @@
-#nullable enable
+﻿#nullable enable
+ChServerM.Cluster.RendezvousRouter
+ChServerM.Cluster.RendezvousRouter.GetOwners(ChServerM.Identity.PartitionKey key, System.Span<ChServerM.Cluster.ClusterNode?> destination) -> int
+ChServerM.Cluster.RendezvousRouter.RendezvousRouter(ChServerM.Cluster.ClusterView! view) -> void
+ChServerM.Cluster.RendezvousRouter.TryGetOwner(ChServerM.Identity.PartitionKey key, out ChServerM.Cluster.ClusterNode? owner) -> bool
+ChServerM.Cluster.RendezvousRouter.View.get -> ChServerM.Cluster.ClusterView!
 ChServerM.Cluster.StaticClusterMembership
 ChServerM.Cluster.StaticClusterMembership.Current.get -> ChServerM.Cluster.ClusterView!
 ChServerM.Cluster.StaticClusterMembership.DisposeAsync() -> System.Threading.Tasks.ValueTask
@@ -6,8 +11,8 @@ ChServerM.Cluster.StaticClusterMembership.Self.get -> ChServerM.Cluster.ClusterN
 ChServerM.Cluster.StaticClusterMembership.StaticClusterMembership(ChServerM.Cluster.StaticClusterMembershipOptions! options) -> void
 ChServerM.Cluster.StaticClusterMembership.WaitForChangeAsync(int knownGeneration, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<ChServerM.Cluster.ClusterView!>
 ChServerM.Cluster.StaticClusterMembershipOptions
-ChServerM.Cluster.StaticClusterMembershipOptions.Nodes.get -> System.Collections.Generic.IList<(string! Name, System.Net.EndPoint! EndPoint)>!
-ChServerM.Cluster.StaticClusterMembershipOptions.SelfName.get -> string!
-ChServerM.Cluster.StaticClusterMembershipOptions.SelfName.set -> void
+ChServerM.Cluster.StaticClusterMembershipOptions.Nodes.get -> System.Collections.Generic.IList<(ChServerM.Identity.NodeId Id, string! Name, System.Net.EndPoint! EndPoint)>!
+ChServerM.Cluster.StaticClusterMembershipOptions.SelfId.get -> ChServerM.Identity.NodeId
+ChServerM.Cluster.StaticClusterMembershipOptions.SelfId.set -> void
 ChServerM.Cluster.StaticClusterMembershipOptions.StaticClusterMembershipOptions() -> void
 ChServerM.Cluster.StaticClusterMembershipOptions.Validate() -> void

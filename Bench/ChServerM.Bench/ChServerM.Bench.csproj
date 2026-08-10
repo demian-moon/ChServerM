@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
 
@@ -53,6 +53,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Server\ChServerM.Buffers\ChServerM.Buffers.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Compression.LZ4\ChServerM.Compression.LZ4.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Cluster\ChServerM.Cluster.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Concurrency\ChServerM.Concurrency.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Framing\ChServerM.Framing.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Hosting\ChServerM.Hosting.csproj" />

@@ -1,33 +1,34 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using ChServerM.Identity;
 using Xunit;
 
 namespace ChServerM.Cluster.Tests;
 
 /// <summary>
-/// 클러스터 축의 참조 구현 검증 (ADR-0047).
+/// 클러스터 축의 참조 구현 검증 (ADR-0047, ADR-0048).
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>고정하는 것은 계약이다.</b> 정적 목록 자체는 단순하지만, 이 테스트가 지키는 것은
 /// <see cref="IClusterMembership"/> 의 규약 — <b>순서 결정성</b>, <b>세대 인자가 경합을
-/// 닫는다</b>, <b>바뀌지 않으면 깨우지 않는다</b> — 이며, 두 번째 구현(Consul·K8s)이
-/// 나올 때 그대로 적용돼야 하는 것들이다.
+/// 닫는다</b>, <b>바뀌지 않으면 깨우지 않는다</b>, <b>노드 번호 유일성</b> — 이며,
+/// 두 번째 구현(Consul·K8s)이 나올 때 그대로 적용돼야 하는 것들이다.
 /// </para>
 /// </remarks>
 public sealed class StaticClusterMembershipTests
 {
-    private static StaticClusterMembershipOptions ThreeNodes(string self = "beta")
+    private static StaticClusterMembershipOptions ThreeNodes(ushort self = 2)
     {
-        StaticClusterMembershipOptions options = new() { SelfName = self };
+        StaticClusterMembershipOptions options = new() { SelfId = new NodeId(self) };
 
-        // ⚠ 일부러 사전 순이 아닌 순서로 넣는다 — 뷰가 정렬을 강제하는지 보기 위해서다.
-        options.Nodes.Add(("gamma", new DnsEndPoint("gamma.internal", 7000)));
-        options.Nodes.Add(("alpha", new DnsEndPoint("alpha.internal", 7000)));
-        options.Nodes.Add(("beta", new DnsEndPoint("beta.internal", 7000)));
+        // ⚠ 일부러 번호 순이 아닌 순서로 넣는다 — 뷰가 정렬을 강제하는지 보기 위해서다.
+        options.Nodes.Add((new NodeId(3), "gamma", new DnsEndPoint("gamma.internal", 7000)));
+        options.Nodes.Add((new NodeId(1), "alpha", new DnsEndPoint("alpha.internal", 7000)));
+        options.Nodes.Add((new NodeId(2), "beta", new DnsEndPoint("beta.internal", 7000)));
 
         return options;
     }
@@ -35,27 +36,28 @@ public sealed class StaticClusterMembershipTests
     // ── 뷰의 계약 ────────────────────────────────────────────────────
 
     [Fact]
-    public async Task View_isSortedByNodeId_regardlessOfConfigurationOrder()
+    public async Task View_isSortedByNodeNumber_regardlessOfConfigurationOrder()
     {
         // ⭐ 발견 순서에 의존하면 노드마다 다른 순서를 보게 되고, 순서에 기대는 라우팅이
         // 노드마다 다른 답을 낸다 — 모든 노드가 자기만 옳다고 믿는 형태의 장애다.
         await using StaticClusterMembership membership = new(ThreeNodes());
 
         Assert.Equal(
-            ["alpha", "beta", "gamma"],
-            membership.Current.Nodes.Select(static n => n.Id.Name));
+            [(ushort)1, (ushort)2, (ushort)3],
+            membership.Current.Nodes.Select(static n => n.Id.Value));
     }
 
     [Fact]
     public async Task Self_isTheConfiguredNode()
     {
-        await using StaticClusterMembership membership = new(ThreeNodes(self: "gamma"));
+        await using StaticClusterMembership membership = new(ThreeNodes(self: 3));
 
-        Assert.Equal(new NodeId("gamma"), membership.Self.Id);
+        Assert.Equal(new NodeId(3), membership.Self.Id);
+        Assert.Equal("gamma", membership.Self.Name);
         Assert.Equal(new DnsEndPoint("gamma.internal", 7000), membership.Self.EndPoint);
 
         // 자기 자신은 구성원이기도 하다 — 같은 인스턴스여야 두 경로가 갈라지지 않는다.
-        Assert.True(membership.Current.TryGetNode(new NodeId("gamma"), out ClusterNode? fromView));
+        Assert.True(membership.Current.TryGetNode(new NodeId(3), out ClusterNode? fromView));
         Assert.Same(membership.Self, fromView);
     }
 
@@ -66,9 +68,9 @@ public sealed class StaticClusterMembershipTests
         ClusterView view = membership.Current;
 
         Assert.Equal(3, view.Count);
-        Assert.True(view.Contains(new NodeId("alpha")));
-        Assert.False(view.Contains(new NodeId("delta")));
-        Assert.False(view.TryGetNode(new NodeId("delta"), out _));
+        Assert.True(view.Contains(new NodeId(1)));
+        Assert.False(view.Contains(new NodeId(9)));
+        Assert.False(view.TryGetNode(new NodeId(9), out _));
     }
 
     [Fact]
@@ -104,8 +106,7 @@ public sealed class StaticClusterMembershipTests
         await using StaticClusterMembership membership = new(ThreeNodes());
 
         using CancellationTokenSource cts = new();
-        ValueTask<ClusterView> waiting = membership.WaitForChangeAsync(knownGeneration: 1, cts.Token);
-        Task<ClusterView> task = waiting.AsTask();
+        Task<ClusterView> task = membership.WaitForChangeAsync(knownGeneration: 1, cts.Token).AsTask();
 
         Task finished = await Task.WhenAny(task, Task.Delay(200, CancellationToken.None));
         Assert.NotSame(task, finished);
@@ -130,7 +131,6 @@ public sealed class StaticClusterMembershipTests
     public async Task WaitForChange_manyWaitersCanceled_doNotLeakRegistrations()
     {
         // ⚠ 취소 등록을 풀지 않으면 기다렸다 그만두기를 반복하는 소비자가 곧 누수가 된다.
-        // 등록이 쌓이면 이 반복이 눈에 띄게 느려지거나 메모리가 는다.
         await using StaticClusterMembership membership = new(ThreeNodes());
 
         for (int i = 0; i < 500; i++)
@@ -171,48 +171,65 @@ public sealed class StaticClusterMembershipTests
     {
         // ⭐ 가장 진단이 어려운 구성 실수다 — 이 노드만 "자기에게는 아무것도 오지 않는다" 고
         // 믿는데 다른 노드들은 자기에게 보낸다.
-        StaticClusterMembershipOptions options = ThreeNodes(self: "delta");
+        StaticClusterMembershipOptions options = ThreeNodes(self: 9);
 
         InvalidOperationException error =
             Assert.Throws<InvalidOperationException>(() => new StaticClusterMembership(options));
 
-        Assert.Contains("delta", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void EmptySelfName_failsAtAssembly()
-    {
-        StaticClusterMembershipOptions options = ThreeNodes(self: "");
-
-        Assert.Throws<InvalidOperationException>(() => new StaticClusterMembership(options));
+        Assert.Contains("9", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     public void NoNodes_failsAtAssembly()
     {
-        StaticClusterMembershipOptions options = new() { SelfName = "alpha" };
+        StaticClusterMembershipOptions options = new() { SelfId = new NodeId(1) };
 
         Assert.Throws<InvalidOperationException>(() => new StaticClusterMembership(options));
     }
 
     [Fact]
+    public void DuplicateNodeNumber_failsAtAssembly()
+    {
+        // ⭐ 지금까지 아무 데서도 확인하지 않던 것이다. 두 노드가 같은 번호를 쓰면
+        // ObjectId 가 조용히 충돌하고, 그 충돌은 한참 뒤 데이터에서 발견된다.
+        StaticClusterMembershipOptions options = new() { SelfId = new NodeId(1) };
+        options.Nodes.Add((new NodeId(1), "alpha", new DnsEndPoint("a", 1)));
+        options.Nodes.Add((new NodeId(1), "beta", new DnsEndPoint("b", 2)));
+
+        ArgumentException error =
+            Assert.Throws<ArgumentException>(() => new StaticClusterMembership(options));
+
+        Assert.Contains("ObjectId", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DuplicateNodeName_failsAtAssembly()
     {
-        StaticClusterMembershipOptions options = new() { SelfName = "alpha" };
-        options.Nodes.Add(("alpha", new DnsEndPoint("a", 1)));
-        options.Nodes.Add(("alpha", new DnsEndPoint("b", 2)));
+        // 이름이 겹치면 로그에서 두 노드를 구분할 수 없다.
+        StaticClusterMembershipOptions options = new() { SelfId = new NodeId(1) };
+        options.Nodes.Add((new NodeId(1), "alpha", new DnsEndPoint("a", 1)));
+        options.Nodes.Add((new NodeId(2), "alpha", new DnsEndPoint("b", 2)));
 
-        InvalidOperationException error =
-            Assert.Throws<InvalidOperationException>(() => new StaticClusterMembership(options));
+        ArgumentException error =
+            Assert.Throws<ArgumentException>(() => new StaticClusterMembership(options));
 
-        Assert.Contains("중복", error.Message, StringComparison.Ordinal);
+        Assert.Contains("이름이 중복", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EmptyNodeName_failsAtAssembly()
+    {
+        StaticClusterMembershipOptions options = new() { SelfId = new NodeId(1) };
+        options.Nodes.Add((new NodeId(1), "  ", new DnsEndPoint("a", 1)));
+
+        Assert.Throws<InvalidOperationException>(() => new StaticClusterMembership(options));
     }
 
     [Fact]
     public void NullEndPoint_failsAtAssembly()
     {
-        StaticClusterMembershipOptions options = new() { SelfName = "alpha" };
-        options.Nodes.Add(("alpha", null!));
+        StaticClusterMembershipOptions options = new() { SelfId = new NodeId(1) };
+        options.Nodes.Add((new NodeId(1), "alpha", null!));
 
         Assert.Throws<InvalidOperationException>(() => new StaticClusterMembership(options));
     }
@@ -224,32 +241,21 @@ public sealed class StaticClusterMembershipTests
     // ── 값 타입의 계약 ───────────────────────────────────────────────
 
     [Fact]
-    public void NodeId_comparesOrdinally_andRejectsEmpty()
+    public void ClusterView_rejectsDuplicatesAndBadGeneration()
     {
-        Assert.Equal(new NodeId("alpha"), new NodeId("alpha"));
-        Assert.NotEqual(new NodeId("alpha"), new NodeId("Alpha"));
-        Assert.True(new NodeId("alpha").IsSet);
+        ClusterNode a = new(new NodeId(1), "alpha", new DnsEndPoint("a", 1));
+        ClusterNode sameNumber = new(new NodeId(1), "beta", new DnsEndPoint("b", 2));
+        ClusterNode sameName = new(new NodeId(2), "alpha", new DnsEndPoint("b", 2));
 
-        // default 를 유효한 노드로 취급하지 않는다 — 초기화되지 않은 필드가 우연히
-        // 같은 노드가 되는 것을 막는다.
-        Assert.False(default(NodeId).IsSet);
-        Assert.Throws<ArgumentException>(() => new NodeId("  "));
-    }
-
-    [Fact]
-    public void ClusterView_rejectsDuplicateIdsAndBadGeneration()
-    {
-        ClusterNode a = new(new NodeId("alpha"), new DnsEndPoint("a", 1));
-        ClusterNode b = new(new NodeId("alpha"), new DnsEndPoint("b", 2));
-
-        Assert.Throws<ArgumentException>(() => new ClusterView([a, b], generation: 1));
+        Assert.Throws<ArgumentException>(() => new ClusterView([a, sameNumber], generation: 1));
+        Assert.Throws<ArgumentException>(() => new ClusterView([a, sameName], generation: 1));
         Assert.Throws<ArgumentOutOfRangeException>(() => new ClusterView([a], generation: 0));
     }
 
     [Fact]
-    public void ClusterNode_rejectsUnsetIdAndNullEndPoint()
+    public void ClusterNode_rejectsEmptyNameAndNullEndPoint()
     {
-        Assert.Throws<ArgumentException>(() => new ClusterNode(default, new DnsEndPoint("a", 1)));
-        Assert.Throws<ArgumentNullException>(() => new ClusterNode(new NodeId("alpha"), null!));
+        Assert.Throws<ArgumentException>(() => new ClusterNode(new NodeId(1), " ", new DnsEndPoint("a", 1)));
+        Assert.Throws<ArgumentNullException>(() => new ClusterNode(new NodeId(1), "alpha", null!));
     }
 }
