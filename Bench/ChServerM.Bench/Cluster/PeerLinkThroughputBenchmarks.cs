@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Threading;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
@@ -125,7 +126,12 @@ public class PeerLinkThroughputBenchmarks
                 SendQueueDepth = FrameCount * 2,
                 MaxPayloadLength = 8 * 1024,
             },
-            NullServerLogger.Instance);
+            NullServerLogger.Instance,
+
+            // ⚠ 이 벤치는 **Shared 를 쓰는 것이 측정 대상**이다 — 깊은 큐에서 무할당이
+            //   깨지는 것을 드러낸 것이 바로 이 조합이다(BENCHMARKS 2026-08-10).
+            //   전용 풀로 바꾸면 그 관측이 사라진다. 해결책 쪽은 PeerLinkPoolBenchmarks 가 잰다.
+            ArrayPool<byte>.Shared);
 
         _payload = new byte[PayloadBytes];
         _drained = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

@@ -119,13 +119,22 @@ public class PeerLinkPoolBenchmarks
             MaxPayloadLength = MaxPayload,
         };
 
-        // ⚠ 전용 풀의 보관 개수를 **큐 깊이에 맞춘다**. 이것이 이 A/B 의 전부다 —
-        //   풀을 바꾼 것이 아니라 "동시에 떠 있을 수 있는 만큼 담을 수 있게" 만든 것이다.
-        _peers = Pool == PeerBufferPool.Dedicated
-            ? new ClusterPeerSet(
-                _membership, _client, options, NullServerLogger.Instance,
-                ArrayPool<byte>.Create(maxArrayLength: MaxPayload, maxArraysPerBucket: FrameCount * 2))
-            : new ClusterPeerSet(_membership, _client, options, NullServerLogger.Instance);
+        // ⚠ 전용 풀의 보관 개수를 **동시에 떠 있을 수 있는 만큼**으로 잡는다.
+        //   여기서는 피어가 하나뿐이라 그것이 곧 큐 깊이다.
+        //
+        // ⚠⚠ "보관 개수 = 큐 깊이" 로 일반화하면 틀린다 — 큐는 **링크마다**,
+        //     풀은 **집합에 하나**이므로 실제 최악은 `깊이 × 피어 수` 다
+        //     (BENCHMARKS 2026-08-10 "전용 풀의 보유 메모리 상한" E 절).
+        //     이 벤치가 그 결함에 걸리지 않은 이유는 피어가 하나이기 때문이지
+        //     규칙이 맞아서가 아니다.
+        _peers = new ClusterPeerSet(
+            _membership,
+            _client,
+            options,
+            NullServerLogger.Instance,
+            Pool == PeerBufferPool.Dedicated
+                ? ArrayPool<byte>.Create(maxArrayLength: MaxPayload, maxArraysPerBucket: FrameCount * 2)
+                : ArrayPool<byte>.Shared);
 
         _payload = new byte[PayloadBytes];
         _drained = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

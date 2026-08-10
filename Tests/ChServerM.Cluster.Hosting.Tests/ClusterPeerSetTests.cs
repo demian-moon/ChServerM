@@ -96,7 +96,14 @@ public sealed class ClusterPeerSetTests : IAsyncLifetime
 
     private ClusterPeerSet PeerSet(IClusterMembership membership, ClusterPeerOptions? options = null)
     {
-        ClusterPeerSet set = new(membership, _client, options ?? new ClusterPeerOptions(), NullServerLogger.Instance);
+        // 풀은 필수 인자다(ADR-0051). 이 테스트들은 얕은 큐라 Shared 가 맞는 선택이다.
+        ClusterPeerSet set = new(
+            membership,
+            _client,
+            options ?? new ClusterPeerOptions(),
+            NullServerLogger.Instance,
+            ArrayPool<byte>.Shared);
+
         _owned.Add(set);
         return set;
     }
@@ -218,7 +225,8 @@ public sealed class ClusterPeerSetTests : IAsyncLifetime
     public async Task AfterDispose_sendsAreClosed()
     {
         await using StaticClusterMembership membership = Membership();
-        ClusterPeerSet peers = new(membership, _client, new ClusterPeerOptions(), NullServerLogger.Instance);
+        ClusterPeerSet peers = new(
+            membership, _client, new ClusterPeerOptions(), NullServerLogger.Instance, ArrayPool<byte>.Shared);
 
         await peers.DisposeAsync();
 
@@ -231,7 +239,8 @@ public sealed class ClusterPeerSetTests : IAsyncLifetime
     public async Task DisposeIsIdempotent()
     {
         await using StaticClusterMembership membership = Membership();
-        ClusterPeerSet peers = new(membership, _client, new ClusterPeerOptions(), NullServerLogger.Instance);
+        ClusterPeerSet peers = new(
+            membership, _client, new ClusterPeerOptions(), NullServerLogger.Instance, ArrayPool<byte>.Shared);
 
         await peers.DisposeAsync();
         await peers.DisposeAsync();
@@ -296,14 +305,21 @@ public sealed class ClusterPeerSetTests : IAsyncLifetime
     {
         await using StaticClusterMembership membership = Membership();
 
+        ArrayPool<byte> pool = ArrayPool<byte>.Shared;
+
         Assert.Throws<ArgumentNullException>(
-            () => new ClusterPeerSet(null!, _client, new ClusterPeerOptions(), NullServerLogger.Instance));
+            () => new ClusterPeerSet(null!, _client, new ClusterPeerOptions(), NullServerLogger.Instance, pool));
         Assert.Throws<ArgumentNullException>(
-            () => new ClusterPeerSet(membership, null!, new ClusterPeerOptions(), NullServerLogger.Instance));
+            () => new ClusterPeerSet(membership, null!, new ClusterPeerOptions(), NullServerLogger.Instance, pool));
         Assert.Throws<ArgumentNullException>(
-            () => new ClusterPeerSet(membership, _client, null!, NullServerLogger.Instance));
+            () => new ClusterPeerSet(membership, _client, null!, NullServerLogger.Instance, pool));
         Assert.Throws<ArgumentNullException>(
-            () => new ClusterPeerSet(membership, _client, new ClusterPeerOptions(), null!));
+            () => new ClusterPeerSet(membership, _client, new ClusterPeerOptions(), null!, pool));
+
+        // 풀은 필수 인자다 — 기본값이 없으므로 null 도 거부해야 한다(ADR-0051).
+        Assert.Throws<ArgumentNullException>(
+            () => new ClusterPeerSet(
+                membership, _client, new ClusterPeerOptions(), NullServerLogger.Instance, null!));
     }
 
     [Theory]
@@ -315,7 +331,11 @@ public sealed class ClusterPeerSetTests : IAsyncLifetime
 
         Assert.Throws<InvalidOperationException>(
             () => new ClusterPeerSet(
-                membership, _client, new ClusterPeerOptions { SendQueueDepth = depth }, NullServerLogger.Instance));
+                membership,
+                _client,
+                new ClusterPeerOptions { SendQueueDepth = depth },
+                NullServerLogger.Instance,
+                ArrayPool<byte>.Shared));
     }
 
     [Fact]
@@ -325,7 +345,11 @@ public sealed class ClusterPeerSetTests : IAsyncLifetime
 
         Assert.Throws<InvalidOperationException>(
             () => new ClusterPeerSet(
-                membership, _client, new ClusterPeerOptions { MaxPayloadLength = 0 }, NullServerLogger.Instance));
+                membership,
+                _client,
+                new ClusterPeerOptions { MaxPayloadLength = 0 },
+                NullServerLogger.Instance,
+                ArrayPool<byte>.Shared));
     }
 
     private async Task<byte[]> ReadAsync()

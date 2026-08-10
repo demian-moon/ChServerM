@@ -45,6 +45,15 @@ internal static class Program
         UseUtf8Console();
         EnvironmentReport.Print();
 
+        // 보유 메모리 리포트는 BenchmarkDotNet 밖에서 돈다. BDN 이 재는 것은 연산당
+        // 할당량이고, 여기서 알고 싶은 것은 **정상 상태에서 붙들려 있는 양**이다
+        // (ADR-0051 열린 결정의 선결 측정). 두 축은 같은 하네스로 잴 수 없다.
+        if (args.Length > 0 && args[0] is "retention")
+        {
+            Buffers.PoolRetentionReport.Run(includeIdleTrend: args.Length > 1 && args[1] is "long");
+            return;
+        }
+
         // 설정은 각 벤치마크 클래스의 [Config(typeof(BenchConfig))] 가 준다.
         // 여기서 전역 config 를 함께 넘기면 **같은 설정이 두 번 적용되어** BenchmarkDotNet 이
         // "The exporter JsonExporter-full is already present in configuration" 경고를 낸다.

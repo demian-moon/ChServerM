@@ -160,38 +160,65 @@ public sealed class ClusterPeerSet : IAsyncDisposable
     /// <summary>정리를 이미 돈 뷰 세대. 전송마다 링크를 훑지 않기 위한 것이다.</summary>
     private int _evictedGeneration;
 
-    /// <summary>피어 집합을 만든다.</summary>
+    /// <summary>피어 집합을 만든다. <b>버퍼 풀은 필수다.</b></summary>
     /// <param name="membership">구성원 원천.</param>
     /// <param name="client">피어 접속에 쓸 클라이언트. <b>앱이 소유한다</b>.</param>
     /// <param name="options">큐 깊이와 페이로드 상한.</param>
     /// <param name="logger">로거.</param>
-    /// <exception cref="ArgumentNullException">인자가 <see langword="null"/> 이다.</exception>
-    /// <exception cref="InvalidOperationException">설정이 성립하지 않는다.</exception>
-    public ClusterPeerSet(
-        IClusterMembership membership,
-        ChServerMClient client,
-        ClusterPeerOptions options,
-        IServerLogger logger)
-        : this(membership, client, options, logger, ArrayPool<byte>.Shared)
-    {
-    }
-
-    /// <summary>버퍼 풀을 지정해 피어 집합을 만든다.</summary>
-    /// <param name="membership">구성원 원천.</param>
-    /// <param name="client">피어 접속에 쓸 클라이언트. <b>앱이 소유한다</b>.</param>
-    /// <param name="options">큐 깊이와 페이로드 상한.</param>
-    /// <param name="logger">로거.</param>
-    /// <param name="bufferPool">보낼 프레임을 담을 버퍼 풀.</param>
+    /// <param name="bufferPool">
+    /// 보낼 프레임을 담을 버퍼 풀. <b>기본값이 없다 — 아래 규약을 읽고 골라야 한다.</b>
+    /// </param>
     /// <exception cref="ArgumentNullException">인자가 <see langword="null"/> 이다.</exception>
     /// <exception cref="InvalidOperationException">설정이 성립하지 않는다.</exception>
     /// <remarks>
     /// <para>
-    /// <b>전용 풀은 테스트 배관이 아니라 실제 필요다.</b>
-    /// <see cref="ArrayPool{T}.Shared"/> 는 기본적으로 1 MiB 를 넘는 대여를 풀에 담지 않고
-    /// 매번 새로 할당한다 — <see cref="ClusterPeerOptions.MaxPayloadLength"/> 를 크게 잡은
-    /// 배치 전송 경로가 정확히 그 구간에 들어간다. 또한 피어 트래픽의 큰 버킷이 공유 풀에
-    /// 섞이면 <b>다른 축의 대여 패턴까지 함께 나빠진다</b>.
+    /// <b>⚠ 왜 기본값이 없는가 — 프레임워크가 옳은 값을 계산할 수 없기 때문이다</b>(ADR-0051).
+    /// 원래는 <see cref="ArrayPool{T}.Shared"/> 를 쓰는 4-인자 생성자가 있었고, 그것이
+    /// 함정이었다: 큐를 깊게 잡으면 <b>경고도 오류도 없이</b> 프레임당 할당이 생기고
+    /// 처리량이 <b>33% 떨어진다</b>(514.0 → 342.9 ns/프레임, BENCHMARKS 2026-08-10).
+    /// 기본값을 전용 풀로 바꾸려 했으나 <b>필요한 보관 개수를 생성 시점에 알 수 없다</b>
+    /// — 아래 규약 1 이 그 이유다. 옳은 기본값이 없으면 기본값을 두지 않는 것이 맞다
+    /// (<c>FrameWriter</c> 의 옵션 매개변수를 전부 필수로 바꾼 것과 같은 자리, CLAUDE.md 8.1).
     /// </para>
+    ///
+    /// <para>
+    /// <b>⚠⚠ 규약 1 — 최악 미처리 대여는 <c>SendQueueDepth × 피어 수</c> 다.</b>
+    /// 보낼 큐는 <b>링크마다</b> 만들어지는데 이 풀은 <b>집합에 하나</b>이므로, 큐 깊이만
+    /// 보고 보관 개수를 정하면 피어가 늘어난 만큼 작아진다 — 16 노드 클러스터라면
+    /// <b>15 배 작고</b>, 그러면 위의 33% 손해가 그대로 돌아온다. 그리고 피어 수는
+    /// 옵션이 아니라 <b>구성원 뷰가 런타임에 정하는 값</b>이라 생성자가 알 수 없다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>⚠⚠ 규약 2 — 전용 풀은 트리밍하지 않는다. 최고 수위를 영구 점유한다.</b>
+    /// <see cref="ArrayPool{T}.Create(int, int)"/> 가 주는 구현에는
+    /// <see cref="ArrayPool{T}.Shared"/> 가 가진 Gen2 트리밍이 <b>없다</b> — 실측에서
+    /// 256 MiB 피크 후 10 분 유휴에 1 바이트도 반납하지 않았고, 같은 조건의
+    /// <see cref="ArrayPool{T}.Shared"/> 는 9 분에 99.6% 를 반납했다. 버스트가 드문
+    /// 서버라면 이 차이가 상주 메모리 전부다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>규약 3 — 전용 풀의 보유 상한은 다음과 같다</b>(실측 오차 ≤ 0.42%).
+    /// <c>maxArrayLength</c> 는 2 의 거듭제곱으로 <b>올림</b>되며, 그보다 큰 대여는 풀에
+    /// 담기지 않으므로 이것은 어림이 아니라 상한이다.
+    /// <code>
+    /// 상한 ≈ 2 × maxArrayLength × maxArraysPerBucket
+    /// </code>
+    /// 예: <c>MaxPayloadLength</c> 1 MiB · 깊이 1,024 · 피어 15 를 전부 덮으려면
+    /// 최악 <b>30 GiB</b> 다. 그 값이 받아들일 수 없다면 줄여야 하는 것은 풀이 아니라
+    /// <see cref="ClusterPeerOptions.SendQueueDepth"/> 나
+    /// <see cref="ClusterPeerOptions.MaxPayloadLength"/> 다 — <b>상한은 풀의 성질이 아니라
+    /// 그 두 옵션이 이미 약속한 최대 수요</b>이기 때문이다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>무엇을 넘길 것인가.</b> 얕은 큐(수백)와 작은 페이로드라면
+    /// <see cref="ArrayPool{T}.Shared"/> 로 충분하고 그것이 메모리를 돌려주므로 낫다.
+    /// 깊은 큐나 큰 페이로드라면 <see cref="ArrayPool{T}.Create(int, int)"/> 로 전용 풀을
+    /// 만들되 위 세 규약으로 크기를 정한다.
+    /// </para>
+    ///
     /// <para>
     /// 부수 효과로 <b>반납 누수를 관측 가능</b>하게 만든다. 대여와 반납이 맞는지는
     /// 주석으로 보장할 수 없고(9.7), 세는 풀을 꽂아야만 테스트가 답할 수 있다.

@@ -309,9 +309,9 @@ public sealed class ClusterPeerLinkLifetimeTests : IAsyncLifetime
         ClusterPeerOptions options,
         ArrayPool<byte>? pool = null)
     {
-        ClusterPeerSet set = pool is null
-            ? new ClusterPeerSet(membership, client, options, NullServerLogger.Instance)
-            : new ClusterPeerSet(membership, client, options, NullServerLogger.Instance, pool);
+        // 풀은 필수 인자다(ADR-0051) — 지정하지 않은 테스트는 Shared 로 돈다.
+        ClusterPeerSet set = new(
+            membership, client, options, NullServerLogger.Instance, pool ?? ArrayPool<byte>.Shared);
 
         _owned.Add(set);
         return set;

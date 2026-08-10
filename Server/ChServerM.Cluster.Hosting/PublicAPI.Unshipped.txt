@@ -7,7 +7,6 @@ ChServerM.Cluster.Hosting.ClusterPeerOptions.SendQueueDepth.get -> int
 ChServerM.Cluster.Hosting.ClusterPeerOptions.SendQueueDepth.set -> void
 ChServerM.Cluster.Hosting.ClusterPeerOptions.Validate() -> void
 ChServerM.Cluster.Hosting.ClusterPeerSet
-ChServerM.Cluster.Hosting.ClusterPeerSet.ClusterPeerSet(ChServerM.Cluster.IClusterMembership! membership, ChServerM.Hosting.ChServerMClient! client, ChServerM.Cluster.Hosting.ClusterPeerOptions! options, ChServerM.Diagnostics.IServerLogger! logger) -> void
 ChServerM.Cluster.Hosting.ClusterPeerSet.ClusterPeerSet(ChServerM.Cluster.IClusterMembership! membership, ChServerM.Hosting.ChServerMClient! client, ChServerM.Cluster.Hosting.ClusterPeerOptions! options, ChServerM.Diagnostics.IServerLogger! logger, System.Buffers.ArrayPool<byte>! bufferPool) -> void
 ChServerM.Cluster.Hosting.ClusterPeerSet.DisposeAsync() -> System.Threading.Tasks.ValueTask
 ChServerM.Cluster.Hosting.ClusterPeerSet.OpenLinkCount.get -> int
