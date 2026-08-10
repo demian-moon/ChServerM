@@ -11,6 +11,16 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 
+  <!--
+    실제 CSV 를 AdditionalFiles 로 넘긴다 — 제너레이터가 **진짜 빌드에서** 헤더를 대조하는지
+    확인하는 자리다(CHSM2011~2013). 파일 이름(확장자 제외)이 표 이름과 같아야 짝이 맞는다.
+    같은 파일을 런타임에도 읽으므로(ReadFile) 죽은 픽스처가 아니다.
+  -->
+  <ItemGroup>
+    <AdditionalFiles Include="Tables\*.csv" />
+    <Content Include="Tables\*.csv" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />

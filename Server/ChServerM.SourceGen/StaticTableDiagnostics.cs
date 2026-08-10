@@ -109,6 +109,53 @@ internal static class StaticTableDiagnostics
         isEnabledByDefault: true,
         helpLinkUri: HelpUri);
 
+    /// <summary>CSV 헤더에 선언한 열이 없음.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>기동 시점 검증을 컴파일 타임으로 당긴다.</b> 같은 판정을
+    /// <c>CsvStaticTableReader</c> 가 로딩 때 하지만, 그 실패는 <b>서버를 띄워야</b>
+    /// 보인다. 열 이름 오타·이름 변경은 밸런스 표에서 가장 흔한 사고이고,
+    /// 에디터에서 줄과 함께 보이는 것과 기동 로그에서 보이는 것은 값이 다르다.
+    /// </para>
+    /// <para>
+    /// <b>⚠ 여기서는 헤더만 본다.</b> 값 검증(타입·범위·참조 무결성·키 중복)은 로딩
+    /// 시점에 그대로 남는다 — 그것까지 하려면 CSV 파서와 검증기를 제너레이터 쪽에
+    /// <b>한 벌 더 구현</b>해야 하고, 두 구현이 갈라지면 "무엇이 유효한 표인가" 의
+    /// 정본이 둘이 된다. 헤더 규칙만 30줄쯤 중복하고 그 일치는 테스트가 지킨다.
+    /// </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor CsvMissingColumn = new(
+        "CHSM2011",
+        "CSV 헤더에 선언한 열이 없다",
+        "'{0}' 의 헤더에 열 '{1}' 이 없다. 행 타입 {2} 이 그 열을 선언한다.",
+        Category,
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        helpLinkUri: HelpUri);
+
+    /// <summary>CSV 에 헤더 줄이 없음(빈 파일이거나 주석뿐).</summary>
+    public static readonly DiagnosticDescriptor CsvNoHeader = new(
+        "CHSM2012",
+        "CSV 에 헤더 줄이 없다",
+        "'{0}' 에 헤더 줄이 없다(비었거나 주석뿐이다). 로딩이 실패한다.",
+        Category,
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        helpLinkUri: HelpUri);
+
+    /// <summary>CSV 헤더에 같은 열 이름이 둘 이상.</summary>
+    /// <remarks>
+    /// 리더는 <b>먼저 나온 열</b>을 쓴다. 조용히 이기는 쪽이 생기므로 선언 단계에서 알린다.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor CsvDuplicateHeaderColumn = new(
+        "CHSM2013",
+        "CSV 헤더에 중복된 열 이름이 있다",
+        "'{0}' 의 헤더에 '{1}' 이 두 번 이상 있다. 리더는 먼저 나온 열을 쓰므로 나머지는 조용히 무시된다.",
+        Category,
+        DiagnosticSeverity.Warning,
+        isEnabledByDefault: true,
+        helpLinkUri: HelpUri);
+
     /// <summary>행 타입이 readonly struct 가 아님.</summary>
     /// <remarks>
     /// <b>CHSM2009 는 비워 둔다.</b> 원래 "ChServerM.DataTable 미참조" 자리였는데, 어트리뷰트

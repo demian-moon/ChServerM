@@ -1,9 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Text;
 using Xunit;
 
 namespace ChServerM.SourceGen.Tests;
@@ -48,7 +50,13 @@ public sealed class StaticTableAccessorGeneratorTests
         (GeneratorRunResult result, Compilation output) = Run(ValidSource);
 
         Assert.Empty(result.Diagnostics);
-        Assert.Single(result.GeneratedSources);
+
+        // 행 타입별 접근자 하나 + 어셈블리별 스키마 레지스트리 하나.
+        Assert.Equal(2, result.GeneratedSources.Length);
+        Assert.Contains(result.GeneratedSources, s => s.HintName.Contains("RecipeRow", StringComparison.Ordinal));
+        Assert.Contains(
+            result.GeneratedSources,
+            s => s.HintName.Contains("GeneratedStaticTableSchemas", StringComparison.Ordinal));
 
         // 생성 코드까지 포함한 전체 컴파일레이션이 오류 없이 컴파일돼야 한다 —
         // 부분 속성 시그니처가 선언과 정확히 일치한다는 가장 강한 검증이다.
@@ -80,7 +88,10 @@ public sealed class StaticTableAccessorGeneratorTests
         Assert.Empty(result.Diagnostics);
 
         // ⚠ FullyQualifiedFormat 은 '?' 를 뺀다. 그대로 썼다면 여기서 시그니처가 어긋난다.
-        Assert.Contains("public partial string? Note", Normalize(result.GeneratedSources[0].SourceText.ToString()), StringComparison.Ordinal);
+        Assert.Contains(
+            "public partial string? Note",
+            Normalize(result.GeneratedSources.Single(s => s.HintName.Contains("ItemRow", StringComparison.Ordinal)).SourceText.ToString()),
+            StringComparison.Ordinal);
         Assert.Empty(output.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
     }
 
@@ -124,7 +135,10 @@ public sealed class StaticTableAccessorGeneratorTests
         Assert.Empty(result.Diagnostics);
 
         // 바깥이 class 인데 struct 로 다시 열면 컴파일이 깨진다.
-        Assert.Contains("partial class Tables", Normalize(result.GeneratedSources[0].SourceText.ToString()), StringComparison.Ordinal);
+        Assert.Contains(
+            "partial class Tables",
+            Normalize(result.GeneratedSources.Single(s => s.HintName.Contains("ItemRow", StringComparison.Ordinal)).SourceText.ToString()),
+            StringComparison.Ordinal);
         Assert.Empty(output.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
     }
 
@@ -330,6 +344,136 @@ public sealed class StaticTableAccessorGeneratorTests
         Assert.Empty(result.GeneratedSources);
     }
 
+    // ── 어셈블리별 스키마 레지스트리 ─────────────────────────────────
+
+    [Fact]
+    public void Registry_collectsEveryDeclaredSchema_sortedByTableName()
+    {
+        (GeneratorRunResult result, Compilation output) = Run(ReferenceSource);
+
+        string registry = Normalize(result.GeneratedSources
+            .Single(s => s.HintName.Contains("GeneratedStaticTableSchemas", StringComparison.Ordinal))
+            .SourceText.ToString());
+
+        // 손으로 관리하는 스키마 목록을 없애는 것이 목적이다 — 표를 추가하면 저절로 들어온다.
+        Assert.Contains("global::TestApp.ItemRow.Schema,", registry, StringComparison.Ordinal);
+        Assert.Contains("global::TestApp.RecipeRow.Schema,", registry, StringComparison.Ordinal);
+
+        // 표 이름 사전 순: Item < Recipe (선언 순서는 Recipe 가 먼저다).
+        Assert.True(
+            registry.IndexOf("ItemRow.Schema", StringComparison.Ordinal)
+            < registry.IndexOf("RecipeRow.Schema", StringComparison.Ordinal));
+
+        Assert.Empty(output.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void Registry_skipsInvalidDeclarations_withoutDuplicatingDiagnostics()
+    {
+        // 키가 없는 행 타입 하나 + 멀쩡한 하나.
+        const string Source = """
+            using ChServerM.DataTable;
+
+            namespace TestApp;
+
+            [StaticTableRow("Broken")]
+            public readonly partial struct BrokenRow
+            {
+                public partial string Id { get; }
+            }
+
+            [StaticTableRow("Recipe")]
+            public readonly partial struct RecipeRow
+            {
+                [StaticTableColumn(Key = true)]
+                public partial string Id { get; }
+            }
+            """;
+
+        (GeneratorRunResult result, _) = Run(Source);
+
+        // ⚠ 같은 오류가 두 번 보이면 안 된다 — 레지스트리는 진단을 내지 않는다.
+        Assert.Single(result.Diagnostics, d => d.Id == "CHSM2002");
+
+        string registry = Normalize(result.GeneratedSources
+            .Single(s => s.HintName.Contains("GeneratedStaticTableSchemas", StringComparison.Ordinal))
+            .SourceText.ToString());
+
+        Assert.DoesNotContain("BrokenRow", registry, StringComparison.Ordinal);
+        Assert.Contains("RecipeRow.Schema", registry, StringComparison.Ordinal);
+    }
+
+    // ── CSV 헤더 대조 ────────────────────────────────────────────────
+
+    [Fact]
+    public void Csv_matchingHeader_producesNoDiagnostic()
+    {
+        // 리더와 같은 규칙을 쓰는지 확인한다: 주석·빈 줄 건너뛰기, CRLF, 인용된 헤더.
+        (GeneratorRunResult result, _) = Run(
+            ValidSource,
+            ("Recipe.csv", "# 제작법 표\r\n\r\n\"id\",cost\r\nr1,100\r\n"));
+
+        Assert.Empty(result.Diagnostics);
+    }
+
+    [Fact]
+    public void Csv_missingColumn_reportsCHSM2011()
+    {
+        // ⭐ 기동 시점 검증을 컴파일 타임으로 당긴다. 열 이름 오타는 밸런스 표에서 가장
+        // 흔한 사고인데, 에디터에서 보이는 것과 기동 로그에서 보이는 것은 값이 다르다.
+        (GeneratorRunResult result, _) = Run(ValidSource, ("Recipe.csv", "id,price\nr1,100\n"));
+
+        Diagnostic diagnostic = Assert.Single(result.Diagnostics, d => d.Id == "CHSM2011");
+        Assert.Contains("cost", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Csv_extraColumn_isNotAnError()
+    {
+        // 표가 프레임워크보다 많은 정보를 가질 수 있다. 오류로 만들면 스키마를 늘릴 때마다
+        // 배포 순서가 문제가 된다(리더와 같은 판단).
+        (GeneratorRunResult result, _) = Run(ValidSource, ("Recipe.csv", "id,cost,memo\nr1,100,x\n"));
+
+        Assert.Empty(result.Diagnostics);
+    }
+
+    [Fact]
+    public void Csv_noHeader_reportsCHSM2012()
+    {
+        (GeneratorRunResult result, _) = Run(ValidSource, ("Recipe.csv", "# 주석뿐이다\n\n"));
+
+        Assert.Contains(result.Diagnostics, d => d.Id == "CHSM2012");
+    }
+
+    [Fact]
+    public void Csv_duplicateHeaderColumn_reportsCHSM2013()
+    {
+        (GeneratorRunResult result, _) = Run(ValidSource, ("Recipe.csv", "id,cost,cost\nr1,100,100\n"));
+
+        Diagnostic diagnostic = Assert.Single(result.Diagnostics, d => d.Id == "CHSM2013");
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+    }
+
+    [Fact]
+    public void Csv_withoutAMatchingRowType_isIgnored()
+    {
+        // 이 축과 무관한 CSV 가 프로젝트에 있을 수 있다. 짝이 없으면 조용히 지나간다.
+        (GeneratorRunResult result, _) = Run(ValidSource, ("Unrelated.csv", "a,b\n1,2\n"));
+
+        Assert.Empty(result.Diagnostics);
+    }
+
+    [Fact]
+    public void Csv_diagnosticPointsAtTheHeaderLine()
+    {
+        (GeneratorRunResult result, _) = Run(ValidSource, ("Recipe.csv", "# 주석\n\nid,price\nr1,100\n"));
+
+        Diagnostic diagnostic = Assert.Single(result.Diagnostics, d => d.Id == "CHSM2011");
+
+        // 0-기반 2행 = 세 번째 줄(헤더). 주석과 빈 줄을 건너뛴 자리를 가리켜야 한다.
+        Assert.Equal(2, diagnostic.Location.GetLineSpan().StartLinePosition.Line);
+    }
+
     // ── 스냅샷 ───────────────────────────────────────────────────────
 
     [Fact]
@@ -337,7 +481,10 @@ public sealed class StaticTableAccessorGeneratorTests
     {
         (GeneratorRunResult result, _) = Run(ValidSource);
 
-        string generated = Normalize(result.GeneratedSources[0].SourceText.ToString());
+        // ⚠ 인덱스로 고르지 않는다 — 레지스트리가 함께 생성되므로 순서에 기대면 깨진다.
+        string generated = Normalize(result.GeneratedSources
+            .Single(s => s.HintName.Contains("RecipeRow", StringComparison.Ordinal))
+            .SourceText.ToString());
 
         const string Expected = """
             // <auto-generated/>
@@ -572,7 +719,8 @@ public sealed class StaticTableAccessorGeneratorTests
         Assert.Contains(result.Diagnostics, d => d.Id == id);
     }
 
-    private static (GeneratorRunResult Result, Compilation Output) Run(string source)
+    private static (GeneratorRunResult Result, Compilation Output) Run(
+        string source, params (string Name, string Content)[] csvFiles)
     {
         List<MetadataReference> references = [];
 
@@ -603,7 +751,9 @@ public sealed class StaticTableAccessorGeneratorTests
                 nullableContextOptions: NullableContextOptions.Enable));
 
         GeneratorDriver driver = CSharpGeneratorDriver
-            .Create(new StaticTableAccessorGenerator())
+            .Create(
+                [new StaticTableAccessorGenerator().AsSourceGenerator()],
+                additionalTexts: [.. csvFiles.Select(static f => new InMemoryCsv(f.Name, f.Content))])
             .RunGeneratorsAndUpdateCompilation(compilation, out Compilation output, out _);
 
         return (driver.GetRunResult().Results[0], output);
@@ -611,4 +761,14 @@ public sealed class StaticTableAccessorGeneratorTests
 
     private static string Normalize(string text) =>
         text.Replace("\r\n", "\n", StringComparison.Ordinal).TrimEnd('\n');
+
+    /// <summary>메모리에 든 <c>AdditionalFiles</c> 항목. 실제 빌드가 넘기는 것과 같은 자리다.</summary>
+    private sealed class InMemoryCsv(string path, string content) : AdditionalText
+    {
+        private readonly SourceText _text = SourceText.From(content);
+
+        public override string Path { get; } = path;
+
+        public override SourceText GetText(CancellationToken cancellationToken = default) => _text;
+    }
 }

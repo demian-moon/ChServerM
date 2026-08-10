@@ -1,0 +1,6 @@
+# 아이템 밸런스 표. 이 파일은 AdditionalFiles 로 들어가 빌드 때 헤더가 대조된다(CHSM2011).
+# 열 이름을 하나 고치면 빌드가 실패한다 — 그것이 이 파일이 여기 있는 이유다.
+
+id,damage,drop_rate,tradable,recipe
+sword,10,0.5,true,r1
+shield,5,0.25,false,

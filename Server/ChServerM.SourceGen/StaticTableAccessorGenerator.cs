@@ -1,3 +1,4 @@
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
@@ -99,6 +100,24 @@ public sealed class StaticTableAccessorGenerator : IIncrementalGenerator
             .Select(static (model, _) => model!);
 
         context.RegisterSourceOutput(rows, static (spc, model) => Emit(spc, model));
+
+        // ⚠ 레지스트리는 Collect 가 필요하다 — 행 타입 하나를 편집하면 레지스트리만
+        // 다시 생성된다(행별 접근자는 위 파이프라인에 그대로 캐시된다).
+        context.RegisterSourceOutput(
+            rows.Collect(), static (spc, models) => EmitRegistry(spc, models));
+
+        // CSV 헤더 대조. 파일 이름(확장자 제외)이 표 이름과 같은 AdditionalFile 만 본다 —
+        // 메타데이터 설정을 요구하지 않아 조립 비용이 0이고, 짝이 없는 파일은 조용히
+        // 지나간다(표를 런타임에 디스크에서 읽는 배포가 정상이기 때문이다).
+        IncrementalValuesProvider<CsvHeaderModel> headers = context.AdditionalTextsProvider
+            .Where(static file => file.Path.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+            .Select(static (file, token) => ReadHeader(file, token))
+            .Where(static model => model is not null)
+            .Select(static (model, _) => model!);
+
+        context.RegisterSourceOutput(
+            headers.Combine(rows.Collect()),
+            static (spc, pair) => CheckHeader(spc, pair.Left, pair.Right));
     }
 
     // ── 선언 읽기 ────────────────────────────────────────────────────
@@ -321,7 +340,7 @@ public sealed class StaticTableAccessorGenerator : IIncrementalGenerator
 
     private static void Emit(SourceProductionContext context, RowModel model)
     {
-        if (!Validate(context, model))
+        if (!Validate(context.ReportDiagnostic, model))
         {
             return;
         }
@@ -329,27 +348,27 @@ public sealed class StaticTableAccessorGenerator : IIncrementalGenerator
         context.AddSource($"{model.HintName}.StaticTableRow.g.cs", SourceText.From(Render(model), Encoding.UTF8));
     }
 
-    private static bool Validate(SourceProductionContext context, RowModel model)
+    private static bool Validate(Action<Diagnostic>? report, RowModel model)
     {
         bool valid = true;
 
         if (!model.AllPartial)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
+            report?.Invoke(Diagnostic.Create(
                 StaticTableDiagnostics.NotPartial, model.Location.ToLocation(), model.TypeFqn));
             valid = false;
         }
 
         if (!model.IsReadOnly)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
+            report?.Invoke(Diagnostic.Create(
                 StaticTableDiagnostics.NotReadOnlyStruct, model.Location.ToLocation(), model.TypeFqn));
             valid = false;
         }
 
         if (model.TableName.Length == 0)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
+            report?.Invoke(Diagnostic.Create(
                 StaticTableDiagnostics.NameConflict, model.Location.ToLocation(),
                 model.TypeFqn, "테이블 이름이 비어 있다."));
             valid = false;
@@ -357,23 +376,23 @@ public sealed class StaticTableAccessorGenerator : IIncrementalGenerator
 
         if (model.Columns.Count == 0)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
+            report?.Invoke(Diagnostic.Create(
                 StaticTableDiagnostics.NoColumns, model.Location.ToLocation(), model.TypeFqn));
             return false;
         }
 
-        valid &= ValidateNames(context, model);
-        valid &= ValidateKey(context, model);
+        valid &= ValidateNames(report, model);
+        valid &= ValidateKey(report, model);
 
         foreach (ColumnModel column in model.Columns)
         {
-            valid &= ValidateColumn(context, column);
+            valid &= ValidateColumn(report, column);
         }
 
         return valid;
     }
 
-    private static bool ValidateNames(SourceProductionContext context, RowModel model)
+    private static bool ValidateNames(Action<Diagnostic>? report, RowModel model)
     {
         bool valid = true;
         HashSet<string> columnNames = [];
@@ -382,7 +401,7 @@ public sealed class StaticTableAccessorGenerator : IIncrementalGenerator
         {
             if (!columnNames.Add(column.ColumnName))
             {
-                context.ReportDiagnostic(Diagnostic.Create(
+                report?.Invoke(Diagnostic.Create(
                     StaticTableDiagnostics.NameConflict, column.Location.ToLocation(),
                     model.TypeFqn, $"열 이름 '{column.ColumnName}' 이 중복된다. CSV 헤더에서 어느 열인지 정해지지 않는다."));
                 valid = false;
@@ -390,7 +409,7 @@ public sealed class StaticTableAccessorGenerator : IIncrementalGenerator
 
             if (ReservedMemberNames.Contains(column.PropertyName))
             {
-                context.ReportDiagnostic(Diagnostic.Create(
+                report?.Invoke(Diagnostic.Create(
                     StaticTableDiagnostics.NameConflict, column.Location.ToLocation(),
                     model.TypeFqn, $"속성 이름 '{column.PropertyName}' 은 생성 멤버와 충돌한다. [StaticTableColumn(Name = ...)] 로 CSV 열 이름만 맞추고 속성 이름을 바꾼다."));
                 valid = false;
@@ -400,7 +419,7 @@ public sealed class StaticTableAccessorGenerator : IIncrementalGenerator
             if (column.ReferencesTable is not null
                 && model.DeclaredMemberNames.Contains(column.PropertyName + "RowIndex"))
             {
-                context.ReportDiagnostic(Diagnostic.Create(
+                report?.Invoke(Diagnostic.Create(
                     StaticTableDiagnostics.NameConflict, column.Location.ToLocation(),
                     model.TypeFqn, $"참조 열 '{column.PropertyName}' 이 생성할 '{column.PropertyName}RowIndex' 가 이미 선언돼 있다."));
                 valid = false;
@@ -410,13 +429,13 @@ public sealed class StaticTableAccessorGenerator : IIncrementalGenerator
         return valid;
     }
 
-    private static bool ValidateKey(SourceProductionContext context, RowModel model)
+    private static bool ValidateKey(Action<Diagnostic>? report, RowModel model)
     {
         List<ColumnModel> keys = [.. model.Columns.Where(static c => c.IsKey)];
 
         if (keys.Count != 1)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
+            report?.Invoke(Diagnostic.Create(
                 StaticTableDiagnostics.InvalidKeyColumn, model.Location.ToLocation(), model.TypeFqn,
                 $"{keys.Count}개다. [StaticTableColumn(Key = true)] 를 정확히 하나에 붙인다 — 키 없는 표는 순차 훑기밖에 못 하고, 키가 둘이면 어느 것으로 찾을지 정해지지 않는다."));
             return false;
@@ -424,7 +443,7 @@ public sealed class StaticTableAccessorGenerator : IIncrementalGenerator
 
         if (!keys[0].Required)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
+            report?.Invoke(Diagnostic.Create(
                 StaticTableDiagnostics.InvalidKeyColumn, keys[0].Location.ToLocation(), model.TypeFqn,
                 $"'{keys[0].PropertyName}' 이 선택(Optional)이다. 키 칸이 비면 그 행은 키 사전에 들어가지 않아 로딩은 성공하는데 영원히 찾히지 않는다."));
             return false;
@@ -433,11 +452,11 @@ public sealed class StaticTableAccessorGenerator : IIncrementalGenerator
         return true;
     }
 
-    private static bool ValidateColumn(SourceProductionContext context, ColumnModel column)
+    private static bool ValidateColumn(Action<Diagnostic>? report, ColumnModel column)
     {
         if (column.ColumnType is null)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
+            report?.Invoke(Diagnostic.Create(
                 StaticTableDiagnostics.UnsupportedColumnType, column.Location.ToLocation(),
                 column.PropertyName, column.DeclaredTypeFqn));
             return false;
@@ -450,7 +469,7 @@ public sealed class StaticTableAccessorGenerator : IIncrementalGenerator
 
         if (isString && !column.Required && column.NullableContextEnabled && !column.IsNullableAnnotated)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
+            report?.Invoke(Diagnostic.Create(
                 StaticTableDiagnostics.OptionalStringMustBeNullable, column.Location.ToLocation(),
                 column.PropertyName));
             valid = false;
@@ -458,7 +477,7 @@ public sealed class StaticTableAccessorGenerator : IIncrementalGenerator
 
         if ((column.MinimumInteger is not null || column.MaximumInteger is not null) && !isInteger)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
+            report?.Invoke(Diagnostic.Create(
                 StaticTableDiagnostics.InvalidRange, column.Location.ToLocation(), column.PropertyName,
                 $"정수 범위는 int·long 열에만 걸 수 있다(이 열은 {column.ColumnType}). 조용히 무시되는 제약은 걸지 않은 것보다 나쁘다."));
             valid = false;
@@ -466,7 +485,7 @@ public sealed class StaticTableAccessorGenerator : IIncrementalGenerator
 
         if ((column.MinimumReal is not null || column.MaximumReal is not null) && !isReal)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
+            report?.Invoke(Diagnostic.Create(
                 StaticTableDiagnostics.InvalidRange, column.Location.ToLocation(), column.PropertyName,
                 $"실수 범위는 double 열에만 걸 수 있다(이 열은 {column.ColumnType}). 정수 열에는 MinimumInteger/MaximumInteger 를 쓴다."));
             valid = false;
@@ -475,7 +494,7 @@ public sealed class StaticTableAccessorGenerator : IIncrementalGenerator
         if (column.MinimumInteger is { } minInteger && column.MaximumInteger is { } maxInteger
             && minInteger > maxInteger)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
+            report?.Invoke(Diagnostic.Create(
                 StaticTableDiagnostics.InvalidRange, column.Location.ToLocation(), column.PropertyName,
                 $"범위가 뒤집혔다: [{minInteger}, {maxInteger}]. 통과할 수 있는 값이 없다."));
             valid = false;
@@ -483,7 +502,7 @@ public sealed class StaticTableAccessorGenerator : IIncrementalGenerator
 
         if (column.MinimumReal is { } minReal && column.MaximumReal is { } maxReal && minReal > maxReal)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
+            report?.Invoke(Diagnostic.Create(
                 StaticTableDiagnostics.InvalidRange, column.Location.ToLocation(), column.PropertyName,
                 $"범위가 뒤집혔다: [{Literal(minReal)}, {Literal(maxReal)}]. 통과할 수 있는 값이 없다."));
             valid = false;
@@ -491,20 +510,242 @@ public sealed class StaticTableAccessorGenerator : IIncrementalGenerator
 
         if (column.ReferenceTargetInvalid)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
+            report?.Invoke(Diagnostic.Create(
                 StaticTableDiagnostics.InvalidReference, column.Location.ToLocation(), column.PropertyName,
                 "References 에 준 타입에 [StaticTableRow] 가 없다. 참조 대상은 행 타입이어야 대상 표 이름을 읽을 수 있다."));
             valid = false;
         }
         else if (column.ReferencesTable is not null && !isString)
         {
-            context.ReportDiagnostic(Diagnostic.Create(
+            report?.Invoke(Diagnostic.Create(
                 StaticTableDiagnostics.InvalidReference, column.Location.ToLocation(), column.PropertyName,
                 $"참조 열은 string 이어야 한다(대상의 키가 문자열로 대조된다). 이 열은 {column.ColumnType}."));
             valid = false;
         }
 
         return valid;
+    }
+
+    // ── 어셈블리별 스키마 레지스트리 ─────────────────────────────────
+
+    /// <summary>
+    /// 이 어셈블리가 선언한 모든 스키마를 한 배열로 모은다.
+    /// </summary>
+    /// <remarks>
+    /// <b>존재 이유는 또 하나의 손 목록을 없애는 것이다.</b> 묶음을 조립할 때도,
+    /// 스냅샷을 되살릴 때도(<c>StaticTableSnapshot.Read</c>) 스키마 목록이 필요한데,
+    /// 그것을 사람이 적으면 <b>표를 하나 추가하고 목록에 넣는 것을 잊는</b> 사고가 난다 —
+    /// 서수를 손으로 적던 것과 같은 종류의 실패다.
+    /// </remarks>
+    private static void EmitRegistry(SourceProductionContext context, ImmutableArray<RowModel> models)
+    {
+        if (models.IsDefaultOrEmpty)
+        {
+            return;
+        }
+
+        // ⚠ 진단은 행별 파이프라인이 이미 냈다. 여기서 또 내면 같은 오류가 두 번 보인다.
+        List<RowModel> valid = [.. models.Where(static m => Validate(report: null, m))];
+        if (valid.Count == 0)
+        {
+            return;
+        }
+
+        valid.Sort(static (a, b) => string.CompareOrdinal(a.TableName, b.TableName));
+
+        StringBuilder source = new();
+        source.AppendLine("// <auto-generated/>");
+        source.AppendLine("// ChServerM.SourceGen 이 [StaticTableRow] 선언에서 생성했다. 직접 수정하지 않는다.");
+        source.AppendLine("#nullable enable");
+        source.AppendLine();
+        source.AppendLine("namespace ChServerM.DataTable.Generated");
+        source.AppendLine("{");
+        source.AppendLine("    /// <summary>이 어셈블리가 선언한 모든 정적 표 스키마.</summary>");
+        source.AppendLine("    /// <remarks>손으로 관리하는 목록을 없애기 위한 것이다 — 표를 추가하면 여기에 저절로 들어온다.</remarks>");
+        source.AppendLine("    internal static class GeneratedStaticTableSchemas");
+        source.AppendLine("    {");
+        source.AppendLine($"        private static readonly {Ns}.StaticTableSchema[] Schemas =");
+        source.AppendLine("        [");
+
+        foreach (RowModel model in valid)
+        {
+            source.AppendLine($"            {model.TypeFqn}.Schema,");
+        }
+
+        source.AppendLine("        ];");
+        source.AppendLine();
+        source.AppendLine("        /// <summary>선언 전부. 표 이름 사전 순이다.</summary>");
+        source.AppendLine($"        public static global::System.Collections.Generic.IReadOnlyList<{Ns}.StaticTableSchema> All => Schemas;");
+        source.AppendLine("    }");
+        source.AppendLine("}");
+
+        context.AddSource("GeneratedStaticTableSchemas.g.cs", SourceText.From(source.ToString(), Encoding.UTF8));
+    }
+
+    // ── CSV 헤더 대조 ────────────────────────────────────────────────
+
+    /// <summary>
+    /// CSV 의 <b>헤더 줄만</b> 읽는다. 값은 읽지 않는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>⚠ 리더의 규칙을 여기서 한 벌 더 구현한다.</b> 제너레이터는 netstandard2.0 이라
+    /// 런타임 축(<c>ChServerM.DataTable</c>, net10.0)을 참조할 수 없다. 중복하는 것은
+    /// <b>"빈 줄과 <c>#</c> 주석을 건너뛰고 첫 줄을 헤더로 본다"</b> 와 인용 처리뿐이며,
+    /// 그 일치는 테스트가 같은 입력으로 양쪽을 대조해 지킨다.
+    /// </para>
+    /// <para>
+    /// <b>값 검증까지 옮기지 않는 이유</b>: 파서와 검증기를 통째로 복제하면 "무엇이 유효한
+    /// 표인가" 의 정본이 둘이 되고, 갈라지는 순간 <b>빌드는 통과하는데 기동은 실패</b>하는
+    /// 최악의 조합이 나온다.
+    /// </para>
+    /// <para>
+    /// <b>증분 계약.</b> 헤더 줄만 모델에 담으므로, CSV 의 <b>값</b>을 아무리 고쳐도
+    /// 모델이 같으면 대조가 다시 돌지 않는다.
+    /// </para>
+    /// </remarks>
+    private static CsvHeaderModel? ReadHeader(AdditionalText file, System.Threading.CancellationToken token)
+    {
+        SourceText? text = file.GetText(token);
+        if (text is null)
+        {
+            return null;
+        }
+
+        string tableName = FileNameWithoutExtension(file.Path);
+
+        foreach (TextLine line in text.Lines)
+        {
+            string raw = line.ToString();
+            string trimmed = raw.Trim();
+
+            // 리더와 같은 규칙: 빈 줄과 '#' 주석은 건너뛴다.
+            if (trimmed.Length == 0 || trimmed[0] == '#')
+            {
+                continue;
+            }
+
+            return new CsvHeaderModel(
+                file.Path,
+                tableName,
+                new EquatableArray<string>(ImmutableArray.CreateRange(SplitCsvLine(raw))),
+                line.Start,
+                raw.Length,
+                text.Lines.IndexOf(line.Start));
+        }
+
+        return new CsvHeaderModel(
+            file.Path, tableName, new EquatableArray<string>(ImmutableArray<string>.Empty), 0, 0, 0);
+    }
+
+    private static void CheckHeader(
+        SourceProductionContext context, CsvHeaderModel header, ImmutableArray<RowModel> models)
+    {
+        RowModel? owner = models.FirstOrDefault(
+            m => string.Equals(m.TableName, header.TableName, StringComparison.Ordinal));
+
+        // 짝이 없는 CSV 는 이 축과 무관한 파일일 수 있다. 조용히 지나간다.
+        if (owner is null || !Validate(report: null, owner))
+        {
+            return;
+        }
+
+        Location location = header.ToLocation();
+        string file = FileNameWithoutExtension(header.Path) + ".csv";
+
+        if (header.Columns.Count == 0)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(StaticTableDiagnostics.CsvNoHeader, location, file));
+            return;
+        }
+
+        HashSet<string> seen = [];
+        foreach (string column in header.Columns)
+        {
+            if (!seen.Add(column))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    StaticTableDiagnostics.CsvDuplicateHeaderColumn, location, file, column));
+            }
+        }
+
+        foreach (ColumnModel column in owner.Columns)
+        {
+            if (!seen.Contains(column.ColumnName))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    StaticTableDiagnostics.CsvMissingColumn, location, file, column.ColumnName, owner.TypeFqn));
+            }
+        }
+
+        // 스키마에 없는 열은 오류가 아니다 — 표가 프레임워크보다 많은 정보를 가질 수 있고,
+        // 그것을 오류로 만들면 스키마를 늘릴 때마다 배포 순서가 문제가 된다(리더와 같은 판단).
+    }
+
+    /// <summary>CSV 한 줄을 필드로 나눈다. 리더의 <c>ParseLine</c> 과 같은 규칙이다.</summary>
+    private static List<string> SplitCsvLine(string line)
+    {
+        List<string> fields = [];
+        StringBuilder current = new();
+        bool quoted = false;
+
+        // 줄 끝의 CR 을 떨어뜨린다 — 리더가 '\n' 으로 자른 뒤 하는 일과 같다.
+        string span = line.TrimEnd('\r');
+
+        for (int i = 0; i < span.Length; i++)
+        {
+            char c = span[i];
+
+            if (quoted)
+            {
+                if (c == '"')
+                {
+                    if (i + 1 < span.Length && span[i + 1] == '"')
+                    {
+                        current.Append('"');
+                        i++;
+                    }
+                    else
+                    {
+                        quoted = false;
+                    }
+                }
+                else
+                {
+                    current.Append(c);
+                }
+
+                continue;
+            }
+
+            switch (c)
+            {
+                case '"':
+                    quoted = true;
+                    break;
+
+                case ',':
+                    fields.Add(current.ToString().Trim());
+                    current.Clear();
+                    break;
+
+                default:
+                    current.Append(c);
+                    break;
+            }
+        }
+
+        fields.Add(current.ToString().Trim());
+        return fields;
+    }
+
+    /// <summary>경로에서 확장자를 뺀 파일 이름. netstandard2.0 이라 Path 를 쓰지 않고 직접 자른다.</summary>
+    private static string FileNameWithoutExtension(string path)
+    {
+        int slash = path.LastIndexOfAny(['/', '\\']);
+        string name = slash < 0 ? path : path.Substring(slash + 1);
+        int dot = name.LastIndexOf('.');
+        return dot < 0 ? name : name.Substring(0, dot);
     }
 
     // ── 코드 생성 ────────────────────────────────────────────────────
@@ -876,6 +1117,22 @@ public sealed class StaticTableAccessorGenerator : IIncrementalGenerator
     {
         /// <summary>생성 파일 이름의 바탕. 어셈블리 안에서 유일해야 한다.</summary>
         public string HintName => TypeFqn.Replace("global::", string.Empty).Replace('<', '_').Replace('>', '_');
+    }
+
+    /// <summary>CSV 파일 하나의 헤더 줄. <b>값은 담지 않는다</b> — 값이 바뀌어도 대조가 다시 돌지 않게.</summary>
+    private sealed record CsvHeaderModel(
+        string Path,
+        string TableName,
+        EquatableArray<string> Columns,
+        int Start,
+        int Length,
+        int Line)
+    {
+        /// <summary>헤더 줄을 가리키는 진단 위치.</summary>
+        public Location ToLocation() => Location.Create(
+            Path,
+            new TextSpan(Start, Length),
+            new LinePositionSpan(new LinePosition(Line, 0), new LinePosition(Line, Length)));
     }
 
     /// <summary>열 하나의 선언 결과.</summary>

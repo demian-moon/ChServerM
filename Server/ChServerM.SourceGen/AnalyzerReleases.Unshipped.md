@@ -18,3 +18,6 @@ CHSM2006 | ChServerM.DataTable | Error | 선택 문자열 열이 널 비허용�
 CHSM2007 | ChServerM.DataTable | Error | 범위 제약이 열 종류와 불일치하거나 뒤집힘
 CHSM2008 | ChServerM.DataTable | Error | 참조 선언이 잘못됨(대상이 행 타입 아님/열이 string 아님)
 CHSM2010 | ChServerM.DataTable | Error | 행 타입이 readonly struct 가 아님
+CHSM2011 | ChServerM.DataTable | Error | CSV 헤더에 선언한 열이 없음
+CHSM2012 | ChServerM.DataTable | Error | CSV 에 헤더 줄이 없음
+CHSM2013 | ChServerM.DataTable | Warning | CSV 헤더에 중복된 열 이름

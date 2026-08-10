@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using ChServerM.DataTable.Generated;
 using Xunit;
 
 namespace ChServerM.DataTable.Tests;
@@ -293,6 +295,36 @@ public sealed class GeneratedAccessorTests
         Assert.Equal(10, Damage(new ItemRow.Table(reloadable.Current), "sword"));
     }
 
+    // ── 어셈블리별 스키마 레지스트리 ─────────────────────────────────
+
+    [Fact]
+    public void Registry_containsEveryDeclaredSchema()
+    {
+        // 손 목록을 없애는 것이 목적이다 — 이 어셈블리에 행 타입을 추가하면 저절로 들어온다.
+        Assert.Contains(ItemRow.Schema, GeneratedStaticTableSchemas.All);
+        Assert.Contains(RecipeRow.Schema, GeneratedStaticTableSchemas.All);
+    }
+
+    // ── 실제 빌드가 대조한 CSV ───────────────────────────────────────
+
+    [Fact]
+    public void RealCsvFiles_loadWithTheDeclaredSchemas()
+    {
+        // ⭐ 이 파일들은 `AdditionalFiles` 로도 들어가 **빌드 때 헤더가 대조됐다**(CHSM2011).
+        // 열 이름을 하나 고치면 이 테스트가 아니라 **빌드**가 먼저 실패한다 — 기동 시점
+        // 검증을 컴파일 타임으로 당긴 것이 실제로 도는지 확인하는 자리다.
+        string directory = Path.Combine(AppContext.BaseDirectory, "Tables");
+
+        StaticTableSet set = new StaticTableSetBuilder()
+            .Add(RecipeRow.Schema, File.ReadAllText(Path.Combine(directory, "Recipe.csv")))
+            .Add(ItemRow.Schema, File.ReadAllText(Path.Combine(directory, "Item.csv")))
+            .Build();
+
+        ItemRow.Table items = new(set);
+        Assert.True(items.TryGetRow("sword", out ItemRow sword));
+        Assert.Equal(10, sword.Damage);
+    }
+
     // ── 스냅샷으로 받은 표 ───────────────────────────────────────────
 
     [Fact]
@@ -304,7 +336,9 @@ public sealed class GeneratedAccessorTests
         // 클라이언트는 **데이터 파일 없이** 서버가 보낸 표를 강타입으로 읽는다.
         byte[] wire = StaticTableSnapshot.ToArray(Load());
 
-        StaticTableSet received = StaticTableSnapshot.Read(wire, [ItemRow.Schema, RecipeRow.Schema]);
+        // ⭐ 스키마 목록을 손으로 적지 않는다. 표를 하나 추가하고 이 목록에 넣는 것을 잊는
+        // 사고가 서수를 손으로 적던 것과 같은 종류라, 레지스트리도 선언에서 생성한다.
+        StaticTableSet received = StaticTableSnapshot.Read(wire, GeneratedStaticTableSchemas.All);
 
         ItemRow.Table items = new(received);
         RecipeRow.Table recipes = new(received);
