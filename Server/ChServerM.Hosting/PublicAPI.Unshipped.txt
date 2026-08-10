@@ -314,3 +314,13 @@ static ChServerM.Hosting.Sessions.SessionResumeToken.Create() -> ChServerM.Hosti
 static ChServerM.Hosting.Sessions.SessionResumeToken.FromBytes(System.ReadOnlySpan<byte> value) -> ChServerM.Hosting.Sessions.SessionResumeToken
 static ChServerM.Hosting.Sessions.SessionResumeToken.operator !=(ChServerM.Hosting.Sessions.SessionResumeToken left, ChServerM.Hosting.Sessions.SessionResumeToken right) -> bool
 static ChServerM.Hosting.Sessions.SessionResumeToken.operator ==(ChServerM.Hosting.Sessions.SessionResumeToken left, ChServerM.Hosting.Sessions.SessionResumeToken right) -> bool
+ChServerM.Hosting.Sessions.SessionFeature
+ChServerM.Hosting.Sessions.SessionFeature.SessionFeature() -> void
+ChServerM.Hosting.Sessions.SessionFeature.SessionId.get -> ChServerM.Identity.SessionId
+ChServerM.Hosting.Sessions.SessionFeature.SessionId.set -> void
+ChServerM.Hosting.Sessions.SessionFeature.Version.get -> ChServerM.Sessions.SessionVersion
+ChServerM.Hosting.Sessions.SessionFeature.Version.set -> void
+ChServerM.Hosting.Sessions.SessionResumeDispatch
+ChServerM.Hosting.Sessions.SessionResumeDispatch.HandleResumeAsync(ChServerM.Dispatch.MessageContext! context) -> System.Threading.Tasks.ValueTask<ChServerM.Dispatch.DispatchStatus>
+ChServerM.Hosting.Sessions.SessionResumeDispatch.SessionResumeDispatch(ChServerM.Hosting.Sessions.SessionResumeService! service, ChServerM.Framing.IFrameEncoder! encoder) -> void
+ChServerM.Hosting.Sessions.SessionResumeDispatch.WriteEstablishedAsync(ChServerM.Dispatch.MessageContext! context, ChServerM.Identity.SessionId sessionId, ChServerM.Hosting.Sessions.SessionBinding binding) -> System.Threading.Tasks.ValueTask

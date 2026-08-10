@@ -652,3 +652,27 @@ ChServerM.Resilience.ICircuitBreaker.RecordSuccess() -> void
 ChServerM.Resilience.ICircuitBreaker.State.get -> ChServerM.Resilience.CircuitState
 ChServerM.Resilience.ICircuitBreaker.TryEnter() -> bool
 static ChServerM.Resilience.CircuitOpenException.ForCircuit(string! circuitName) -> ChServerM.Resilience.CircuitOpenException!
+ChServerM.Features.ISessionFeature
+ChServerM.Features.ISessionFeature.SessionId.get -> ChServerM.Identity.SessionId
+ChServerM.Features.ISessionFeature.SessionId.set -> void
+ChServerM.Features.ISessionFeature.Version.get -> ChServerM.Sessions.SessionVersion
+ChServerM.Features.ISessionFeature.Version.set -> void
+ChServerM.Sessions.SessionHandshakeCodec
+ChServerM.Sessions.SessionResumeStatus
+ChServerM.Sessions.SessionResumeStatus.Rejected = 2 -> ChServerM.Sessions.SessionResumeStatus
+ChServerM.Sessions.SessionResumeStatus.Resumed = 1 -> ChServerM.Sessions.SessionResumeStatus
+ChServerM.Sessions.SessionResumeStatus.Unspecified = 0 -> ChServerM.Sessions.SessionResumeStatus
+const ChServerM.Sessions.SessionHandshakeCodec.EstablishedSize = 40 -> int
+const ChServerM.Sessions.SessionHandshakeCodec.ResumeRequestSize = 40 -> int
+const ChServerM.Sessions.SessionHandshakeCodec.ResumeResponseSize = 33 -> int
+const ChServerM.Sessions.SessionHandshakeCodec.SessionIdLength = 8 -> int
+const ChServerM.Sessions.SessionHandshakeCodec.TokenLength = 32 -> int
+static ChServerM.Identity.FrameworkMessageIds.SessionEstablished.get -> ChServerM.Identity.MessageId
+static ChServerM.Identity.FrameworkMessageIds.SessionResume.get -> ChServerM.Identity.MessageId
+static ChServerM.Identity.FrameworkMessageIds.SessionResumed.get -> ChServerM.Identity.MessageId
+static ChServerM.Sessions.SessionHandshakeCodec.TryReadEstablished(System.ReadOnlySpan<byte> payload, out long sessionId, System.Span<byte> token) -> bool
+static ChServerM.Sessions.SessionHandshakeCodec.TryReadResumeRequest(System.ReadOnlySpan<byte> payload, out long sessionId, System.Span<byte> token) -> bool
+static ChServerM.Sessions.SessionHandshakeCodec.TryReadResumeResponse(System.ReadOnlySpan<byte> payload, out ChServerM.Sessions.SessionResumeStatus status, System.Span<byte> rotatedToken) -> bool
+static ChServerM.Sessions.SessionHandshakeCodec.WriteEstablished(System.Span<byte> destination, long sessionId, System.ReadOnlySpan<byte> token) -> void
+static ChServerM.Sessions.SessionHandshakeCodec.WriteResumeRequest(System.Span<byte> destination, long sessionId, System.ReadOnlySpan<byte> token) -> void
+static ChServerM.Sessions.SessionHandshakeCodec.WriteResumeResponse(System.Span<byte> destination, ChServerM.Sessions.SessionResumeStatus status, System.ReadOnlySpan<byte> rotatedToken) -> void

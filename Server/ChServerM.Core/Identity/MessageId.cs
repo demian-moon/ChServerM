@@ -121,4 +121,26 @@ public static class FrameworkMessageIds
     /// 와이어 형식은 <see cref="ChServerM.Handshake.VersionHandshakeCodec"/> 참조.
     /// </remarks>
     public static MessageId ServerHello => new(40006);
+
+    /// <summary>세션 재개 요청 — 클라이언트가 세션 식별자와 재개 토큰을 제시한다 (ADR-0036).</summary>
+    /// <remarks>
+    /// 와이어 형식은 <see cref="ChServerM.Sessions.SessionHandshakeCodec"/> 가 동결한다.
+    /// 자격 판정과 토큰 회전은 서버가 하며, <b>실패 사유를 구분해 답하지 않는다</b> —
+    /// 구분하면 공격자가 실재하는 세션 식별자를 열거할 수 있다.
+    /// </remarks>
+    public static MessageId SessionResume => new(40007);
+
+    /// <summary>세션 재개 응답 — 성공 여부와 <b>회전된</b> 재개 토큰.</summary>
+    /// <remarks>
+    /// <b>성공·실패의 페이로드 길이가 같다</b>(실패 시 토큰 자리는 0). 길이 차이는
+    /// 상태 바이트를 읽지 않고도 결과를 알려 주는 부수 채널이 된다.
+    /// </remarks>
+    public static MessageId SessionResumed => new(40008);
+
+    /// <summary>세션 수립 통지 — 서버가 새 세션의 식별자와 최초 재개 토큰을 알린다.</summary>
+    /// <remarks>
+    /// <b>수립 여부는 앱이 정한다</b>(인증 정책은 앱의 몫이다). 프레임워크는 그 결과를
+    /// 전달하는 이 메시지와, 이후의 재개 흐름 전체를 제공한다.
+    /// </remarks>
+    public static MessageId SessionEstablished => new(40009);
 }
