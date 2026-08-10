@@ -119,7 +119,14 @@ public sealed class DrainOrchestrationTests
         // 붙어 있는 커넥션이 없으면 드레인 상한을 소진하지 않는다 — 30초짜리 상한을
         // 두고도 곧바로 끝나야 한다. 여기서 상한만큼 걸리면 배포가 통째로 느려진다.
         Assert.True(elapsed < TimeSpan.FromSeconds(5), $"드레인이 너무 오래 걸렸다: {elapsed}");
-        Assert.True(report.Elapsed >= options.ReadinessPropagationDelay);
+
+        // ⚠ 전파 대기를 실제로 기다렸는지 보되 **여유를 둔다** — Task.Delay 와 Stopwatch 는
+        //   다른 시계라 경계에서 몇 ms 어긋난다. 여유 없이 못 박으면 가끔 깨지는 테스트가
+        //   되고, 가끔 깨지는 테스트는 결국 무시된다. 대기가 통째로 빠졌는지를 보는 것이
+        //   목적이므로 이 여유로 충분하다.
+        Assert.True(
+            report.Elapsed >= options.ReadinessPropagationDelay - TimeSpan.FromMilliseconds(30),
+            $"전파 대기를 기다리지 않았다: {report.Elapsed}");
     }
 
     [Fact]
