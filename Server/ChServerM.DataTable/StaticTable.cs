@@ -101,6 +101,54 @@ public sealed class StaticTable
     /// <summary>행 수.</summary>
     public int RowCount { get; }
 
+    /// <summary>참조가 비어 있음을 뜻하는 행 번호.</summary>
+    public const int NoReference = -1;
+
+    /// <summary>참조 열의 해결 결과. 열 서수 → 행별 대상 행 번호.</summary>
+    /// <remarks>
+    /// <b>왜 나중에 채우는가.</b> 참조는 다른 표가 로딩된 뒤에야 해결할 수 있다
+    /// (<see cref="StaticTableSetBuilder"/>). 그래서 표 자체는 먼저 만들어지고, 참조는
+    /// 묶음 조립이 끝나며 채워진다 — <b>채워지기 전에 조회하면 예외</b>이므로 반쯤 만들어진
+    /// 상태가 조용히 쓰이지 않는다.
+    /// </remarks>
+    private Dictionary<int, int[]>? _references;
+
+    /// <summary>참조 해결 결과를 채운다. 묶음 조립기만 부른다.</summary>
+    /// <param name="ordinal">참조 열의 서수.</param>
+    /// <param name="targetRows">행별 대상 행 번호.</param>
+    internal void SetResolvedReferences(int ordinal, int[] targetRows)
+    {
+        _references ??= [];
+        _references[ordinal] = targetRows;
+    }
+
+    /// <summary>참조 열이 가리키는 대상 행 번호를 얻는다.</summary>
+    /// <param name="row">이 표의 행 번호.</param>
+    /// <param name="ordinal">참조 열의 서수.</param>
+    /// <returns>대상 표의 행 번호. 참조가 비었으면 <see cref="NoReference"/>.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// 이 열이 참조가 아니거나, 아직 묶음으로 조립되지 않았다.
+    /// </exception>
+    /// <remarks>
+    /// <b>키로 다시 찾지 않는다.</b> 로딩 때 이미 행 번호로 바꿔 뒀으므로 조회가 배열 접근
+    /// 하나다 — 레거시 <c>ConvertColToIndexRefMetaM</c> 의 승계이며, 검증과 같은 패스에서
+    /// 공짜로 얻은 것이다.
+    /// </remarks>
+    public int GetReference(int row, int ordinal)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(row);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(row, RowCount);
+
+        if (_references is null || !_references.TryGetValue(ordinal, out int[]? targets))
+        {
+            throw new InvalidOperationException(
+                $"열 서수 {ordinal} 은 참조가 아니거나 아직 묶음으로 조립되지 않았다. " +
+                $"참조를 쓰려면 {nameof(StaticTableSetBuilder)} 로 함께 로딩한다.");
+        }
+
+        return targets[row];
+    }
+
     /// <summary>키로 행 번호를 찾는다.</summary>
     /// <param name="key">키 값.</param>
     /// <param name="row">행 번호.</param>

@@ -62,3 +62,24 @@ static ChServerM.DataTable.StaticTableColumn.operator !=(ChServerM.DataTable.Sta
 static ChServerM.DataTable.StaticTableColumn.operator ==(ChServerM.DataTable.StaticTableColumn? left, ChServerM.DataTable.StaticTableColumn? right) -> bool
 static ChServerM.DataTable.StaticTableError.operator !=(ChServerM.DataTable.StaticTableError? left, ChServerM.DataTable.StaticTableError? right) -> bool
 static ChServerM.DataTable.StaticTableError.operator ==(ChServerM.DataTable.StaticTableError? left, ChServerM.DataTable.StaticTableError? right) -> bool
+ChServerM.DataTable.StaticTable.GetReference(int row, int ordinal) -> int
+ChServerM.DataTable.StaticTableColumn.IsReference.get -> bool
+ChServerM.DataTable.StaticTableColumn.MaximumInteger.get -> long?
+ChServerM.DataTable.StaticTableColumn.MaximumInteger.init -> void
+ChServerM.DataTable.StaticTableColumn.MaximumReal.get -> double?
+ChServerM.DataTable.StaticTableColumn.MaximumReal.init -> void
+ChServerM.DataTable.StaticTableColumn.MinimumInteger.get -> long?
+ChServerM.DataTable.StaticTableColumn.MinimumInteger.init -> void
+ChServerM.DataTable.StaticTableColumn.MinimumReal.get -> double?
+ChServerM.DataTable.StaticTableColumn.MinimumReal.init -> void
+ChServerM.DataTable.StaticTableColumn.ReferencesTable.get -> string?
+ChServerM.DataTable.StaticTableColumn.ReferencesTable.init -> void
+ChServerM.DataTable.StaticTableSet
+ChServerM.DataTable.StaticTableSet.Count.get -> int
+ChServerM.DataTable.StaticTableSet.GetTable(string! name) -> ChServerM.DataTable.StaticTable!
+ChServerM.DataTable.StaticTableSet.TryGetTable(string! name, out ChServerM.DataTable.StaticTable? table) -> bool
+ChServerM.DataTable.StaticTableSetBuilder
+ChServerM.DataTable.StaticTableSetBuilder.Add(ChServerM.DataTable.StaticTableSchema! schema, string! csvContent) -> ChServerM.DataTable.StaticTableSetBuilder!
+ChServerM.DataTable.StaticTableSetBuilder.Build() -> ChServerM.DataTable.StaticTableSet!
+ChServerM.DataTable.StaticTableSetBuilder.StaticTableSetBuilder() -> void
+const ChServerM.DataTable.StaticTable.NoReference = -1 -> int

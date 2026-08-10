@@ -225,6 +225,16 @@ public static class CsvStaticTableReader
                             {
                                 errors.Add(new StaticTableError(line, column.Name, $"Int32 범위를 벗어났다: '{raw}'"));
                             }
+                            else if (column.MinimumInteger is { } min && value < min)
+                            {
+                                errors.Add(new StaticTableError(
+                                    line, column.Name, $"최솟값 {min} 보다 작다: {value}"));
+                            }
+                            else if (column.MaximumInteger is { } max && value > max)
+                            {
+                                errors.Add(new StaticTableError(
+                                    line, column.Name, $"최댓값 {max} 보다 크다: {value}"));
+                            }
                             else
                             {
                                 integers[slot] = value;
@@ -244,7 +254,20 @@ public static class CsvStaticTableReader
                         }
                         else if (double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out double d))
                         {
-                            doubles[slot] = d;
+                            if (column.MinimumReal is { } minReal && d < minReal)
+                            {
+                                errors.Add(new StaticTableError(
+                                    line, column.Name, $"최솟값 {minReal} 보다 작다: {d}"));
+                            }
+                            else if (column.MaximumReal is { } maxReal && d > maxReal)
+                            {
+                                errors.Add(new StaticTableError(
+                                    line, column.Name, $"최댓값 {maxReal} 보다 크다: {d}"));
+                            }
+                            else
+                            {
+                                doubles[slot] = d;
+                            }
                         }
                         else
                         {
