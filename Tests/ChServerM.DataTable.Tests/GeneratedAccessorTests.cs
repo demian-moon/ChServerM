@@ -293,6 +293,31 @@ public sealed class GeneratedAccessorTests
         Assert.Equal(10, Damage(new ItemRow.Table(reloadable.Current), "sword"));
     }
 
+    // ── 스냅샷으로 받은 표 ───────────────────────────────────────────
+
+    [Fact]
+    public void SnapshotRoundTrip_worksWithTheGeneratedView()
+    {
+        // ⭐ 두 증분이 맞물리는 지점이다. 뷰는 스키마 **참조 동일성**으로 서수 일치를
+        // 보장하므로(ADR-0043), 스냅샷 리더가 와이어 스키마로 표를 세웠다면 여기서
+        // 거부당한다. 로컬 스키마를 쓴다는 결정(ADR-0045)이 이 테스트로 고정된다 —
+        // 클라이언트는 **데이터 파일 없이** 서버가 보낸 표를 강타입으로 읽는다.
+        byte[] wire = StaticTableSnapshot.ToArray(Load());
+
+        StaticTableSet received = StaticTableSnapshot.Read(wire, [ItemRow.Schema, RecipeRow.Schema]);
+
+        ItemRow.Table items = new(received);
+        RecipeRow.Table recipes = new(received);
+
+        Assert.True(items.TryGetRow("sword", out ItemRow sword));
+        Assert.Equal(10, sword.Damage);
+        Assert.Equal(0.5, sword.DropRate);
+        Assert.Equal("r1", sword.RecipeId);
+
+        // 참조도 되살아난다 — 받는 쪽에서 다시 풀기 때문이다.
+        Assert.Equal("r1", recipes[sword.RecipeIdRowIndex].Id);
+    }
+
     // ── 무할당 ───────────────────────────────────────────────────────
 
     [Fact]

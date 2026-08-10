@@ -137,3 +137,9 @@ override ChServerM.DataTable.StaticTableFingerprint.GetHashCode() -> int
 override ChServerM.DataTable.StaticTableFingerprint.ToString() -> string!
 static ChServerM.DataTable.StaticTableFingerprint.operator !=(ChServerM.DataTable.StaticTableFingerprint left, ChServerM.DataTable.StaticTableFingerprint right) -> bool
 static ChServerM.DataTable.StaticTableFingerprint.operator ==(ChServerM.DataTable.StaticTableFingerprint left, ChServerM.DataTable.StaticTableFingerprint right) -> bool
+ChServerM.DataTable.StaticTableSet.TableNames.get -> System.Collections.Generic.IReadOnlyList<string!>!
+ChServerM.DataTable.StaticTableSnapshot
+const ChServerM.DataTable.StaticTableSnapshot.FormatVersion = 1 -> ushort
+static ChServerM.DataTable.StaticTableSnapshot.Read(System.ReadOnlySpan<byte> source, System.Collections.Generic.IReadOnlyList<ChServerM.DataTable.StaticTableSchema!>! schemas) -> ChServerM.DataTable.StaticTableSet!
+static ChServerM.DataTable.StaticTableSnapshot.ToArray(ChServerM.DataTable.StaticTableSet! set) -> byte[]!
+static ChServerM.DataTable.StaticTableSnapshot.Write(ChServerM.DataTable.StaticTableSet! set, System.Buffers.IBufferWriter<byte>! destination) -> void

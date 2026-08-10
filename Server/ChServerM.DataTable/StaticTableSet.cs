@@ -36,6 +36,27 @@ public sealed class StaticTableSet
     /// <summary>묶음에 든 테이블 수.</summary>
     public int Count => _tables.Count;
 
+    /// <summary>표 이름을 <b>사전 순</b>으로 돌려준다.</summary>
+    /// <remarks>
+    /// <b>순서를 고정하는 이유.</b> 지문 결합과 스냅샷 굽기가 모두 이 순서를 쓴다 —
+    /// 등록 순서에 의존하면 같은 데이터가 조립 순서에 따라 다른 지문·다른 바이트가 된다.
+    /// </remarks>
+    public IReadOnlyList<string> TableNames
+    {
+        get
+        {
+            string[] names = new string[_tables.Count];
+            int index = 0;
+            foreach (string name in _tables.Keys)
+            {
+                names[index++] = name;
+            }
+
+            Array.Sort(names, StringComparer.Ordinal);
+            return names;
+        }
+    }
+
     /// <summary>
     /// 이 묶음 전체의 내용 지문 — <b>클라이언트와 대조할 값</b>.
     /// </summary>
@@ -161,7 +182,12 @@ public sealed class StaticTableSetBuilder
     }
 
     /// <summary>한 표의 참조 열을 검증하고 대상 행 번호로 변환한다.</summary>
-    private static void ResolveReferences(
+    /// <remarks>
+    /// <b>스냅샷 복원도 이 함수를 쓴다</b>(<see cref="StaticTableSnapshot"/>). 참조 해결 결과를
+    /// 와이어로 실어 보내는 대신 받는 쪽에서 다시 푸는 이유: 그 결과는 <b>값에서 유도되는
+    /// 것</b>이라 따로 실으면 값과 어긋난 상태를 만들 수 있다. 다시 푸는 비용은 로딩 한 번이다.
+    /// </remarks>
+    internal static void ResolveReferences(
         StaticTable table, Dictionary<string, StaticTable> tables, List<StaticTableError> errors)
     {
         StaticTableSchema schema = table.Schema;
