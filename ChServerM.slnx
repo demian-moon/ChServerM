@@ -5,6 +5,7 @@
     <Project Path="Server/ChServerM.Framing/ChServerM.Framing.csproj" />
     <Project Path="Server/ChServerM.Compression.LZ4/ChServerM.Compression.LZ4.csproj" />
     <Project Path="Server/ChServerM.Concurrency/ChServerM.Concurrency.csproj" />
+    <Project Path="Server/ChServerM.DataTable/ChServerM.DataTable.csproj" />
     <Project Path="Server/ChServerM.Diagnostics.Http/ChServerM.Diagnostics.Http.csproj" />
     <Project Path="Server/ChServerM.Hosting/ChServerM.Hosting.csproj" />
     <Project Path="Server/ChServerM.Logging.Extensions/ChServerM.Logging.Extensions.csproj" />
@@ -31,6 +32,7 @@
   <Folder Name="/Tests/">
     <Project Path="Tests/ChServerM.Buffers.Tests/ChServerM.Buffers.Tests.csproj" />
     <Project Path="Tests/ChServerM.Compression.LZ4.Tests/ChServerM.Compression.LZ4.Tests.csproj" />
+    <Project Path="Tests/ChServerM.DataTable.Tests/ChServerM.DataTable.Tests.csproj" />
     <Project Path="Tests/ChServerM.Persistence.Conformance/ChServerM.Persistence.Conformance.csproj" />
     <Project Path="Tests/ChServerM.Persistence.InMemory.Tests/ChServerM.Persistence.InMemory.Tests.csproj" />
     <Project Path="Tests/ChServerM.Persistence.Redis.Tests/ChServerM.Persistence.Redis.Tests.csproj" />

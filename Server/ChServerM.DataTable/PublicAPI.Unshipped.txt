@@ -1,0 +1,64 @@
+#nullable enable
+ChServerM.DataTable.CsvStaticTableReader
+ChServerM.DataTable.StaticTable
+ChServerM.DataTable.StaticTable.GetBoolean(int row, int ordinal) -> bool
+ChServerM.DataTable.StaticTable.GetDouble(int row, int ordinal) -> double
+ChServerM.DataTable.StaticTable.GetInt32(int row, int ordinal) -> int
+ChServerM.DataTable.StaticTable.GetInt64(int row, int ordinal) -> long
+ChServerM.DataTable.StaticTable.GetString(int row, int ordinal) -> string?
+ChServerM.DataTable.StaticTable.RowCount.get -> int
+ChServerM.DataTable.StaticTable.Schema.get -> ChServerM.DataTable.StaticTableSchema!
+ChServerM.DataTable.StaticTable.TryGetRow(string! key, out int row) -> bool
+ChServerM.DataTable.StaticTableColumn
+ChServerM.DataTable.StaticTableColumn.<Clone>$() -> ChServerM.DataTable.StaticTableColumn!
+ChServerM.DataTable.StaticTableColumn.Deconstruct(out string! Name, out ChServerM.DataTable.StaticTableColumnType Type, out bool Required) -> void
+ChServerM.DataTable.StaticTableColumn.Equals(ChServerM.DataTable.StaticTableColumn? other) -> bool
+ChServerM.DataTable.StaticTableColumn.Name.get -> string!
+ChServerM.DataTable.StaticTableColumn.Name.init -> void
+ChServerM.DataTable.StaticTableColumn.Required.get -> bool
+ChServerM.DataTable.StaticTableColumn.Required.init -> void
+ChServerM.DataTable.StaticTableColumn.StaticTableColumn(string! Name, ChServerM.DataTable.StaticTableColumnType Type, bool Required = true) -> void
+ChServerM.DataTable.StaticTableColumn.Type.get -> ChServerM.DataTable.StaticTableColumnType
+ChServerM.DataTable.StaticTableColumn.Type.init -> void
+ChServerM.DataTable.StaticTableColumnType
+ChServerM.DataTable.StaticTableColumnType.Boolean = 4 -> ChServerM.DataTable.StaticTableColumnType
+ChServerM.DataTable.StaticTableColumnType.Double = 3 -> ChServerM.DataTable.StaticTableColumnType
+ChServerM.DataTable.StaticTableColumnType.Int32 = 1 -> ChServerM.DataTable.StaticTableColumnType
+ChServerM.DataTable.StaticTableColumnType.Int64 = 2 -> ChServerM.DataTable.StaticTableColumnType
+ChServerM.DataTable.StaticTableColumnType.String = 0 -> ChServerM.DataTable.StaticTableColumnType
+ChServerM.DataTable.StaticTableError
+ChServerM.DataTable.StaticTableError.<Clone>$() -> ChServerM.DataTable.StaticTableError!
+ChServerM.DataTable.StaticTableError.ColumnName.get -> string?
+ChServerM.DataTable.StaticTableError.ColumnName.init -> void
+ChServerM.DataTable.StaticTableError.Deconstruct(out int Line, out string? ColumnName, out string! Message) -> void
+ChServerM.DataTable.StaticTableError.Equals(ChServerM.DataTable.StaticTableError? other) -> bool
+ChServerM.DataTable.StaticTableError.Line.get -> int
+ChServerM.DataTable.StaticTableError.Line.init -> void
+ChServerM.DataTable.StaticTableError.Message.get -> string!
+ChServerM.DataTable.StaticTableError.Message.init -> void
+ChServerM.DataTable.StaticTableError.StaticTableError(int Line, string? ColumnName, string! Message) -> void
+ChServerM.DataTable.StaticTableLoadException
+ChServerM.DataTable.StaticTableLoadException.Errors.get -> System.Collections.Generic.IReadOnlyList<ChServerM.DataTable.StaticTableError!>!
+ChServerM.DataTable.StaticTableLoadException.StaticTableLoadException() -> void
+ChServerM.DataTable.StaticTableLoadException.StaticTableLoadException(string! message) -> void
+ChServerM.DataTable.StaticTableLoadException.StaticTableLoadException(string! message, System.Exception! innerException) -> void
+ChServerM.DataTable.StaticTableLoadException.StaticTableLoadException(string! tableName, System.Collections.Generic.IReadOnlyList<ChServerM.DataTable.StaticTableError!>! errors) -> void
+ChServerM.DataTable.StaticTableSchema
+ChServerM.DataTable.StaticTableSchema.Columns.get -> System.Collections.Generic.IReadOnlyList<ChServerM.DataTable.StaticTableColumn!>!
+ChServerM.DataTable.StaticTableSchema.KeyColumnName.get -> string!
+ChServerM.DataTable.StaticTableSchema.KeyOrdinal.get -> int
+ChServerM.DataTable.StaticTableSchema.Name.get -> string!
+ChServerM.DataTable.StaticTableSchema.StaticTableSchema(string! name, string! keyColumnName, System.Collections.Generic.IReadOnlyList<ChServerM.DataTable.StaticTableColumn!>! columns) -> void
+ChServerM.DataTable.StaticTableSchema.TryGetOrdinal(string! columnName, out int ordinal) -> bool
+override ChServerM.DataTable.StaticTableColumn.Equals(object? obj) -> bool
+override ChServerM.DataTable.StaticTableColumn.GetHashCode() -> int
+override ChServerM.DataTable.StaticTableColumn.ToString() -> string!
+override ChServerM.DataTable.StaticTableError.Equals(object? obj) -> bool
+override ChServerM.DataTable.StaticTableError.GetHashCode() -> int
+override ChServerM.DataTable.StaticTableError.ToString() -> string!
+static ChServerM.DataTable.CsvStaticTableReader.Read(ChServerM.DataTable.StaticTableSchema! schema, string! content) -> ChServerM.DataTable.StaticTable!
+static ChServerM.DataTable.CsvStaticTableReader.ReadFile(ChServerM.DataTable.StaticTableSchema! schema, string! path) -> ChServerM.DataTable.StaticTable!
+static ChServerM.DataTable.StaticTableColumn.operator !=(ChServerM.DataTable.StaticTableColumn? left, ChServerM.DataTable.StaticTableColumn? right) -> bool
+static ChServerM.DataTable.StaticTableColumn.operator ==(ChServerM.DataTable.StaticTableColumn? left, ChServerM.DataTable.StaticTableColumn? right) -> bool
+static ChServerM.DataTable.StaticTableError.operator !=(ChServerM.DataTable.StaticTableError? left, ChServerM.DataTable.StaticTableError? right) -> bool
+static ChServerM.DataTable.StaticTableError.operator ==(ChServerM.DataTable.StaticTableError? left, ChServerM.DataTable.StaticTableError? right) -> bool

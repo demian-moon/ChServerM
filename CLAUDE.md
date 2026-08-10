@@ -115,6 +115,7 @@ ChServerM/
 │  ├─ ChServerM.Persistence.Redis/
 │  ├─ ChServerM.Persistence.Postgres/
 │  ├─ ChServerM.Observability/
+│  ├─ ChServerM.DataTable/            # 선택 축. Core 를 참조하지 않는다
 │  ├─ ChServerM.Cluster/
 │  └─ ChServerM.SourceGen/          # 디스패치·직렬화 코드 생성기 (Roslyn)
 ├─ Client/

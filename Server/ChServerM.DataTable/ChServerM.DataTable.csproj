@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.DataTable</RootNamespace>
+    <Description>ChServerM 데이터 테이블 선택 축 (ADR-0041). 로딩 시점 전수 검증 + 서수 기반 무파싱 조회.</Description>
+  </PropertyGroup>
+
+  <!--
+    ⚠ 선택 축이다 — Core 를 참조하지 않는다.
+    CLAUDE.md 3절: "워크로드 특화 기능(…데이터 테이블)은 선택 축으로 별도 패키지에 격리한다.
+    Core 는 그 존재를 알지 않으며, 전부 빼도 프레임워크가 성립해야 한다."
+    실제로 Core 참조가 없어야 그 말이 참이 되므로, 참조를 만들지 않는 것 자체가 검증이다.
+  -->
+
+</Project>
