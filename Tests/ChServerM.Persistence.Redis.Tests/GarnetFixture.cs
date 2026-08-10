@@ -42,8 +42,8 @@ public sealed class GarnetFixture : IAsyncLifetime
     {
         try
         {
-            _container = new ContainerBuilder()
-                .WithImage("ghcr.io/microsoft/garnet:latest")
+            // 이미지를 생성자로 넘긴다 — 매개변수 없는 ContainerBuilder 는 폐기 예정이다.
+            _container = new ContainerBuilder("ghcr.io/microsoft/garnet:latest")
 
                 // ⚠ Lua 를 켜지 않으면 CAS 스크립트가 전부 실패한다.
                 .WithCommand("--lua")
@@ -79,7 +79,7 @@ public sealed class GarnetFixture : IAsyncLifetime
             SyncTimeout = 2000,
         };
 
-        IConnectionMultiplexer multiplexer = await ConnectionMultiplexer.ConnectAsync(configuration);
+        ConnectionMultiplexer multiplexer = await ConnectionMultiplexer.ConnectAsync(configuration);
 
         for (int attempt = 0; attempt < 40; attempt++)
         {

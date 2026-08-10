@@ -83,3 +83,21 @@ ChServerM.DataTable.StaticTableSetBuilder.Add(ChServerM.DataTable.StaticTableSch
 ChServerM.DataTable.StaticTableSetBuilder.Build() -> ChServerM.DataTable.StaticTableSet!
 ChServerM.DataTable.StaticTableSetBuilder.StaticTableSetBuilder() -> void
 const ChServerM.DataTable.StaticTable.NoReference = -1 -> int
+ChServerM.DataTable.ReloadableStaticTableSet
+ChServerM.DataTable.ReloadableStaticTableSet.Current.get -> ChServerM.DataTable.StaticTableSet!
+ChServerM.DataTable.ReloadableStaticTableSet.Generation.get -> int
+ChServerM.DataTable.ReloadableStaticTableSet.ReloadableStaticTableSet(ChServerM.DataTable.StaticTableSet! initial) -> void
+ChServerM.DataTable.ReloadableStaticTableSet.TryReload(System.Collections.Generic.IReadOnlyList<(ChServerM.DataTable.StaticTableSchema! Schema, string! Content)>! sources) -> ChServerM.DataTable.StaticTableReloadResult
+ChServerM.DataTable.ReloadableStaticTableSet.TryReload(System.Func<ChServerM.DataTable.StaticTableSet!>! build) -> ChServerM.DataTable.StaticTableReloadResult
+ChServerM.DataTable.StaticTableReloadResult
+ChServerM.DataTable.StaticTableReloadResult.Equals(ChServerM.DataTable.StaticTableReloadResult other) -> bool
+ChServerM.DataTable.StaticTableReloadResult.Failure.get -> ChServerM.DataTable.StaticTableLoadException?
+ChServerM.DataTable.StaticTableReloadResult.Generation.get -> int
+ChServerM.DataTable.StaticTableReloadResult.StaticTableReloadResult() -> void
+ChServerM.DataTable.StaticTableReloadResult.Succeeded.get -> bool
+override ChServerM.DataTable.StaticTableReloadResult.Equals(object? obj) -> bool
+override ChServerM.DataTable.StaticTableReloadResult.GetHashCode() -> int
+static ChServerM.DataTable.StaticTableReloadResult.Failed(int generation, ChServerM.DataTable.StaticTableLoadException! failure) -> ChServerM.DataTable.StaticTableReloadResult
+static ChServerM.DataTable.StaticTableReloadResult.Ok(int generation) -> ChServerM.DataTable.StaticTableReloadResult
+static ChServerM.DataTable.StaticTableReloadResult.operator !=(ChServerM.DataTable.StaticTableReloadResult left, ChServerM.DataTable.StaticTableReloadResult right) -> bool
+static ChServerM.DataTable.StaticTableReloadResult.operator ==(ChServerM.DataTable.StaticTableReloadResult left, ChServerM.DataTable.StaticTableReloadResult right) -> bool
