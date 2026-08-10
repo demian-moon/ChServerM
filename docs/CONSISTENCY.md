@@ -41,7 +41,7 @@
 | 구현 | 원자성의 근거 |
 |---|---|
 | `InMemorySessionStore` | `ConcurrentDictionary.TryUpdate` 의 참조 비교-교체. 항목은 불변이고 교체로만 갱신된다 |
-| `RedisSessionStore` | **Lua 스크립트** — 서버에서 단일 원자 단위로 실행된다(ADR-0034). `WATCH/MULTI/EXEC` 는 커넥션에 묶이는데 멀티플렉서는 커넥션을 다중화하므로 쓸 수 없다 |
+| `RedisSessionStore` | **Lua 스크립트** — 서버에서 단일 원자 단위로 실행된다(ADR-0034). `WATCH/MULTI/EXEC` 는 커넥션에 묶이는데 멀티플렉서는 커넥션을 다중화하므로 쓸 수 없다. **Garnet 에서도 그대로 동작한다**(ADR-0038) — 단 Garnet 은 `--lua` 로 띄워야 한다 |
 | `PostgresSessionStore` | **조건부 `UPDATE`** — `WHERE id=@id AND version=@expected` 가 그 자체로 원자적이고, 영향 행 0 이 곧 충돌이다(ADR-0037). 관계형은 Lua 가 필요 없다 |
 
 **⚠ 이 보장은 "단일 마스터 기준" 이다.** Redis 복제는 비동기이므로, 마스터가 확인한 쓰기가
@@ -166,7 +166,7 @@ Redis Cluster 는 Lua 스크립트가 만지는 모든 키가 **같은 해시 �
 | 대상 | 범위 |
 |---|---|
 | `InMemorySessionStore` | **프로세스 로컬**. 다중 노드에서 세션을 공유하지 못한다 — `stateless-web` 프로필이 외부 저장소를 요구하는 이유다(ADR-0004) |
-| `RedisSessionStore` · `PostgresSessionStore` | **공유**. 다중 노드에서 같은 세션을 본다 |
+| `RedisSessionStore`(Redis · **Garnet**) · `PostgresSessionStore` | **공유**. 다중 노드에서 같은 세션을 본다 |
 | `CircuitBreaker` | **노드 로컬**. 각 노드가 자기가 본 실패로 판단한다 |
 | 커넥션 바인딩(`ISessionFeature`) | **커넥션 로컬**. 그 커넥션의 디스패치 순차 컨텍스트 전용이다 |
 | 속도 제한·수용 제어 | **노드 로컬**. 전역 상한이 필요하면 클러스터 축이 선행돼야 한다 |
