@@ -637,3 +637,18 @@ static ChServerM.Sessions.SessionWriteResult.Conflict.get -> ChServerM.Sessions.
 static ChServerM.Sessions.SessionWriteResult.Ok(ChServerM.Sessions.SessionVersion version) -> ChServerM.Sessions.SessionWriteResult
 static ChServerM.Sessions.SessionWriteResult.operator !=(ChServerM.Sessions.SessionWriteResult left, ChServerM.Sessions.SessionWriteResult right) -> bool
 static ChServerM.Sessions.SessionWriteResult.operator ==(ChServerM.Sessions.SessionWriteResult left, ChServerM.Sessions.SessionWriteResult right) -> bool
+ChServerM.Resilience.CircuitOpenException
+ChServerM.Resilience.CircuitOpenException.CircuitOpenException() -> void
+ChServerM.Resilience.CircuitOpenException.CircuitOpenException(string! message) -> void
+ChServerM.Resilience.CircuitOpenException.CircuitOpenException(string! message, System.Exception! innerException) -> void
+ChServerM.Resilience.CircuitState
+ChServerM.Resilience.CircuitState.Closed = 0 -> ChServerM.Resilience.CircuitState
+ChServerM.Resilience.CircuitState.HalfOpen = 1 -> ChServerM.Resilience.CircuitState
+ChServerM.Resilience.CircuitState.Open = 2 -> ChServerM.Resilience.CircuitState
+ChServerM.Resilience.ICircuitBreaker
+ChServerM.Resilience.ICircuitBreaker.Name.get -> string!
+ChServerM.Resilience.ICircuitBreaker.RecordFailure(System.Exception? exception = null) -> void
+ChServerM.Resilience.ICircuitBreaker.RecordSuccess() -> void
+ChServerM.Resilience.ICircuitBreaker.State.get -> ChServerM.Resilience.CircuitState
+ChServerM.Resilience.ICircuitBreaker.TryEnter() -> bool
+static ChServerM.Resilience.CircuitOpenException.ForCircuit(string! circuitName) -> ChServerM.Resilience.CircuitOpenException!

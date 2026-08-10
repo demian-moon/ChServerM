@@ -18,6 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Server\ChServerM.Hosting\ChServerM.Hosting.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Persistence.Redis\ChServerM.Persistence.Redis.csproj" />
     <ProjectReference Include="..\ChServerM.Persistence.Conformance\ChServerM.Persistence.Conformance.csproj" />
   </ItemGroup>

@@ -239,3 +239,33 @@ ChServerM.Hosting.DiagnosticsService.Collect() -> string!
 ChServerM.Hosting.DiagnosticsService.DiagnosticsService(System.Collections.Generic.IEnumerable<ChServerM.Diagnostics.IDiagnosticsSource!>! sources) -> void
 ChServerM.Hosting.DiagnosticsService.SourceCount.get -> int
 ChServerM.Hosting.ServerBuilder.AddDiagnosticsSource(ChServerM.Diagnostics.IDiagnosticsSource! source) -> ChServerM.Hosting.ServerBuilder!
+ChServerM.Hosting.CircuitBreaker
+ChServerM.Hosting.CircuitBreaker.CircuitBreaker(ChServerM.Hosting.CircuitBreakerOptions? options = null, System.TimeProvider? timeProvider = null) -> void
+ChServerM.Hosting.CircuitBreaker.Name.get -> string!
+ChServerM.Hosting.CircuitBreaker.RecordFailure(System.Exception? exception = null) -> void
+ChServerM.Hosting.CircuitBreaker.RecordSuccess() -> void
+ChServerM.Hosting.CircuitBreaker.Reset() -> void
+ChServerM.Hosting.CircuitBreaker.State.get -> ChServerM.Resilience.CircuitState
+ChServerM.Hosting.CircuitBreaker.TryEnter() -> bool
+ChServerM.Hosting.CircuitBreakerOptions
+ChServerM.Hosting.CircuitBreakerOptions.BreakDuration.get -> System.TimeSpan
+ChServerM.Hosting.CircuitBreakerOptions.BreakDuration.set -> void
+ChServerM.Hosting.CircuitBreakerOptions.CircuitBreakerOptions() -> void
+ChServerM.Hosting.CircuitBreakerOptions.FailureThreshold.get -> int
+ChServerM.Hosting.CircuitBreakerOptions.FailureThreshold.set -> void
+ChServerM.Hosting.CircuitBreakerOptions.HalfOpenConcurrentProbes.get -> int
+ChServerM.Hosting.CircuitBreakerOptions.HalfOpenConcurrentProbes.set -> void
+ChServerM.Hosting.CircuitBreakerOptions.HalfOpenSuccessThreshold.get -> int
+ChServerM.Hosting.CircuitBreakerOptions.HalfOpenSuccessThreshold.set -> void
+ChServerM.Hosting.CircuitBreakerOptions.Name.get -> string!
+ChServerM.Hosting.CircuitBreakerOptions.Name.set -> void
+ChServerM.Hosting.CircuitBreakerOptions.Validate() -> void
+ChServerM.Hosting.CircuitBreakingSessionStore
+ChServerM.Hosting.CircuitBreakingSessionStore.CircuitBreakingSessionStore(ChServerM.Sessions.ISessionStore! inner, ChServerM.Resilience.ICircuitBreaker! breaker, System.Func<System.Exception!, bool>? shouldCountAsFailure = null) -> void
+ChServerM.Hosting.CircuitBreakingSessionStore.TryReadAsync(ChServerM.Identity.SessionId id, System.Buffers.IBufferWriter<byte>! destination, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Sessions.SessionReadResult>
+ChServerM.Hosting.CircuitBreakingSessionStore.TryRemoveAsync(ChServerM.Identity.SessionId id, ChServerM.Sessions.SessionVersion expectedVersion, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
+ChServerM.Hosting.CircuitBreakingSessionStore.TryRenewAsync(ChServerM.Identity.SessionId id, ChServerM.Sessions.SessionVersion expectedVersion, System.TimeSpan timeToLive, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
+ChServerM.Hosting.CircuitBreakingSessionStore.TryWriteAsync(ChServerM.Identity.SessionId id, System.ReadOnlyMemory<byte> state, ChServerM.Sessions.SessionVersion expectedVersion, System.TimeSpan? timeToLive = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Sessions.SessionWriteResult>
+const ChServerM.Hosting.CircuitBreakerOptions.DefaultFailureThreshold = 5 -> int
+static ChServerM.Hosting.CircuitBreakingSessionStore.IsInfrastructureFailure(System.Exception! exception) -> bool
+static readonly ChServerM.Hosting.CircuitBreakerOptions.DefaultBreakDuration -> System.TimeSpan
