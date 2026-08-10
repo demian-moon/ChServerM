@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 using ChServerM.Identity;
 
 namespace ChServerM.Cluster;
@@ -145,5 +148,95 @@ public sealed class ClusterRouteResolver
         return owner!.Id == _membership.Self.Id
             ? ClusterRoute.ToLocal(owner)
             : ClusterRoute.ToRemote(owner);
+    }
+
+    /// <summary>
+    /// 구성이 바뀔 때마다 <b>그 뷰에 묶인 라우터</b>를 하나씩 준다 —
+    /// <b>노드가 늘거나 줄었을 때 소유권을 재검토하는 신호</b>다.
+    /// </summary>
+    /// <param name="cancellationToken">감시를 그만둘 토큰.</param>
+    /// <returns>첫 항목은 <b>지금</b> 뷰의 라우터이고, 이후 구성이 바뀔 때마다 하나씩 나온다.</returns>
+    /// <remarks>
+    /// <para>
+    /// <b>존재 이유 — 뷰가 바뀐 것을 앱이 알 방법이 없었다.</b> 라우팅은 "이 키가 누구 것인가"
+    /// 를 물으면 답하지만, <b>"내가 무엇을 잃었는가"</b> 는 아무도 알려 주지 않았다. 노드-로컬
+    /// 상태(캐시·룸·타이머)를 든 앱은 그 신호가 없으면 <b>남의 키를 계속 붙들고 처리한다</b>.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>⚠⚠ "잃은 키 목록" 을 주지 않는다 — 줄 수 없다.</b> 랑데뷰 해싱은 키 → 노드 함수이고
+    /// <b>역방향이 없으며</b>, 애초에 프레임워크는 앱이 어떤 키를 들고 있는지 모른다. 그래서
+    /// 재검토는 <b>앱이 자기 것을 순회하며</b> 한다. 이것을 감추고 그럴듯한 목록을 만들어
+    /// 주는 편이 API 는 예뻐 보이지만, 그 목록은 반드시 앱의 실제 보유분과 어긋난다.
+    /// <code>
+    ///   await foreach (IClusterRouter router in resolver.WatchAsync(token))
+    ///   {
+    ///       foreach (PartitionKey key in app.LocallyHeldKeys)   // 앱만 아는 집합
+    ///       {
+    ///           if (!resolver.Resolve(router, key).IsLocal)
+    ///           {
+    ///               app.Release(key);   // 이동·폐기 방법은 앱의 몫
+    ///           }
+    ///       }
+    ///   }
+    /// </code>
+    /// </para>
+    ///
+    /// <para>
+    /// <b>⭐ 뷰가 아니라 라우터를 준다.</b> 이 축의 알려진 함정이 <b>뷰와 라우터가 어긋나
+    /// 사라진 노드로 보내는 것</b>(타입 문서 첫 절)인데, 뷰를 주면 받는 쪽이 라우터를 다시
+    /// 구해야 하고 그 사이에 또 바뀔 수 있다. <b>짝지어 줘서 어긋날 자리를 없앤다.</b>
+    /// </para>
+    ///
+    /// <para>
+    /// <b>⚠ 밀린 세대는 합친다. 큐가 없다.</b> 뷰는 <b>이벤트가 아니라 상태</b>이므로 새 뷰가
+    /// 옛 뷰를 <b>대체</b>한다 — 소비가 느린 동안 세 번 바뀌었으면 <b>가장 새것 하나</b>만
+    /// 나온다. 옛 뷰로 재검토하는 것은 낭비일 뿐 아니라 <b>이미 틀린 답</b>이다.
+    /// 그 결과 쌓을 것이 없으므로 무제한 큐 금지(CLAUDE.md 9.6)를 <b>구조적으로</b> 만족한다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>첫 항목이 "변화" 가 아닌 것은 의도된 것이다.</b> 기동 직후의 배치와 이후의 재검토를
+    /// <b>같은 코드</b>로 쓰게 한다 — 루프 밖에 초기화를 따로 두면 그 두 벌이 갈라진다.
+    /// 재검토는 멱등하므로 중복 통지가 나와도 무해하다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>⚠ 이동한 상태의 안전성은 여기서 오지 않는다.</b> 옛 소유자가 전환을 늦게 알아채고
+    /// 쓰기를 시도하는 경우는 <b>저장소의 단일 키 CAS 가 이미 막는다</b>(CONSISTENCY 5절) —
+    /// 다른 노드에 있어도 같은 저장소를 보므로 버전 비교가 그대로 성립한다. 이 신호는
+    /// <b>일을 줄이기 위한 것</b>이지 정확성의 최후 방어선이 아니다.
+    /// </para>
+    ///
+    /// <para>
+    /// 구성이 절대 바뀌지 않는 제공자(정적 목록)에서는 첫 항목 뒤로 <b>취소될 때까지 아무것도
+    /// 나오지 않는다.</b> 그것이 정확한 답이다.
+    /// </para>
+    ///
+    /// <para><b>스레드 규약.</b> 여러 소비자가 각자 돌려도 된다 — 서로를 막지 않는다.</para>
+    /// </remarks>
+    public async IAsyncEnumerable<IClusterRouter> WatchAsync(
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        IClusterRouter router = Router;
+        yield return router;
+
+        int seen = router.View.Generation;
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // ⚠ 반환값을 **의도적으로 버린다**. 깨우는 신호에 실려 온 뷰는 낡았을 수 있다 —
+            //   알림을 큐로 나르는 제공자라면 그 사이에 Current 가 더 앞서간다. 그것을 그대로
+            //   쓰면 앱이 **이미 틀린 뷰로 소유권을 재검토**하고, 이 리졸버의 단일 결정 경로
+            //   (Resolve(key))가 보는 뷰와도 어긋난다. Current 를 다시 읽어 가장 새것을 준다.
+            //   (고의 회귀로 확인: 이 줄을 되돌리면 StaleWakeupSignal 테스트가 깨진다.)
+            _ = await _membership.WaitForChangeAsync(seen, cancellationToken).ConfigureAwait(false);
+
+            router = Router;
+            seen = router.View.Generation;
+            yield return router;
+        }
     }
 }
