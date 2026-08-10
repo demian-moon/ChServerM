@@ -7,6 +7,7 @@ using System.Security.Authentication;
 using System.Threading;
 using System.Threading.Tasks;
 using ChServerM.Connections;
+using ChServerM.Content;
 using ChServerM.Diagnostics;
 using ChServerM.Features;
 using ChServerM.Framing;
@@ -43,6 +44,7 @@ public sealed class ClientBuilder
     private IFrameEncoder? _encoder;
     private ITransportSecurity? _transportSecurity;
     private VersionNegotiationOptions? _versionNegotiation;
+    private ContentFingerprint _contentFingerprint;
     private IPayloadCodec? _payloadCodec;
     private IServerLogger _logger = NullServerLogger.Instance;
     private TimeProvider _timeProvider = TimeProvider.System;
@@ -149,6 +151,38 @@ public sealed class ClientBuilder
         return this;
     }
 
+    /// <summary>접속 시점에 이 클라이언트의 <b>콘텐츠 지문</b>을 서버에 제시한다 (ADR-0044).</summary>
+    /// <param name="fingerprint">이 클라이언트가 들고 있는 콘텐츠의 지문.</param>
+    /// <returns>메서드 체이닝을 위한 자기 자신.</returns>
+    /// <exception cref="ArgumentException"><paramref name="fingerprint"/>가 설정되지 않은 센티넬일 때.</exception>
+    /// <remarks>
+    /// <para>
+    /// 서버가 <see cref="ServerBuilder.RequireContentFingerprint"/> 로 켜 놓은 게이트의 짝이다.
+    /// 불일치면 <see cref="ContentFingerprintMismatchException"/> 이 나온다 —
+    /// <see cref="VersionNegotiationException"/> 과 <b>구분되는 타입</b>인 이유는 요구되는
+    /// 조치가 다르기 때문이다(실행 파일 갱신 vs 데이터 갱신).
+    /// </para>
+    /// <para>
+    /// <b>⚠ 왕복은 늘지 않는다.</b> <c>ClientHello</c> 와 함께 한 번에 플러시한다.
+    /// </para>
+    /// <para>
+    /// <b>⚠ <see cref="UseVersionNegotiation"/> 이 켜져 있어야 한다</b> — 지문 교환은 협상
+    /// 직후에 일어난다. 협상 없이 켜면 <see cref="Build"/> 가 실패한다.
+    /// </para>
+    /// </remarks>
+    public ClientBuilder SendContentFingerprint(ContentFingerprint fingerprint)
+    {
+        if (!fingerprint.IsSet)
+        {
+            throw new ArgumentException(
+                "설정되지 않은 지문이다. 0 은 '설정되지 않음' 센티넬이라 와이어에 실을 수 없다.",
+                nameof(fingerprint));
+        }
+
+        _contentFingerprint = fingerprint;
+        return this;
+    }
+
     /// <summary>서버가 보내는 메시지를 받을 핸들러를 설정한다.</summary>
     /// <remarks>
     /// 클라이언트도 서버 푸시를 받는다. 요청-응답만 쓰는 조립이라면 비워둬도 된다.
@@ -179,13 +213,21 @@ public sealed class ClientBuilder
         _connectionOptions.Validate();
         _versionNegotiation?.Validate();
 
+        if (_contentFingerprint.IsSet && _versionNegotiation is null)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(SendContentFingerprint)} 는 {nameof(UseVersionNegotiation)} 을 함께 요구한다. "
+                + "지문 교환은 협상 직후에 일어난다.");
+        }
+
         CompositionGuard.EnsureFrameFitsInTransportBuffer(transport, decoder, encoder);
 
         FramedConnectionHandler handler = new(
             decoder, _dispatcher.Build(), _connectionOptions, _timeProvider, _logger,
             payloadCodec: _payloadCodec);
 
-        return new ChServerMClient(transport, handler, encoder, _transportSecurity, _versionNegotiation, _timeProvider);
+        return new ChServerMClient(
+            transport, handler, encoder, _transportSecurity, _versionNegotiation, _contentFingerprint, _timeProvider);
     }
 }
 
@@ -203,6 +245,7 @@ public sealed class ChServerMClient : IAsyncDisposable
     private readonly IConnectionHandler _handler;
     private readonly ITransportSecurity? _security;
     private readonly VersionNegotiationOptions? _negotiation;
+    private readonly ContentFingerprint _contentFingerprint;
     private readonly TimeProvider _timeProvider;
     private int _disposed;
 
@@ -212,12 +255,14 @@ public sealed class ChServerMClient : IAsyncDisposable
         IFrameEncoder encoder,
         ITransportSecurity? security,
         VersionNegotiationOptions? negotiation,
+        ContentFingerprint contentFingerprint,
         TimeProvider timeProvider)
     {
         _transport = transport;
         _handler = handler;
         _security = security;
         _negotiation = negotiation;
+        _contentFingerprint = contentFingerprint;
         _timeProvider = timeProvider;
         Encoder = encoder;
     }
@@ -320,6 +365,15 @@ public sealed class ChServerMClient : IAsyncDisposable
             VersionHandshakeCodec.WriteClientHello(hello, negotiation.SupportedVersions);
             output.Advance(VersionHandshakeCodec.ClientHelloFrameSize);
 
+            // ⚠ 지문을 같은 플러시에 실어 왕복을 늘리지 않는다. 서버는 ClientHello 만
+            // 소비하고 넘기므로, 지문 프레임은 다음 단계의 버퍼에 이미 들어가 있다(ADR-0044).
+            if (_contentFingerprint.IsSet)
+            {
+                Span<byte> offer = output.GetSpan(ContentFingerprintCodec.OfferFrameSize);
+                ContentFingerprintCodec.WriteOffer(offer, _contentFingerprint);
+                output.Advance(ContentFingerprintCodec.OfferFrameSize);
+            }
+
             FlushResult flush = await output.FlushAsync(linked.Token).ConfigureAwait(false);
             if (flush.IsCanceled || flush.IsCompleted)
             {
@@ -355,6 +409,12 @@ public sealed class ChServerMClient : IAsyncDisposable
 
                     connection.Features.Set<IProtocolVersionFeature>(
                         new NegotiatedVersionFeature(response.SelectedVersion));
+
+                    if (_contentFingerprint.IsSet)
+                    {
+                        await AwaitContentResponseAsync(input, linked.Token).ConfigureAwait(false);
+                    }
+
                     return;
                 }
 
@@ -393,6 +453,77 @@ public sealed class ChServerMClient : IAsyncDisposable
             // 실패한 커넥션을 반드시 정리한다 — 남겨두면 소켓이 샌다(SecureAsync 와 동일).
             await connection.DisposeAsync().ConfigureAwait(false);
             throw;
+        }
+        catch (ContentFingerprintMismatchException)
+        {
+            await connection.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
+    }
+
+    /// <summary>서버의 콘텐츠 지문 응답(수락 또는 거부)을 읽는다.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>수락도 프레임으로 온다.</b> 침묵을 수락으로 삼으면 "수락됐다" 와 "아직 안 왔다" 를
+    /// 구분할 수 없어 매 접속이 제한 시간만큼 늘어진다(ADR-0044).
+    /// </para>
+    /// <para>
+    /// 거부 사유가 지문 불일치가 아니면 <see cref="VersionNegotiationException"/> 으로 낸다 —
+    /// 그 자리에 올 수 있는 다른 사유(동시 접속 상한 등)는 콘텐츠 문제가 아니고,
+    /// 콘텐츠 예외로 포장하면 호출자가 <b>엉뚱한 안내</b>를 띄운다.
+    /// </para>
+    /// </remarks>
+    private async ValueTask AwaitContentResponseAsync(PipeReader input, CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            ReadResult read = await input.ReadAsync(cancellationToken).ConfigureAwait(false);
+            if (read.IsCanceled)
+            {
+                throw new VersionNegotiationException("콘텐츠 지문 응답 읽기가 중단됐다.");
+            }
+
+            ReadOnlySequence<byte> buffer = read.Buffer;
+            VersionHandshakeStatus status = ContentFingerprintCodec.TryReadServerResponse(
+                buffer, out bool accepted, out ushort rejectReason, out int consumed);
+
+            if (status == VersionHandshakeStatus.Success)
+            {
+                // 정확히 응답 바이트까지만 소비한다 — 뒤는 프레이밍의 몫이다.
+                SequencePosition end = buffer.GetPosition(consumed);
+                input.AdvanceTo(end, end);
+
+                if (accepted)
+                {
+                    return;
+                }
+
+                if (rejectReason == VersionHandshakeCodec.RejectReasonContentMismatch)
+                {
+                    throw new ContentFingerprintMismatchException(
+                        $"서버가 콘텐츠 지문 불일치로 거부했다(클라이언트 {_contentFingerprint}). "
+                        + "데이터 갱신이 필요하다. 서버 로그에 양쪽 지문이 함께 남는다.",
+                        _contentFingerprint);
+                }
+
+                throw new VersionNegotiationException(
+                    $"서버가 콘텐츠 지문 단계에서 연결을 거부했다. 사유 코드 {rejectReason}.");
+            }
+
+            if (status == VersionHandshakeStatus.Malformed)
+            {
+                input.AdvanceTo(buffer.Start, buffer.End);
+                throw new VersionNegotiationException(
+                    "콘텐츠 지문 응답을 해석할 수 없다. 서버가 지문 게이트를 켜지 않았을 수 있다 — 게이트는 양쪽 스위치다.");
+            }
+
+            // NeedMoreData — examined 를 끝으로 둬야 파이프가 더 읽는다.
+            input.AdvanceTo(buffer.Start, buffer.End);
+
+            if (read.IsCompleted)
+            {
+                throw new VersionNegotiationException("서버가 콘텐츠 지문 응답 없이 연결을 닫았다.");
+            }
         }
     }
 

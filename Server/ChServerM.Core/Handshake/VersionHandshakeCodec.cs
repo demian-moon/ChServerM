@@ -90,6 +90,17 @@ public static class VersionHandshakeCodec
     /// </remarks>
     public const ushort RejectReasonVersionMismatch = 2002;
 
+    /// <summary>
+    /// 거부 사유 "콘텐츠 지문 불일치"의 동결 수치 (ADR-0044).
+    /// </summary>
+    /// <remarks>
+    /// <c>ErrorCode.ContentFingerprintMismatch</c>(2004)의 수치를 동결한 것이다.
+    /// <b>거부 프레임의 레이아웃은 그대로 두고 사유 코드만 늘렸다</b> — 사유 필드가
+    /// 애초에 그러라고 있는 확장 지점이고, 새 응답 형식을 만들면 클라이언트가 읽을 줄
+    /// 모르는 바이트가 되어 <b>거부 사유를 잃는다</b>(R-3).
+    /// </remarks>
+    public const ushort RejectReasonContentMismatch = 2004;
+
     // ── 쓰기 ─────────────────────────────────────────────────────
 
     /// <summary><c>ClientHello</c> 프레임(<see cref="ClientHelloFrameSize"/> 바이트)을 쓴다.</summary>
@@ -130,13 +141,36 @@ public static class VersionHandshakeCodec
     /// 기존 <c>ConnectionRejected</c>(40004) 경로를 재사용한다 — 그냥 끊으면 클라이언트는
     /// "서버가 내 버전을 거부했다"와 "네트워크가 끊겼다"를 구분할 수 없다(조용한 유실 금지).
     /// </remarks>
-    public static void WriteRejection(Span<byte> destination, ProtocolVersionRange serverSupported)
+    public static void WriteRejection(Span<byte> destination, ProtocolVersionRange serverSupported) =>
+        WriteRejection(destination, serverSupported, RejectReasonVersionMismatch);
+
+    /// <summary>사유를 지정해 거부 프레임을 쓴다.</summary>
+    /// <param name="destination">쓸 대상. <see cref="RejectionFrameSize"/> 이상이어야 한다.</param>
+    /// <param name="serverSupported">서버가 지원하는 버전 구간 — 사유와 무관하게 함께 싣는다(R-3).</param>
+    /// <param name="reason">거부 사유의 동결 수치(<see cref="RejectReasonVersionMismatch"/> 등).</param>
+    /// <exception cref="ArgumentException"><paramref name="destination"/>이 짧거나
+    /// <paramref name="serverSupported"/>가 설정되지 않은 센티넬일 때.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="reason"/>이 0일 때.</exception>
+    /// <remarks>
+    /// <para>
+    /// <b>사유 필드가 이 프레임의 확장 지점이다.</b> 거부해야 할 새 이유가 생길 때마다
+    /// 응답 형식을 새로 만들면, 그 형식을 모르는 클라이언트에게는 <b>해석 불가능한
+    /// 바이트</b>가 되어 "왜 거부됐는지" 가 사라진다. 레이아웃은 동결하고 수치만 늘린다.
+    /// </para>
+    /// <para>
+    /// <b>기본값 있는 오버로드를 만들지 않는다</b>(RS0026, CLAUDE.md 8.1). 사유를 빠뜨리면
+    /// 조용히 "버전 불일치" 로 나가는데, 그것은 거부 사유를 알려 주려는 이 설계의 정반대다.
+    /// </para>
+    /// </remarks>
+    public static void WriteRejection(
+        Span<byte> destination, ProtocolVersionRange serverSupported, ushort reason)
     {
         EnsureLength(destination, RejectionFrameSize);
         EnsureRangeSet(serverSupported, nameof(serverSupported));
+        ArgumentOutOfRangeException.ThrowIfZero(reason);
 
         WriteHeader(destination, ConnectionRejectedId, RejectionPayloadSize);
-        BinaryPrimitives.WriteUInt16LittleEndian(destination[HeaderSize..], RejectReasonVersionMismatch);
+        BinaryPrimitives.WriteUInt16LittleEndian(destination[HeaderSize..], reason);
         BinaryPrimitives.WriteUInt16LittleEndian(destination[(HeaderSize + 2)..], serverSupported.Min);
         BinaryPrimitives.WriteUInt16LittleEndian(destination[(HeaderSize + 4)..], serverSupported.Max);
     }

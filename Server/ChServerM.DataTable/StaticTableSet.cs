@@ -27,10 +27,37 @@ public sealed class StaticTableSet
 {
     private readonly Dictionary<string, StaticTable> _tables;
 
-    internal StaticTableSet(Dictionary<string, StaticTable> tables) => _tables = tables;
+    internal StaticTableSet(Dictionary<string, StaticTable> tables)
+    {
+        _tables = tables;
+        Fingerprint = StaticTableFingerprintCalculator.Combine(tables);
+    }
 
     /// <summary>묶음에 든 테이블 수.</summary>
     public int Count => _tables.Count;
+
+    /// <summary>
+    /// 이 묶음 전체의 내용 지문 — <b>클라이언트와 대조할 값</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 표 이름으로 정렬해 결합하므로 <see cref="StaticTableSetBuilder"/> 에 넣은 순서가
+    /// 지문을 바꾸지 않는다. 반대로 <b>표 안의 행 순서는 지문에 들어간다</b> —
+    /// 행 번호가 참조의 목적지이기 때문이다.
+    /// </para>
+    /// <para>
+    /// <b>⚠ Core 타입으로 바꾸는 것은 앱의 몫이다.</b> 이 축은 Core 를 참조하지 않으므로
+    /// <c>ChServerM.Content.ContentFingerprint</c> 를 돌려줄 수 없다. 접속 게이트에 물릴 때
+    /// 앱이 <c>new ContentFingerprint(set.Fingerprint.High, set.Fingerprint.Low)</c> 로 옮긴다 —
+    /// <b>그 한 줄이 두 축이 분리돼 있다는 증거</b>다(ADR-0044).
+    /// </para>
+    /// <para>
+    /// 세대(<see cref="ReloadableStaticTableSet.Generation"/>)와 혼동하지 않는다. 세대는
+    /// <b>이 프로세스에서 몇 번 갈아 끼웠는가</b>이고 지문은 <b>내용이 무엇인가</b>다.
+    /// 두 서버가 같은 데이터를 실어도 세대는 다를 수 있고, 대조에 쓸 수 있는 것은 지문뿐이다.
+    /// </para>
+    /// </remarks>
+    public StaticTableFingerprint Fingerprint { get; }
 
     /// <summary>이름으로 테이블을 찾는다.</summary>
     /// <param name="name">테이블 이름(스키마의 이름).</param>

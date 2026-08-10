@@ -93,6 +93,12 @@ public sealed class StaticTable
                 default: break;
             }
         }
+
+        // ⚠ 지문을 지연 계산하지 않는다. 값이 128비트라 원자적으로 읽히지 않으므로
+        // 지연 계산은 잠금이나 봉인 객체를 부르고, 그러면 "불변이라 동기화가 없다" 는
+        // 이 타입의 계약에 예외가 생긴다. 로딩은 기동 경로이고 이미 캐시에 올라온 값을
+        // 한 번 훑는 비용이라, 계약을 지키는 쪽이 싸다.
+        Fingerprint = StaticTableFingerprintCalculator.Compute(this);
     }
 
     /// <summary>이 테이블의 스키마.</summary>
@@ -100,6 +106,17 @@ public sealed class StaticTable
 
     /// <summary>행 수.</summary>
     public int RowCount { get; }
+
+    /// <summary>
+    /// 이 표의 내용 지문 — <b>스키마와 파싱된 값 전부</b>를 요약한 128비트 값.
+    /// </summary>
+    /// <remarks>
+    /// 대조 단위는 대개 표 하나가 아니라 묶음이므로 <see cref="StaticTableSet.Fingerprint"/>
+    /// 를 쓴다. 이 값은 그 재료이며, 표별로 무엇이 달라졌는지 좁혀 볼 때 유용하다.
+    /// 무엇이 지문에 들어가고 무엇이 들어가지 않는지는
+    /// <see cref="StaticTableFingerprint"/> 문서를 읽는다.
+    /// </remarks>
+    public StaticTableFingerprint Fingerprint { get; }
 
     /// <summary>참조가 비어 있음을 뜻하는 행 번호.</summary>
     public const int NoReference = -1;

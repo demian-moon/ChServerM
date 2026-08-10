@@ -676,3 +676,34 @@ static ChServerM.Sessions.SessionHandshakeCodec.TryReadResumeResponse(System.Rea
 static ChServerM.Sessions.SessionHandshakeCodec.WriteEstablished(System.Span<byte> destination, long sessionId, System.ReadOnlySpan<byte> token) -> void
 static ChServerM.Sessions.SessionHandshakeCodec.WriteResumeRequest(System.Span<byte> destination, long sessionId, System.ReadOnlySpan<byte> token) -> void
 static ChServerM.Sessions.SessionHandshakeCodec.WriteResumeResponse(System.Span<byte> destination, ChServerM.Sessions.SessionResumeStatus status, System.ReadOnlySpan<byte> rotatedToken) -> void
+ChServerM.Content.ContentFingerprint
+ChServerM.Content.ContentFingerprint.ContentFingerprint() -> void
+ChServerM.Content.ContentFingerprint.ContentFingerprint(ulong high, ulong low) -> void
+ChServerM.Content.ContentFingerprint.Equals(ChServerM.Content.ContentFingerprint other) -> bool
+ChServerM.Content.ContentFingerprint.High.get -> ulong
+ChServerM.Content.ContentFingerprint.IsSet.get -> bool
+ChServerM.Content.ContentFingerprint.Low.get -> ulong
+ChServerM.Content.ContentFingerprint.WriteTo(System.Span<byte> destination) -> void
+ChServerM.Content.ContentFingerprintCodec
+ChServerM.Diagnostics.ErrorCode.ContentFingerprintMismatch = 2004 -> ChServerM.Diagnostics.ErrorCode
+const ChServerM.Content.ContentFingerprint.ByteLength = 16 -> int
+const ChServerM.Content.ContentFingerprintCodec.AcceptedFrameSize = 16 -> int
+const ChServerM.Content.ContentFingerprintCodec.AcceptedPayloadSize = 0 -> int
+const ChServerM.Content.ContentFingerprintCodec.HeaderSize = 16 -> int
+const ChServerM.Content.ContentFingerprintCodec.OfferFrameSize = 32 -> int
+const ChServerM.Content.ContentFingerprintCodec.OfferPayloadSize = 16 -> int
+const ChServerM.Handshake.VersionHandshakeCodec.RejectReasonContentMismatch = 2004 -> ushort
+override ChServerM.Content.ContentFingerprint.Equals(object? obj) -> bool
+override ChServerM.Content.ContentFingerprint.GetHashCode() -> int
+override ChServerM.Content.ContentFingerprint.ToString() -> string!
+static ChServerM.Content.ContentFingerprint.None.get -> ChServerM.Content.ContentFingerprint
+static ChServerM.Content.ContentFingerprint.ReadFrom(System.ReadOnlySpan<byte> source) -> ChServerM.Content.ContentFingerprint
+static ChServerM.Content.ContentFingerprint.operator !=(ChServerM.Content.ContentFingerprint left, ChServerM.Content.ContentFingerprint right) -> bool
+static ChServerM.Content.ContentFingerprint.operator ==(ChServerM.Content.ContentFingerprint left, ChServerM.Content.ContentFingerprint right) -> bool
+static ChServerM.Content.ContentFingerprintCodec.TryReadOffer(in System.Buffers.ReadOnlySequence<byte> buffer, out ChServerM.Content.ContentFingerprint fingerprint) -> ChServerM.Handshake.VersionHandshakeStatus
+static ChServerM.Content.ContentFingerprintCodec.TryReadServerResponse(in System.Buffers.ReadOnlySequence<byte> buffer, out bool accepted, out ushort rejectReason, out int consumed) -> ChServerM.Handshake.VersionHandshakeStatus
+static ChServerM.Content.ContentFingerprintCodec.WriteAccepted(System.Span<byte> destination) -> void
+static ChServerM.Content.ContentFingerprintCodec.WriteOffer(System.Span<byte> destination, ChServerM.Content.ContentFingerprint fingerprint) -> void
+static ChServerM.Handshake.VersionHandshakeCodec.WriteRejection(System.Span<byte> destination, ChServerM.Handshake.ProtocolVersionRange serverSupported, ushort reason) -> void
+static ChServerM.Identity.FrameworkMessageIds.ContentAccepted.get -> ChServerM.Identity.MessageId
+static ChServerM.Identity.FrameworkMessageIds.ContentOffer.get -> ChServerM.Identity.MessageId

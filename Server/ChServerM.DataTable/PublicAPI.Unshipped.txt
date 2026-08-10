@@ -122,3 +122,18 @@ ChServerM.DataTable.StaticTableColumnAttribute.StaticTableColumnAttribute() -> v
 ChServerM.DataTable.StaticTableRowAttribute
 ChServerM.DataTable.StaticTableRowAttribute.StaticTableRowAttribute(string! tableName) -> void
 ChServerM.DataTable.StaticTableRowAttribute.TableName.get -> string!
+ChServerM.DataTable.StaticTable.Fingerprint.get -> ChServerM.DataTable.StaticTableFingerprint
+ChServerM.DataTable.StaticTableFingerprint
+ChServerM.DataTable.StaticTableFingerprint.Equals(ChServerM.DataTable.StaticTableFingerprint other) -> bool
+ChServerM.DataTable.StaticTableFingerprint.High.get -> ulong
+ChServerM.DataTable.StaticTableFingerprint.Low.get -> ulong
+ChServerM.DataTable.StaticTableFingerprint.StaticTableFingerprint() -> void
+ChServerM.DataTable.StaticTableFingerprint.StaticTableFingerprint(ulong high, ulong low) -> void
+ChServerM.DataTable.StaticTableFingerprint.WriteTo(System.Span<byte> destination) -> void
+ChServerM.DataTable.StaticTableSet.Fingerprint.get -> ChServerM.DataTable.StaticTableFingerprint
+const ChServerM.DataTable.StaticTableFingerprint.ByteLength = 16 -> int
+override ChServerM.DataTable.StaticTableFingerprint.Equals(object? obj) -> bool
+override ChServerM.DataTable.StaticTableFingerprint.GetHashCode() -> int
+override ChServerM.DataTable.StaticTableFingerprint.ToString() -> string!
+static ChServerM.DataTable.StaticTableFingerprint.operator !=(ChServerM.DataTable.StaticTableFingerprint left, ChServerM.DataTable.StaticTableFingerprint right) -> bool
+static ChServerM.DataTable.StaticTableFingerprint.operator ==(ChServerM.DataTable.StaticTableFingerprint left, ChServerM.DataTable.StaticTableFingerprint right) -> bool

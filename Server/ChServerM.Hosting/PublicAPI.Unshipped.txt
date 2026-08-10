@@ -327,3 +327,11 @@ ChServerM.Hosting.Sessions.SessionResumeDispatch.WriteEstablishedAsync(ChServerM
 ChServerM.Hosting.ChServerMServer.SessionDispatch.get -> ChServerM.Hosting.Sessions.SessionResumeDispatch?
 ChServerM.Hosting.ChServerMServer.Sessions.get -> ChServerM.Hosting.Sessions.SessionResumeService?
 ChServerM.Hosting.ServerBuilder.UseSessions(ChServerM.Hosting.Sessions.SessionResumeService! resumeService) -> ChServerM.Hosting.ServerBuilder!
+ChServerM.Hosting.ClientBuilder.SendContentFingerprint(ChServerM.Content.ContentFingerprint fingerprint) -> ChServerM.Hosting.ClientBuilder!
+ChServerM.Hosting.ContentFingerprintMismatchException
+ChServerM.Hosting.ContentFingerprintMismatchException.ContentFingerprintMismatchException() -> void
+ChServerM.Hosting.ContentFingerprintMismatchException.ContentFingerprintMismatchException(string! message) -> void
+ChServerM.Hosting.ContentFingerprintMismatchException.ContentFingerprintMismatchException(string! message, ChServerM.Content.ContentFingerprint offered) -> void
+ChServerM.Hosting.ContentFingerprintMismatchException.ContentFingerprintMismatchException(string! message, System.Exception! innerException) -> void
+ChServerM.Hosting.ContentFingerprintMismatchException.Offered.get -> ChServerM.Content.ContentFingerprint
+ChServerM.Hosting.ServerBuilder.RequireContentFingerprint(ChServerM.Content.ContentFingerprint expected) -> ChServerM.Hosting.ServerBuilder!

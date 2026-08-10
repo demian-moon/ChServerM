@@ -65,6 +65,21 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="5.6.0" />
   </ItemGroup>
 
+  <ItemGroup Label="DataTable">
+    <!--
+      안정 해시(XxHash128) — 콘텐츠 지문 계산용 (Phase 14, ADR-0044).
+      ⚠ `string.GetHashCode` 를 쓸 수 없다: .NET 의 문자열 해시는 프로세스마다 시드가 달라
+      **같은 데이터가 실행할 때마다 다른 값**이 된다. 클라이언트와 서버가 대조할 값이므로
+      프로세스·플랫폼·런타임 버전을 가로질러 같아야 한다.
+      CLAUDE.md 6절이 이미 `System.IO.Hashing.XxHash3` 를 스택으로 지목해 뒀다.
+    -->
+    <!--
+      10.0.5 인 이유: StackExchange.Redis 3.1.13 이 이미 이 패키지를 10.0.5 이상으로 끌어온다.
+      중앙 버전이 그보다 낮으면 다운그레이드(NU1109)로 복원이 막힌다.
+    -->
+    <PackageVersion Include="System.IO.Hashing" Version="10.0.5" />
+  </ItemGroup>
+
   <ItemGroup Label="SourceGen">
     <!--
       디스패치 소스 제너레이터 (Phase 7, ADR-0014).

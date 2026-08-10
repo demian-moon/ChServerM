@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using ChServerM.Compression;
 using ChServerM.Connections;
+using ChServerM.Content;
 using ChServerM.Diagnostics;
 using ChServerM.Execution;
 using ChServerM.Framing;
@@ -48,6 +49,7 @@ public sealed class ServerBuilder
     private IExecutionModel? _executionModel;
     private ITransportSecurity? _transportSecurity;
     private VersionNegotiationOptions? _versionNegotiation;
+    private ContentFingerprint _contentFingerprint;
     private SessionResumeService? _sessionResume;
     private IPayloadCodec? _payloadCodec;
     private IMetricsSink? _metricsSink;
@@ -148,6 +150,47 @@ public sealed class ServerBuilder
     {
         ArgumentNullException.ThrowIfNull(options);
         _versionNegotiation = options;
+        return this;
+    }
+
+    /// <summary>접속 시점에 클라이언트의 <b>콘텐츠 지문</b>을 대조하고, 다르면 거부한다 (ADR-0044).</summary>
+    /// <param name="expected">서버가 들고 있는 콘텐츠의 지문.</param>
+    /// <returns>메서드 체이닝을 위한 자기 자신.</returns>
+    /// <exception cref="ArgumentException"><paramref name="expected"/>가 설정되지 않은 센티넬일 때.</exception>
+    /// <remarks>
+    /// <para>
+    /// <b>무엇의 지문인지는 프레임워크가 모른다.</b> 데이터 테이블은 선택 축이고 Core 도
+    /// Hosting 도 그 존재를 알지 않는다(CLAUDE.md 3절). 데이터 테이블 축을 쓴다면 앱이 이렇게 옮긴다:
+    /// </para>
+    /// <code>
+    ///   StaticTableFingerprint tables = set.Fingerprint;
+    ///   builder.RequireContentFingerprint(new ContentFingerprint(tables.High, tables.Low));
+    /// </code>
+    /// <para>
+    /// <b>⚠ 버전 협상이 켜져 있어야 한다.</b> 지문 교환은 협상 <b>직후</b>에 일어나고, 거부
+    /// 프레임의 동결 레이아웃이 서버 지원 버전 구간을 함께 싣기 때문이다. 협상 없이 켜면
+    /// <see cref="Build"/> 가 실패한다 — 조립 시점 실패가 런타임 디버깅보다 싸다.
+    /// </para>
+    /// <para>
+    /// <b>⚠ 클라이언트도 <see cref="ClientBuilder.SendContentFingerprint"/> 로 짝을 맞춰야
+    /// 한다.</b> 서버만 켜면 지문을 기다리다 제한 시간에 걸리고, 클라이언트만 켜면 지문
+    /// 프레임이 프레이밍 단계로 흘러 형식 오류가 된다. 배포 단위로 함께 켜고 끈다.
+    /// </para>
+    /// <para>
+    /// <b>이것은 인증이 아니다.</b> 사고를 막는 장치이지 공격을 막는 장치가 아니다
+    /// (<see cref="ContentFingerprint"/> 문서 참조).
+    /// </para>
+    /// </remarks>
+    public ServerBuilder RequireContentFingerprint(ContentFingerprint expected)
+    {
+        if (!expected.IsSet)
+        {
+            throw new ArgumentException(
+                "설정되지 않은 지문이다. 게이트를 켜고 지문을 넣지 않으면 모든 접속이 거부된다.",
+                nameof(expected));
+        }
+
+        _contentFingerprint = expected;
         return this;
     }
 
@@ -382,6 +425,26 @@ public sealed class ServerBuilder
         IConnectionHandler handler = new FramedConnectionHandler(
             decoder, _dispatcher.Build(), _connectionOptions, _timeProvider, _logger, _executionModel,
             _payloadCodec);
+
+        // 콘텐츠 지문 게이트가 있으면 협상 안쪽·프레이밍 바깥에 끼어든다(ADR-0044).
+        // 순서가 협상 안쪽인 이유: 프로토콜이 안 맞으면 콘텐츠 비교는 의미가 없다.
+        if (_contentFingerprint.IsSet)
+        {
+            if (_versionNegotiation is null)
+            {
+                throw new InvalidOperationException(
+                    $"{nameof(RequireContentFingerprint)} 는 {nameof(UseVersionNegotiation)} 을 함께 요구한다. "
+                    + "지문 교환은 협상 직후에 일어나고, 거부 프레임이 서버 지원 버전 구간을 함께 싣는다.");
+            }
+
+            handler = new ContentFingerprintConnectionHandler(
+                _contentFingerprint,
+                _versionNegotiation.SupportedVersions,
+                _versionNegotiation.HandshakeTimeout,
+                handler,
+                _timeProvider,
+                _logger);
+        }
 
         // 버전 협상이 있으면 프레이밍 전에 1왕복 핸드셰이크가 끼어든다(ADR-0017 결정 3).
         if (_versionNegotiation is not null)

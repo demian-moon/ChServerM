@@ -64,6 +64,15 @@ public enum ErrorCode
     /// <summary>플래그 조합이 유효하지 않다.</summary>
     InvalidFrameFlags = 2003,
 
+    /// <summary>클라이언트와 서버의 콘텐츠 지문이 다르다 (ADR-0044).</summary>
+    /// <remarks>
+    /// 프로토콜은 맞는데 <b>데이터가 어긋난</b> 상태다. 실행 가능한 조치는 하나뿐이다 —
+    /// 클라이언트가 콘텐츠를 갱신한다. 이 코드의 수치는 거부 프레임의 사유 필드로도
+    /// 나가므로 <see cref="ChServerM.Handshake.VersionHandshakeCodec.RejectReasonContentMismatch"/>
+    /// 와 일치해야 하며, 그 일치는 테스트가 지킨다.
+    /// </remarks>
+    ContentFingerprintMismatch = 2004,
+
     // ── 3000 직렬화 ────────────────────────────────────────────
 
     /// <summary>페이로드를 역직렬화할 수 없다.</summary>

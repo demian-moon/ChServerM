@@ -143,4 +143,20 @@ public static class FrameworkMessageIds
     /// 전달하는 이 메시지와, 이후의 재개 흐름 전체를 제공한다.
     /// </remarks>
     public static MessageId SessionEstablished => new(40009);
+
+    /// <summary>콘텐츠 지문 제시 — 클라이언트가 자기 콘텐츠의 지문을 보낸다 (ADR-0044).</summary>
+    /// <remarks>
+    /// <b>버전 협상 프레임에 필드를 더하는 대신 ID 를 새로 예약했다.</b>
+    /// <see cref="ClientHello"/> 페이로드는 영구 동결이라 늘릴 수 없다(R-2).
+    /// 와이어 형식은 <see cref="ChServerM.Content.ContentFingerprintCodec"/> 가 동결한다.
+    /// </remarks>
+    public static MessageId ContentOffer => new(40010);
+
+    /// <summary>콘텐츠 지문 수락 — 서버가 일치를 확인했다. 페이로드는 비어 있다.</summary>
+    /// <remarks>
+    /// <b>실을 정보가 없어도 프레임을 보낸다.</b> 침묵으로 수락을 표현하면 클라이언트가
+    /// "수락됐다" 와 "아직 안 왔다" 를 구분할 수 없어 제한 시간까지 기다리게 된다.
+    /// 불일치는 <see cref="ConnectionRejected"/> 를 재사용한다 — 사유 코드만 다르다.
+    /// </remarks>
+    public static MessageId ContentAccepted => new(40011);
 }
