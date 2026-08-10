@@ -1,0 +1,13 @@
+#nullable enable
+ChServerM.Cluster.StaticClusterMembership
+ChServerM.Cluster.StaticClusterMembership.Current.get -> ChServerM.Cluster.ClusterView!
+ChServerM.Cluster.StaticClusterMembership.DisposeAsync() -> System.Threading.Tasks.ValueTask
+ChServerM.Cluster.StaticClusterMembership.Self.get -> ChServerM.Cluster.ClusterNode!
+ChServerM.Cluster.StaticClusterMembership.StaticClusterMembership(ChServerM.Cluster.StaticClusterMembershipOptions! options) -> void
+ChServerM.Cluster.StaticClusterMembership.WaitForChangeAsync(int knownGeneration, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<ChServerM.Cluster.ClusterView!>
+ChServerM.Cluster.StaticClusterMembershipOptions
+ChServerM.Cluster.StaticClusterMembershipOptions.Nodes.get -> System.Collections.Generic.IList<(string! Name, System.Net.EndPoint! EndPoint)>!
+ChServerM.Cluster.StaticClusterMembershipOptions.SelfName.get -> string!
+ChServerM.Cluster.StaticClusterMembershipOptions.SelfName.set -> void
+ChServerM.Cluster.StaticClusterMembershipOptions.StaticClusterMembershipOptions() -> void
+ChServerM.Cluster.StaticClusterMembershipOptions.Validate() -> void

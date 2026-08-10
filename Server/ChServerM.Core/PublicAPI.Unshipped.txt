@@ -707,3 +707,30 @@ static ChServerM.Content.ContentFingerprintCodec.WriteOffer(System.Span<byte> de
 static ChServerM.Handshake.VersionHandshakeCodec.WriteRejection(System.Span<byte> destination, ChServerM.Handshake.ProtocolVersionRange serverSupported, ushort reason) -> void
 static ChServerM.Identity.FrameworkMessageIds.ContentAccepted.get -> ChServerM.Identity.MessageId
 static ChServerM.Identity.FrameworkMessageIds.ContentOffer.get -> ChServerM.Identity.MessageId
+ChServerM.Cluster.ClusterNode
+ChServerM.Cluster.ClusterNode.ClusterNode(ChServerM.Cluster.NodeId id, System.Net.EndPoint! endPoint) -> void
+ChServerM.Cluster.ClusterNode.EndPoint.get -> System.Net.EndPoint!
+ChServerM.Cluster.ClusterNode.Id.get -> ChServerM.Cluster.NodeId
+ChServerM.Cluster.ClusterView
+ChServerM.Cluster.ClusterView.ClusterView(System.Collections.Generic.IReadOnlyList<ChServerM.Cluster.ClusterNode!>! nodes, int generation) -> void
+ChServerM.Cluster.ClusterView.Contains(ChServerM.Cluster.NodeId id) -> bool
+ChServerM.Cluster.ClusterView.Count.get -> int
+ChServerM.Cluster.ClusterView.Generation.get -> int
+ChServerM.Cluster.ClusterView.Nodes.get -> System.Collections.Generic.IReadOnlyList<ChServerM.Cluster.ClusterNode!>!
+ChServerM.Cluster.ClusterView.TryGetNode(ChServerM.Cluster.NodeId id, out ChServerM.Cluster.ClusterNode? node) -> bool
+ChServerM.Cluster.IClusterMembership
+ChServerM.Cluster.IClusterMembership.Current.get -> ChServerM.Cluster.ClusterView!
+ChServerM.Cluster.IClusterMembership.Self.get -> ChServerM.Cluster.ClusterNode!
+ChServerM.Cluster.IClusterMembership.WaitForChangeAsync(int knownGeneration, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<ChServerM.Cluster.ClusterView!>
+ChServerM.Cluster.NodeId
+ChServerM.Cluster.NodeId.Equals(ChServerM.Cluster.NodeId other) -> bool
+ChServerM.Cluster.NodeId.IsSet.get -> bool
+ChServerM.Cluster.NodeId.Name.get -> string!
+ChServerM.Cluster.NodeId.NodeId() -> void
+ChServerM.Cluster.NodeId.NodeId(string! name) -> void
+override ChServerM.Cluster.ClusterNode.ToString() -> string!
+override ChServerM.Cluster.NodeId.Equals(object? obj) -> bool
+override ChServerM.Cluster.NodeId.GetHashCode() -> int
+override ChServerM.Cluster.NodeId.ToString() -> string!
+static ChServerM.Cluster.NodeId.operator !=(ChServerM.Cluster.NodeId left, ChServerM.Cluster.NodeId right) -> bool
+static ChServerM.Cluster.NodeId.operator ==(ChServerM.Cluster.NodeId left, ChServerM.Cluster.NodeId right) -> bool
