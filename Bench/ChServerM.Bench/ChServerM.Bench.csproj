@@ -58,6 +58,8 @@
     <ProjectReference Include="..\..\Server\ChServerM.Hosting\ChServerM.Hosting.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Observability\ChServerM.Observability.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Persistence.InMemory\ChServerM.Persistence.InMemory.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Persistence.Redis\ChServerM.Persistence.Redis.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Persistence.Postgres\ChServerM.Persistence.Postgres.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Serialization.FlatBuffers\ChServerM.Serialization.FlatBuffers.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Serialization.MemoryPack\ChServerM.Serialization.MemoryPack.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Serialization.Protobuf\ChServerM.Serialization.Protobuf.csproj" />
