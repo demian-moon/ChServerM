@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Server\ChServerM.Persistence.Postgres\ChServerM.Persistence.Postgres.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Hosting\ChServerM.Hosting.csproj" />
     <ProjectReference Include="..\ChServerM.Persistence.Conformance\ChServerM.Persistence.Conformance.csproj" />
   </ItemGroup>
 

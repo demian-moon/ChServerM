@@ -31,6 +31,11 @@ public sealed class PostgresFixture : IAsyncLifetime
     /// <summary>건너뛴 사유. 사용 가능하면 <see langword="null"/>.</summary>
     public string? SkipReason { get; private set; }
 
+    /// <summary>
+    /// 연결 문자열. 풀 설정을 달리한 별도 데이터 원본을 만들 때 쓴다(풀 고갈 시험 등).
+    /// </summary>
+    public string? ConnectionString { get; private set; }
+
     public async Task InitializeAsync()
     {
         try
@@ -38,7 +43,8 @@ public sealed class PostgresFixture : IAsyncLifetime
             _container = new PostgreSqlBuilder("postgres:17-alpine").Build();
             await _container.StartAsync();
 
-            DataSource = NpgsqlDataSource.Create(_container.GetConnectionString());
+            ConnectionString = _container.GetConnectionString();
+            DataSource = NpgsqlDataSource.Create(ConnectionString);
 
             // 스키마를 한 번 만든다. 어댑터는 이것을 자동으로 하지 않는다.
             PostgresSessionStore schema = new(DataSource);
