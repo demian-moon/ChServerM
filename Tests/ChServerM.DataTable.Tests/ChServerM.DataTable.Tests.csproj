@@ -20,6 +20,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Server\ChServerM.DataTable\ChServerM.DataTable.csproj" />
+    <!--
+      데이터 테이블 접근자 제너레이터 — 분석기로만 참조한다(런타임 의존 아님).
+      드라이버 테스트(SourceGen.Tests)와 달리 여기서는 **실제 빌드 파이프라인이 생성한 코드**를
+      돌린다. 생성 문자열이 문법적으로 맞다는 것과, 그 코드가 실제로 옳게 읽는다는 것은 다르다.
+    -->
+    <ProjectReference Include="..\..\Server\ChServerM.SourceGen\ChServerM.SourceGen.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>

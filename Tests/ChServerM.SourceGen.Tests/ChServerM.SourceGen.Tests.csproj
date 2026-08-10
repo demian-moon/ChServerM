@@ -23,8 +23,9 @@
   <ItemGroup>
     <!-- 생성기는 런타임 타입으로 인스턴스화한다(드라이버 테스트). 분석기 참조가 아니다. -->
     <ProjectReference Include="..\..\Server\ChServerM.SourceGen\ChServerM.SourceGen.csproj" />
-    <!-- 테스트 컴파일레이션의 메타데이터 참조 원천(Core·Hosting dll 경로). -->
+    <!-- 테스트 컴파일레이션의 메타데이터 참조 원천(Core·Hosting·DataTable dll 경로). -->
     <ProjectReference Include="..\..\Server\ChServerM.Hosting\ChServerM.Hosting.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.DataTable\ChServerM.DataTable.csproj" />
   </ItemGroup>
 
 </Project>

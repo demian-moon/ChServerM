@@ -247,31 +247,4 @@ public sealed class MessageHandlerGenerator : IIncrementalGenerator
         bool IsAbstract,
         bool IsGenericDefinition,
         LocationModel Location);
-
-    /// <summary><see cref="Location"/> 의 값 표현. Location 자체는 값 동등성이 없어 캐시를 깬다.</summary>
-    private sealed record LocationModel(string FilePath, int Start, int Length, int StartLine, int StartCharacter, int EndLine, int EndCharacter)
-    {
-        public static LocationModel From(Location location)
-        {
-            FileLinePositionSpan lineSpan = location.GetLineSpan();
-            return new LocationModel(
-                location.SourceTree?.FilePath ?? string.Empty,
-                location.SourceSpan.Start,
-                location.SourceSpan.Length,
-                lineSpan.StartLinePosition.Line,
-                lineSpan.StartLinePosition.Character,
-                lineSpan.EndLinePosition.Line,
-                lineSpan.EndLinePosition.Character);
-        }
-
-        public Location ToLocation()
-            => FilePath.Length == 0
-                ? Location.None
-                : Location.Create(
-                    FilePath,
-                    new TextSpan(Start, Length),
-                    new LinePositionSpan(
-                        new LinePosition(StartLine, StartCharacter),
-                        new LinePosition(EndLine, EndCharacter)));
-    }
 }

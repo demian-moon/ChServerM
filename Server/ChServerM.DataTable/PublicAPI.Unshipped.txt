@@ -101,3 +101,24 @@ static ChServerM.DataTable.StaticTableReloadResult.Failed(int generation, ChServ
 static ChServerM.DataTable.StaticTableReloadResult.Ok(int generation) -> ChServerM.DataTable.StaticTableReloadResult
 static ChServerM.DataTable.StaticTableReloadResult.operator !=(ChServerM.DataTable.StaticTableReloadResult left, ChServerM.DataTable.StaticTableReloadResult right) -> bool
 static ChServerM.DataTable.StaticTableReloadResult.operator ==(ChServerM.DataTable.StaticTableReloadResult left, ChServerM.DataTable.StaticTableReloadResult right) -> bool
+ChServerM.DataTable.StaticTableColumnAttribute
+ChServerM.DataTable.StaticTableColumnAttribute.Key.get -> bool
+ChServerM.DataTable.StaticTableColumnAttribute.Key.set -> void
+ChServerM.DataTable.StaticTableColumnAttribute.MaximumInteger.get -> long
+ChServerM.DataTable.StaticTableColumnAttribute.MaximumInteger.set -> void
+ChServerM.DataTable.StaticTableColumnAttribute.MaximumReal.get -> double
+ChServerM.DataTable.StaticTableColumnAttribute.MaximumReal.set -> void
+ChServerM.DataTable.StaticTableColumnAttribute.MinimumInteger.get -> long
+ChServerM.DataTable.StaticTableColumnAttribute.MinimumInteger.set -> void
+ChServerM.DataTable.StaticTableColumnAttribute.MinimumReal.get -> double
+ChServerM.DataTable.StaticTableColumnAttribute.MinimumReal.set -> void
+ChServerM.DataTable.StaticTableColumnAttribute.Name.get -> string?
+ChServerM.DataTable.StaticTableColumnAttribute.Name.set -> void
+ChServerM.DataTable.StaticTableColumnAttribute.Optional.get -> bool
+ChServerM.DataTable.StaticTableColumnAttribute.Optional.set -> void
+ChServerM.DataTable.StaticTableColumnAttribute.References.get -> System.Type?
+ChServerM.DataTable.StaticTableColumnAttribute.References.set -> void
+ChServerM.DataTable.StaticTableColumnAttribute.StaticTableColumnAttribute() -> void
+ChServerM.DataTable.StaticTableRowAttribute
+ChServerM.DataTable.StaticTableRowAttribute.StaticTableRowAttribute(string! tableName) -> void
+ChServerM.DataTable.StaticTableRowAttribute.TableName.get -> string!

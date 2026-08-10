@@ -2,3 +2,6 @@
 ChServerM.SourceGen.MessageHandlerGenerator
 ChServerM.SourceGen.MessageHandlerGenerator.Initialize(Microsoft.CodeAnalysis.IncrementalGeneratorInitializationContext context) -> void
 ChServerM.SourceGen.MessageHandlerGenerator.MessageHandlerGenerator() -> void
+ChServerM.SourceGen.StaticTableAccessorGenerator
+ChServerM.SourceGen.StaticTableAccessorGenerator.Initialize(Microsoft.CodeAnalysis.IncrementalGeneratorInitializationContext context) -> void
+ChServerM.SourceGen.StaticTableAccessorGenerator.StaticTableAccessorGenerator() -> void
