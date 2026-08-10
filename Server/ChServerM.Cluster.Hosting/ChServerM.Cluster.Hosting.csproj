@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.Cluster.Hosting</RootNamespace>
+    <Description>ChServerM 클러스터 축의 피어 링크. 노드 간 전송을 기존 전송·프레이밍 축 위에 얹는다 (ADR-0050).</Description>
+  </PropertyGroup>
+
+  <!--
+    ⚠ 이 어셈블리가 따로 있는 이유는 의존 방향이다.
+    CLAUDE.md 5절: `Samples/Tests → Hosting → 어댑터 → Core`.
+    피어 링크는 ChServerMClient(= Hosting)를 쓰므로 ChServerM.Cluster(어댑터)에 넣으면
+    어댑터 → Hosting 이 되어 방향이 뒤집힌다. 그렇다고 Hosting 안에 넣으면 조립 계층이
+    클러스터를 알게 되어 "클러스터를 빼도 성립한다" 가 흐려진다.
+    별도 어셈블리가 그 둘을 모두 피한다 — 클러스터를 빼면 이것만 빠진다.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\ChServerM.Cluster\ChServerM.Cluster.csproj" />
+    <ProjectReference Include="..\ChServerM.Hosting\ChServerM.Hosting.csproj" />
+  </ItemGroup>
+
+</Project>

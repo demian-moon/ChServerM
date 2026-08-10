@@ -1,0 +1,20 @@
+#nullable enable
+ChServerM.Cluster.Hosting.ClusterPeerOptions
+ChServerM.Cluster.Hosting.ClusterPeerOptions.ClusterPeerOptions() -> void
+ChServerM.Cluster.Hosting.ClusterPeerOptions.MaxPayloadLength.get -> int
+ChServerM.Cluster.Hosting.ClusterPeerOptions.MaxPayloadLength.set -> void
+ChServerM.Cluster.Hosting.ClusterPeerOptions.SendQueueDepth.get -> int
+ChServerM.Cluster.Hosting.ClusterPeerOptions.SendQueueDepth.set -> void
+ChServerM.Cluster.Hosting.ClusterPeerOptions.Validate() -> void
+ChServerM.Cluster.Hosting.ClusterPeerSet
+ChServerM.Cluster.Hosting.ClusterPeerSet.ClusterPeerSet(ChServerM.Cluster.IClusterMembership! membership, ChServerM.Hosting.ChServerMClient! client, ChServerM.Cluster.Hosting.ClusterPeerOptions! options, ChServerM.Diagnostics.IServerLogger! logger) -> void
+ChServerM.Cluster.Hosting.ClusterPeerSet.DisposeAsync() -> System.Threading.Tasks.ValueTask
+ChServerM.Cluster.Hosting.ClusterPeerSet.OpenLinkCount.get -> int
+ChServerM.Cluster.Hosting.ClusterPeerSet.SendAsync(ChServerM.Identity.NodeId target, ChServerM.Identity.MessageId messageId, System.ReadOnlyMemory<byte> payload, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<ChServerM.Cluster.Hosting.PeerSendStatus>
+ChServerM.Cluster.Hosting.PeerSendStatus
+ChServerM.Cluster.Hosting.PeerSendStatus.Closed = 5 -> ChServerM.Cluster.Hosting.PeerSendStatus
+ChServerM.Cluster.Hosting.PeerSendStatus.Loopback = 3 -> ChServerM.Cluster.Hosting.PeerSendStatus
+ChServerM.Cluster.Hosting.PeerSendStatus.NotAMember = 2 -> ChServerM.Cluster.Hosting.PeerSendStatus
+ChServerM.Cluster.Hosting.PeerSendStatus.QueueFull = 4 -> ChServerM.Cluster.Hosting.PeerSendStatus
+ChServerM.Cluster.Hosting.PeerSendStatus.Sent = 1 -> ChServerM.Cluster.Hosting.PeerSendStatus
+ChServerM.Cluster.Hosting.PeerSendStatus.Unspecified = 0 -> ChServerM.Cluster.Hosting.PeerSendStatus
