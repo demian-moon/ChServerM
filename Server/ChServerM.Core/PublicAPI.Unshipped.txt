@@ -728,3 +728,23 @@ ChServerM.Cluster.IClusterRouter.GetOwners(ChServerM.Identity.PartitionKey key, 
 ChServerM.Cluster.IClusterRouter.TryGetOwner(ChServerM.Identity.PartitionKey key, out ChServerM.Cluster.ClusterNode? owner) -> bool
 ChServerM.Cluster.IClusterRouter.View.get -> ChServerM.Cluster.ClusterView!
 override ChServerM.Cluster.ClusterNode.ToString() -> string!
+ChServerM.Cluster.ClusterRoute
+ChServerM.Cluster.ClusterRoute.ClusterRoute() -> void
+ChServerM.Cluster.ClusterRoute.Equals(ChServerM.Cluster.ClusterRoute other) -> bool
+ChServerM.Cluster.ClusterRoute.HasTarget.get -> bool
+ChServerM.Cluster.ClusterRoute.IsLocal.get -> bool
+ChServerM.Cluster.ClusterRoute.Kind.get -> ChServerM.Cluster.ClusterRouteKind
+ChServerM.Cluster.ClusterRoute.Target.get -> ChServerM.Cluster.ClusterNode?
+ChServerM.Cluster.ClusterRouteKind
+ChServerM.Cluster.ClusterRouteKind.Local = 1 -> ChServerM.Cluster.ClusterRouteKind
+ChServerM.Cluster.ClusterRouteKind.Remote = 2 -> ChServerM.Cluster.ClusterRouteKind
+ChServerM.Cluster.ClusterRouteKind.Unavailable = 3 -> ChServerM.Cluster.ClusterRouteKind
+ChServerM.Cluster.ClusterRouteKind.Unspecified = 0 -> ChServerM.Cluster.ClusterRouteKind
+override ChServerM.Cluster.ClusterRoute.Equals(object? obj) -> bool
+override ChServerM.Cluster.ClusterRoute.GetHashCode() -> int
+override ChServerM.Cluster.ClusterRoute.ToString() -> string!
+static ChServerM.Cluster.ClusterRoute.ToLocal(ChServerM.Cluster.ClusterNode! self) -> ChServerM.Cluster.ClusterRoute
+static ChServerM.Cluster.ClusterRoute.ToRemote(ChServerM.Cluster.ClusterNode! target) -> ChServerM.Cluster.ClusterRoute
+static ChServerM.Cluster.ClusterRoute.Unavailable.get -> ChServerM.Cluster.ClusterRoute
+static ChServerM.Cluster.ClusterRoute.operator !=(ChServerM.Cluster.ClusterRoute left, ChServerM.Cluster.ClusterRoute right) -> bool
+static ChServerM.Cluster.ClusterRoute.operator ==(ChServerM.Cluster.ClusterRoute left, ChServerM.Cluster.ClusterRoute right) -> bool

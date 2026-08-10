@@ -16,3 +16,10 @@ ChServerM.Cluster.StaticClusterMembershipOptions.SelfId.get -> ChServerM.Identit
 ChServerM.Cluster.StaticClusterMembershipOptions.SelfId.set -> void
 ChServerM.Cluster.StaticClusterMembershipOptions.StaticClusterMembershipOptions() -> void
 ChServerM.Cluster.StaticClusterMembershipOptions.Validate() -> void
+ChServerM.Cluster.ClusterRouteResolver
+ChServerM.Cluster.ClusterRouteResolver.ClusterRouteResolver(ChServerM.Cluster.IClusterMembership! membership) -> void
+ChServerM.Cluster.ClusterRouteResolver.ClusterRouteResolver(ChServerM.Cluster.IClusterMembership! membership, System.Func<ChServerM.Cluster.ClusterView!, ChServerM.Cluster.IClusterRouter!>! routerFactory) -> void
+ChServerM.Cluster.ClusterRouteResolver.Resolve(ChServerM.Cluster.IClusterRouter! router, ChServerM.Identity.PartitionKey key) -> ChServerM.Cluster.ClusterRoute
+ChServerM.Cluster.ClusterRouteResolver.Resolve(ChServerM.Identity.PartitionKey key) -> ChServerM.Cluster.ClusterRoute
+ChServerM.Cluster.ClusterRouteResolver.Router.get -> ChServerM.Cluster.IClusterRouter!
+ChServerM.Cluster.ClusterRouteResolver.Self.get -> ChServerM.Cluster.ClusterNode!
