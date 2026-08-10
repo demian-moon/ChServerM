@@ -22,6 +22,7 @@
       (개발 머신마다 Docker 를 강제하지 않는다. CI 의 ubuntu 러너에는 있다).
     -->
     <PackageVersion Include="Testcontainers.Redis" Version="4.13.0" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.13.0" />
 
     <!--
       xUnit 2.x 에는 동적 건너뛰기(Assert.Skip)가 없다 — v3 기능이다.
@@ -115,6 +116,12 @@
       벤더는 ChServerM.Persistence.Redis 어셈블리에만 존재한다 — Core 는 모른다.
     -->
     <PackageVersion Include="StackExchange.Redis" Version="3.1.13" />
+
+    <!--
+      세션 저장소 축의 세 번째 구현 — 관계형. ADR-0037.
+      벤더는 ChServerM.Persistence.Postgres 어셈블리에만 존재한다.
+    -->
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
   </ItemGroup>
 
   <ItemGroup Label="Security">

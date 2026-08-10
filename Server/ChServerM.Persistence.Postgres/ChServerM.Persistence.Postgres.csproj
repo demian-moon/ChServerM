@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.Persistence.Postgres</RootNamespace>
+    <Description>ChServerM 세션 저장소 축(ISessionStore)의 PostgreSQL 어댑터 (ADR-0037). 조건부 UPDATE 로 CAS, 시퀀스로 버전.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ChServerM.Core\ChServerM.Core.csproj" />
+  </ItemGroup>
+
+  <!-- 벤더(Npgsql)는 이 어셈블리에만 존재한다. 삭제해도 Core 는 컴파일된다. -->
+  <ItemGroup>
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+
+</Project>

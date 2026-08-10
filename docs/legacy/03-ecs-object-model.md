@@ -34,7 +34,7 @@
 | `System.IO.Pipelines` | I/O | 🟢 승계 |
 | `Microsoft.Extensions.DependencyInjection` | **DI가 이미 있다** | 🟢 승계 (Phase 2) |
 | `Microsoft.Extensions.Identity.Core` | 비밀번호 해싱 | 🔵 `IAuthenticator` 참고 (Phase 9) |
-| `MongoDB.Driver` | 영속화 | 🔵 어댑터 후보 (Phase 13) |
+| `MongoDB.Driver` | 영속화 | ⚪ **승계 안 함** — 어댑터는 PostgreSQL 로 결정됐다 (ADR-0037) |
 | `log4net` | 로깅 | 🔴 폐기 → ZLogger (Phase 11) |
 | `Microsoft.CodeAnalysis.CSharp` | Roslyn 스크립팅 | 🔴 폐기 (하드 룰 위반) |
 | **`System.Windows.Forms`** | ⚠️ **서버 라이브러리가 WinForms를 참조** | 🔴 폐기 |

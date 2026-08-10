@@ -38,7 +38,7 @@ C#(.NET 10 / C# 14) 기반의 **상업용 고성능 서버·클라이언트 프�
 | 프레이밍 | `IFrameDecoder` / `IFrameEncoder` | length-prefix(varint / fixed32), 델리미터, 고정 길이 |
 | 디스패치 | `IMessageDispatcher` | 소스 생성 스위치 테이블, 핸들러 레지스트리, 미디에이터 |
 | 동시성 모델 | `IExecutionModel` | **키 기반 샤딩(기본)**, 스레드-퍼-코어(SPSC), 액터, 채널 워커 풀 |
-| 세션 상태 | `ISessionStore` | 인메모리, Redis, Garnet, Tsavorite(로컬 KV) |
+| 세션 상태 | `ISessionStore` | 인메모리, Redis, **PostgreSQL**, Garnet, Tsavorite(로컬 KV) |
 | 로깅 | `IServerLogger` | ZLogger(무할당), Serilog, `Microsoft.Extensions.Logging` |
 | 관측 | `IMetricsSink` | OpenTelemetry + Prometheus, `System.Diagnostics.Metrics` |
 | 압축 | `IPayloadCodec` | LZ4, Zstd, Brotli, none |
@@ -111,7 +111,9 @@ ChServerM/
 │  ├─ ChServerM.Serialization.Protobuf/
 │  ├─ ChServerM.Serialization.FlatBuffers/
 │  ├─ ChServerM.Concurrency/        # 스케줄러, 채널, 액터 런타임
+│  ├─ ChServerM.Persistence.InMemory/
 │  ├─ ChServerM.Persistence.Redis/
+│  ├─ ChServerM.Persistence.Postgres/
 │  ├─ ChServerM.Observability/
 │  ├─ ChServerM.Cluster/
 │  └─ ChServerM.SourceGen/          # 디스패치·직렬화 코드 생성기 (Roslyn)

@@ -11,6 +11,7 @@
     <Project Path="Server/ChServerM.Observability/ChServerM.Observability.csproj" />
     <Project Path="Server/ChServerM.Persistence.InMemory/ChServerM.Persistence.InMemory.csproj" />
     <Project Path="Server/ChServerM.Persistence.Redis/ChServerM.Persistence.Redis.csproj" />
+    <Project Path="Server/ChServerM.Persistence.Postgres/ChServerM.Persistence.Postgres.csproj" />
     <Project Path="Server/ChServerM.Security.AspNetIdentity/ChServerM.Security.AspNetIdentity.csproj" />
     <Project Path="Server/ChServerM.Security.Tls/ChServerM.Security.Tls.csproj" />
     <Project Path="Server/ChServerM.Serialization.FlatBuffers/ChServerM.Serialization.FlatBuffers.csproj" />
@@ -33,6 +34,7 @@
     <Project Path="Tests/ChServerM.Persistence.Conformance/ChServerM.Persistence.Conformance.csproj" />
     <Project Path="Tests/ChServerM.Persistence.InMemory.Tests/ChServerM.Persistence.InMemory.Tests.csproj" />
     <Project Path="Tests/ChServerM.Persistence.Redis.Tests/ChServerM.Persistence.Redis.Tests.csproj" />
+    <Project Path="Tests/ChServerM.Persistence.Postgres.Tests/ChServerM.Persistence.Postgres.Tests.csproj" />
     <Project Path="Tests/ChServerM.Core.Tests/ChServerM.Core.Tests.csproj" />
     <Project Path="Tests/ChServerM.Diagnostics.Http.Tests/ChServerM.Diagnostics.Http.Tests.csproj" />
     <Project Path="Tests/ChServerM.Framing.Tests/ChServerM.Framing.Tests.csproj" />
