@@ -26,3 +26,25 @@ ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.Validate() -> void
 ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.WaitTime.get -> System.TimeSpan
 ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.WaitTime.set -> void
 static ChServerM.Cluster.Consul.ConsulClusterMembership.CreateAsync(ChServerM.Cluster.Consul.ConsulClusterMembershipOptions! options, ChServerM.Diagnostics.IServerLogger! logger, System.Net.Http.HttpClient? httpClient = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Cluster.Consul.ConsulClusterMembership!>
+ChServerM.Cluster.Consul.ConsulNodeIdLease
+ChServerM.Cluster.Consul.ConsulNodeIdLease.DisposeAsync() -> System.Threading.Tasks.ValueTask
+ChServerM.Cluster.Consul.ConsulNodeIdLease.Lost.get -> System.Threading.Tasks.Task!
+ChServerM.Cluster.Consul.ConsulNodeIdLease.NodeId.get -> ChServerM.Identity.NodeId
+ChServerM.Cluster.Consul.ConsulNodeIdLeaseOptions
+ChServerM.Cluster.Consul.ConsulNodeIdLeaseOptions.Address.get -> System.Uri!
+ChServerM.Cluster.Consul.ConsulNodeIdLeaseOptions.Address.set -> void
+ChServerM.Cluster.Consul.ConsulNodeIdLeaseOptions.ConsulNodeIdLeaseOptions() -> void
+ChServerM.Cluster.Consul.ConsulNodeIdLeaseOptions.HolderName.get -> string!
+ChServerM.Cluster.Consul.ConsulNodeIdLeaseOptions.HolderName.set -> void
+ChServerM.Cluster.Consul.ConsulNodeIdLeaseOptions.KeyPrefix.get -> string!
+ChServerM.Cluster.Consul.ConsulNodeIdLeaseOptions.KeyPrefix.set -> void
+ChServerM.Cluster.Consul.ConsulNodeIdLeaseOptions.LockDelay.get -> System.TimeSpan
+ChServerM.Cluster.Consul.ConsulNodeIdLeaseOptions.LockDelay.set -> void
+ChServerM.Cluster.Consul.ConsulNodeIdLeaseOptions.NodeId.get -> ChServerM.Identity.NodeId
+ChServerM.Cluster.Consul.ConsulNodeIdLeaseOptions.NodeId.set -> void
+ChServerM.Cluster.Consul.ConsulNodeIdLeaseOptions.RenewInterval.get -> System.TimeSpan?
+ChServerM.Cluster.Consul.ConsulNodeIdLeaseOptions.RenewInterval.set -> void
+ChServerM.Cluster.Consul.ConsulNodeIdLeaseOptions.SessionTtl.get -> System.TimeSpan
+ChServerM.Cluster.Consul.ConsulNodeIdLeaseOptions.SessionTtl.set -> void
+ChServerM.Cluster.Consul.ConsulNodeIdLeaseOptions.Validate() -> void
+static ChServerM.Cluster.Consul.ConsulNodeIdLease.AcquireAsync(ChServerM.Cluster.Consul.ConsulNodeIdLeaseOptions! options, ChServerM.Diagnostics.IServerLogger! logger, System.Net.Http.HttpClient? httpClient = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Cluster.Consul.ConsulNodeIdLease!>

@@ -56,6 +56,36 @@ internal sealed class ConsulService
 /// </remarks>
 [JsonSourceGenerationOptions(PropertyNameCaseInsensitive = false)]
 [JsonSerializable(typeof(ConsulHealthEntry[]))]
+[JsonSerializable(typeof(ConsulSessionRequest))]
+[JsonSerializable(typeof(ConsulSessionResponse))]
 internal sealed partial class ConsulJsonContext : JsonSerializerContext
 {
+}
+
+/// <summary>세션 생성 요청. 노드 번호 임차가 쓴다.</summary>
+internal sealed class ConsulSessionRequest
+{
+    /// <summary>진단용 이름.</summary>
+    [JsonPropertyName("Name")]
+    public string? Name { get; set; }
+
+    /// <summary>무효화됐을 때의 동작. 이 어댑터는 <c>delete</c> 를 쓴다.</summary>
+    [JsonPropertyName("Behavior")]
+    public string? Behavior { get; set; }
+
+    /// <summary>세션 TTL(<c>"30s"</c> 형식).</summary>
+    [JsonPropertyName("TTL")]
+    public string? Ttl { get; set; }
+
+    /// <summary>무효화 후 재획득 금지 시간(<c>"15s"</c> 형식).</summary>
+    [JsonPropertyName("LockDelay")]
+    public string? LockDelay { get; set; }
+}
+
+/// <summary>세션 생성 응답.</summary>
+internal sealed class ConsulSessionResponse
+{
+    /// <summary>세션 ID.</summary>
+    [JsonPropertyName("ID")]
+    public string? Id { get; set; }
 }
