@@ -6,6 +6,7 @@
     <Project Path="Server/ChServerM.Compression.LZ4/ChServerM.Compression.LZ4.csproj" />
     <Project Path="Server/ChServerM.Cluster/ChServerM.Cluster.csproj" />
     <Project Path="Server/ChServerM.Cluster.Hosting/ChServerM.Cluster.Hosting.csproj" />
+    <Project Path="Server/ChServerM.Cluster.Consul/ChServerM.Cluster.Consul.csproj" />
     <Project Path="Server/ChServerM.Concurrency/ChServerM.Concurrency.csproj" />
     <Project Path="Server/ChServerM.DataTable/ChServerM.DataTable.csproj" />
     <Project Path="Server/ChServerM.Diagnostics.Http/ChServerM.Diagnostics.Http.csproj" />
@@ -41,6 +42,7 @@
     <Project Path="Tests/ChServerM.Persistence.Postgres.Tests/ChServerM.Persistence.Postgres.Tests.csproj" />
     <Project Path="Tests/ChServerM.Cluster.Tests/ChServerM.Cluster.Tests.csproj" />
     <Project Path="Tests/ChServerM.Cluster.Hosting.Tests/ChServerM.Cluster.Hosting.Tests.csproj" />
+    <Project Path="Tests/ChServerM.Cluster.Consul.Tests/ChServerM.Cluster.Consul.Tests.csproj" />
     <Project Path="Tests/ChServerM.Core.Tests/ChServerM.Core.Tests.csproj" />
     <Project Path="Tests/ChServerM.Diagnostics.Http.Tests/ChServerM.Diagnostics.Http.Tests.csproj" />
     <Project Path="Tests/ChServerM.Framing.Tests/ChServerM.Framing.Tests.csproj" />

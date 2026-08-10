@@ -1,0 +1,28 @@
+﻿#nullable enable
+ChServerM.Cluster.Consul.ConsulClusterMembership
+ChServerM.Cluster.Consul.ConsulClusterMembership.Current.get -> ChServerM.Cluster.ClusterView!
+ChServerM.Cluster.Consul.ConsulClusterMembership.DisposeAsync() -> System.Threading.Tasks.ValueTask
+ChServerM.Cluster.Consul.ConsulClusterMembership.Self.get -> ChServerM.Cluster.ClusterNode!
+ChServerM.Cluster.Consul.ConsulClusterMembership.WaitForChangeAsync(int knownGeneration, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<ChServerM.Cluster.ClusterView!>
+ChServerM.Cluster.Consul.ConsulClusterMembershipOptions
+ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.Address.get -> System.Uri!
+ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.Address.set -> void
+ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.ConsulClusterMembershipOptions() -> void
+ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.NodeIdMetaKey.get -> string!
+ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.NodeIdMetaKey.set -> void
+ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.PeerPortMetaKey.get -> string?
+ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.PeerPortMetaKey.set -> void
+ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.RetryDelay.get -> System.TimeSpan
+ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.RetryDelay.set -> void
+ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.SelfEndPoint.get -> System.Net.EndPoint!
+ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.SelfEndPoint.set -> void
+ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.SelfId.get -> ChServerM.Identity.NodeId
+ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.SelfId.set -> void
+ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.SelfName.get -> string!
+ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.SelfName.set -> void
+ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.ServiceName.get -> string!
+ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.ServiceName.set -> void
+ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.Validate() -> void
+ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.WaitTime.get -> System.TimeSpan
+ChServerM.Cluster.Consul.ConsulClusterMembershipOptions.WaitTime.set -> void
+static ChServerM.Cluster.Consul.ConsulClusterMembership.CreateAsync(ChServerM.Cluster.Consul.ConsulClusterMembershipOptions! options, ChServerM.Diagnostics.IServerLogger! logger, System.Net.Http.HttpClient? httpClient = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Cluster.Consul.ConsulClusterMembership!>

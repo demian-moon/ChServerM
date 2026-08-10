@@ -68,6 +68,18 @@ Samples / Tests / Bench
 - **스케일아웃(무상태)**: 세션을 `ISessionStore`로 외부화 → 노드를 자유롭게 추가/제거.
 - **스케일아웃(상태 유지)**: `IClusterMembership` + 파티셔닝 키 라우팅. Phase 15.
 
+### 클러스터 축의 어셈블리 배치
+
+| 어셈블리 | 무엇인가 | 참조 |
+|---|---|---|
+| `ChServerM.Core` (`Cluster/`) | 축 추상화 — `IClusterMembership` · `ClusterView` · `IClusterRouter` · `ClusterRoute` · `ClusterQuorum` | 없음 |
+| `ChServerM.Cluster` | 축 위의 **결정 로직** — 랑데뷰 라우터 · `ClusterRouteResolver`(뷰↔라우터 짝, 소유권 감시, 리더 판정) · 정적 목록 참조 구현 | Core |
+| `ChServerM.Cluster.Consul` | 멤버십 축의 **Consul 어댑터**. 벤더 격리 지점이며 **서드파티 의존 0**(`HttpClient` + 소스 생성 JSON, ADR-0055) | Core |
+| `ChServerM.Cluster.Hosting` | 피어 링크 배선(`ClusterPeerSet`). **별도 어셈블리인 이유**: 어댑터에 넣으면 의존 방향이 뒤집히고, `Hosting` 에 넣으면 조립 계층이 클러스터를 알게 된다(ADR-0050) | Core · Hosting |
+
+**클러스터를 통째로 빼도 프레임워크가 성립한다** — 위 넷을 지워도 `Hosting` 은 컴파일된다.
+어댑터가 Core 만 참조하는 것이 그 성질의 근거다.
+
 ## 확정된 것
 
 - **ADR-0004** — 프레임워크에 목표 워크로드는 없다. 축 조합이 워크로드를 만든다.

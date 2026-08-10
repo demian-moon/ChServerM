@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.Cluster.Consul</RootNamespace>
+    <Description>ChServerM 클러스터 멤버십 축(IClusterMembership)의 Consul 어댑터 (ADR-0055). 블로킹 쿼리로 구성 변화를 당겨 받는다.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ChServerM.Core\ChServerM.Core.csproj" />
+  </ItemGroup>
+
+  <!--
+    ⚠ 벤더 패키지를 쓰지 않는다. Consul 의 .NET 클라이언트 대신 HttpClient +
+    소스 생성 System.Text.Json 을 쓴다 — 근거는 ADR-0055:
+      · 필요한 것은 엔드포인트 하나(블로킹 쿼리)뿐이라 클라이언트의 표면 대부분이 사용되지 않는다
+      · 리플렉션 기반 역직렬화는 Native AOT 호환성을 깬다(CLAUDE.md 2절 하드 룰)
+      · 인덱스↔세대 매핑이 이 어댑터의 핵심 판단인데, 클라이언트가 그것을 가려 버린다
+    System.Text.Json 은 런타임 내장이므로 서드파티 의존은 **0** 이다.
+  -->
+
+</Project>

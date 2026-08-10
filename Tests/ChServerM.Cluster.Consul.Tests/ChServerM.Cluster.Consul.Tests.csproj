@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <IsAotCompatible>false</IsAotCompatible>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Xunit.SkippableFact" />
+
+    <!-- Testcontainers 에 Consul 모듈이 없으므로 범용 컨테이너 빌더를 쓴다(Garnet 과 같은 판단). -->
+    <PackageReference Include="Testcontainers" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Server\ChServerM.Cluster.Consul\ChServerM.Cluster.Consul.csproj" />
+  </ItemGroup>
+
+</Project>
