@@ -748,3 +748,16 @@ static ChServerM.Cluster.ClusterRoute.ToRemote(ChServerM.Cluster.ClusterNode! ta
 static ChServerM.Cluster.ClusterRoute.Unavailable.get -> ChServerM.Cluster.ClusterRoute
 static ChServerM.Cluster.ClusterRoute.operator !=(ChServerM.Cluster.ClusterRoute left, ChServerM.Cluster.ClusterRoute right) -> bool
 static ChServerM.Cluster.ClusterRoute.operator ==(ChServerM.Cluster.ClusterRoute left, ChServerM.Cluster.ClusterRoute right) -> bool
+ChServerM.Cluster.ClusterQuorum
+ChServerM.Cluster.ClusterQuorum.ClusterQuorum() -> void
+ChServerM.Cluster.ClusterQuorum.Equals(ChServerM.Cluster.ClusterQuorum other) -> bool
+ChServerM.Cluster.ClusterQuorum.IsEnabled.get -> bool
+ChServerM.Cluster.ClusterQuorum.IsSatisfiedBy(ChServerM.Cluster.ClusterView! view) -> bool
+ChServerM.Cluster.ClusterQuorum.RequiredNodes.get -> int
+override ChServerM.Cluster.ClusterQuorum.Equals(object? obj) -> bool
+override ChServerM.Cluster.ClusterQuorum.GetHashCode() -> int
+override ChServerM.Cluster.ClusterQuorum.ToString() -> string!
+static ChServerM.Cluster.ClusterQuorum.MajorityOf(int expectedNodeCount) -> ChServerM.Cluster.ClusterQuorum
+static ChServerM.Cluster.ClusterQuorum.None.get -> ChServerM.Cluster.ClusterQuorum
+static ChServerM.Cluster.ClusterQuorum.operator !=(ChServerM.Cluster.ClusterQuorum left, ChServerM.Cluster.ClusterQuorum right) -> bool
+static ChServerM.Cluster.ClusterQuorum.operator ==(ChServerM.Cluster.ClusterQuorum left, ChServerM.Cluster.ClusterQuorum right) -> bool

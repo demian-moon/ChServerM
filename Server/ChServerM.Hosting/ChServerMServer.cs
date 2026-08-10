@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -169,6 +170,81 @@ public sealed class ChServerMServer : IAsyncDisposable
 
         // 멈춤. liveness·readiness 모두 이제 not-healthy 다(실행 모델 스레드도 종료됐다).
         _lifecycle.Set(ServerState.Stopped);
+    }
+
+    /// <summary>
+    /// 무중단 배포 절차 — <b>readiness 를 내리고 · 전파를 기다리고 · 수용을 멈추고 ·
+    /// 드레인하고 · 멈춘다</b>.
+    /// </summary>
+    /// <param name="options">전파 대기와 드레인 상한.</param>
+    /// <param name="cancellationToken">절차 전체를 그만둘 토큰.</param>
+    /// <returns>깨끗이 끝났는지와 걸린 시간.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="options"/> 가 <see langword="null"/> 이다.</exception>
+    /// <exception cref="InvalidOperationException">설정이 성립하지 않는다.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> 이 취소됐다.</exception>
+    /// <remarks>
+    /// <para>
+    /// <b>존재 이유 — 순서는 이미 있었고 <i>간격</i>이 없었다.</b>
+    /// <see cref="UnbindAsync"/> 는 readiness 를 내리고 <b>같은 호출 안에서 즉시</b>
+    /// 수용을 멈춘다. 그 사이에 로드밸런서가 알아챌 시간이 없으므로,
+    /// <b>전파가 끝나기 전에 도착한 접속은 다른 노드로 가는 것이 아니라 RST 로 실패한다.</b>
+    /// 이 메서드가 그 창을 닫는다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>⚠ 이 절차를 <see cref="DisposeAsync"/> 가 대신하지 않는다.</b>
+    /// <see cref="DisposeAsync"/> 는 기다려 주는 자리가 아니라 즉시 끊는 자리다 —
+    /// 무중단 배포를 원하면 <b>먼저 이것을 부르고</b> 그 다음에 정리한다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>⚠ 클라이언트에게 "옮겨 가라" 고 말하려면 이 호출 <i>전에</i> 보낸다.</b>
+    /// 그 통지는 프로토콜 결정이라 프레임워크가 만들지 않는다
+    /// (<see cref="DrainOptions.ConnectionDrainTimeout"/> 문서 참조). 여기서 시작하면
+    /// 이미 readiness 가 내려가 있어 앱이 통지를 보낼 창이 없다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>취소는 절차를 중단시킬 뿐 드레인 상한이 아니다.</b> 상한은
+    /// <see cref="DrainOptions.ConnectionDrainTimeout"/> 이고, 취소는 "배포를 접는다" 는
+    /// 뜻이다 — 둘을 한 토큰으로 겸하면 <b>상한이 지날 때마다 배포가 취소된 것처럼</b> 보인다.
+    /// </para>
+    /// </remarks>
+    public async ValueTask<DrainReport> DrainAsync(
+        DrainOptions options,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        options.Validate();
+
+        long startedAt = Stopwatch.GetTimestamp();
+
+        // 1. readiness 를 먼저 내린다. 아직 수용은 계속한다 — 이 구간이 요점이다.
+        _lifecycle.Set(ServerState.Draining);
+
+        // 2. 로드밸런서가 알아챌 시간을 준다. 이 대기가 없으면 아래 언바인드가
+        //    "아직 나에게 보내고 있는" 트래픽을 RST 로 되돌린다.
+        if (options.ReadinessPropagationDelay > TimeSpan.Zero)
+        {
+            await Task.Delay(options.ReadinessPropagationDelay, cancellationToken).ConfigureAwait(false);
+        }
+
+        // 3. 이제 수용을 멈춘다. 여기서부터 새 접속은 오지 않는다.
+        await _transport.UnbindAsync(cancellationToken).ConfigureAwait(false);
+
+        // 4. 기존 커넥션을 상한까지 기다린다.
+        //    ⚠ 드레인 상한과 절차 취소를 **다른 토큰**으로 둔다. 겹치면 상한 만료가
+        //      OperationCanceledException 으로 새어 나가 "배포가 취소됐다" 로 읽힌다.
+        using CancellationTokenSource drainDeadline = new(options.ConnectionDrainTimeout);
+        using CancellationTokenSource linked =
+            CancellationTokenSource.CreateLinkedTokenSource(drainDeadline.Token, cancellationToken);
+
+        await StopAsync(linked.Token).ConfigureAwait(false);
+
+        // 절차 자체가 취소된 것이면 그것은 호출자에게 던져야 한다 — 상한 만료와 다르다.
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return new DrainReport(Stopwatch.GetElapsedTime(startedAt), !drainDeadline.IsCancellationRequested);
     }
 
     /// <inheritdoc />

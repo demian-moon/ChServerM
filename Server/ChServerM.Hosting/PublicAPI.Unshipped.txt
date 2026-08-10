@@ -335,3 +335,21 @@ ChServerM.Hosting.ContentFingerprintMismatchException.ContentFingerprintMismatch
 ChServerM.Hosting.ContentFingerprintMismatchException.ContentFingerprintMismatchException(string! message, System.Exception! innerException) -> void
 ChServerM.Hosting.ContentFingerprintMismatchException.Offered.get -> ChServerM.Content.ContentFingerprint
 ChServerM.Hosting.ServerBuilder.RequireContentFingerprint(ChServerM.Content.ContentFingerprint expected) -> ChServerM.Hosting.ServerBuilder!
+ChServerM.Hosting.ChServerMServer.DrainAsync(ChServerM.Hosting.DrainOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Hosting.DrainReport>
+ChServerM.Hosting.DrainOptions
+ChServerM.Hosting.DrainOptions.ConnectionDrainTimeout.get -> System.TimeSpan
+ChServerM.Hosting.DrainOptions.ConnectionDrainTimeout.set -> void
+ChServerM.Hosting.DrainOptions.DrainOptions() -> void
+ChServerM.Hosting.DrainOptions.ReadinessPropagationDelay.get -> System.TimeSpan
+ChServerM.Hosting.DrainOptions.ReadinessPropagationDelay.set -> void
+ChServerM.Hosting.DrainOptions.Validate() -> void
+ChServerM.Hosting.DrainReport
+ChServerM.Hosting.DrainReport.CompletedWithinTimeout.get -> bool
+ChServerM.Hosting.DrainReport.DrainReport() -> void
+ChServerM.Hosting.DrainReport.Elapsed.get -> System.TimeSpan
+ChServerM.Hosting.DrainReport.Equals(ChServerM.Hosting.DrainReport other) -> bool
+override ChServerM.Hosting.DrainReport.Equals(object? obj) -> bool
+override ChServerM.Hosting.DrainReport.GetHashCode() -> int
+override ChServerM.Hosting.DrainReport.ToString() -> string!
+static ChServerM.Hosting.DrainReport.operator !=(ChServerM.Hosting.DrainReport left, ChServerM.Hosting.DrainReport right) -> bool
+static ChServerM.Hosting.DrainReport.operator ==(ChServerM.Hosting.DrainReport left, ChServerM.Hosting.DrainReport right) -> bool

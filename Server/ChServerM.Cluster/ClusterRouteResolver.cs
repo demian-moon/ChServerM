@@ -151,6 +151,80 @@ public sealed class ClusterRouteResolver
     }
 
     /// <summary>
+    /// 이 노드가 그 역할의 <b>리더인가</b> — 뷰에서 바로 유도한다. <b>합의도 메시지도 없다.</b>
+    /// </summary>
+    /// <param name="router">한 뷰에 묶인 라우터.</param>
+    /// <param name="role">역할을 가리키는 고정 키. 역할마다 <b>다른 키</b>를 주면 리더가 흩어진다.</param>
+    /// <param name="quorum">
+    /// 정족수 게이트. <b>기본값이 없다</b> — 게이트를 원하지 않으면
+    /// <see cref="ClusterQuorum.None"/> 을 <b>명시</b>한다.
+    /// </param>
+    /// <returns>리더면 <see langword="true"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="router"/> 가 <see langword="null"/> 이다.</exception>
+    /// <remarks>
+    /// <para>
+    /// <b>⭐ 선출하지 않는다. 계산한다.</b> 역할 키의 랑데뷰 소유자가 곧 리더이므로,
+    /// <b>같은 뷰를 보는 모든 노드가 메시지 한 통 없이 같은 답</b>을 낸다. 노드가 빠지면
+    /// 그 역할은 자동으로 다음 순위로 넘어간다 — 이것도 계산일 뿐이다. 리밸런싱에서
+    /// "옮길 상태가 없다" 를 확인한 것과 같은 종류의 결론이다(ADR-0052).
+    /// </para>
+    ///
+    /// <para>
+    /// <b>⚠⚠ 이것은 상호 배제가 아니다.</b> 두 가지 이유로 <b>두 노드가 동시에
+    /// <see langword="true"/> 를 받을 수 있다</b>:
+    /// </para>
+    /// <list type="number">
+    ///   <item><b>뷰가 갈리면</b> 각 무리가 자기 리더를 뽑는다(스플릿 브레인).
+    ///     <paramref name="quorum"/> 이 <b>소수파를 물러나게</b> 하지만, 그것은 게이트를
+    ///     켰을 때의 이야기다.</item>
+    ///   <item><b>뷰 갱신은 즉시가 아니다.</b> 새 리더가 선 뒤에도 옛 리더는 자기가 밀려난
+    ///     것을 아직 모를 수 있다 — <b>정족수를 켜도 이 구간은 남는다</b>.</item>
+    /// </list>
+    /// <para>
+    /// 그러므로 리더가 하는 일은 <b>중복 실행돼도 안전</b>해야 한다. 안전하지 않다면
+    /// <b>펜싱 토큰이 붙은 리스</b>가 필요하고, 그것은 이 축이 주지 않는다 —
+    /// 흉내 내면 "리더니까 나 혼자겠지" 라는 <b>틀린 믿음</b>만 생긴다.
+    /// <b>⚠ <see cref="ClusterView.Generation"/> 을 펜싱 토큰으로 쓰지 않는다</b> —
+    /// 노드마다 제공자가 매기는 값이라 갈라진 두 무리가 <b>같은 세대 번호</b>를 들 수 있다.
+    /// </para>
+    ///
+    /// <code>
+    ///   IClusterRouter router = resolver.Router;             // 한 번 받는다
+    ///   ClusterQuorum quorum = ClusterQuorum.MajorityOf(5);  // 설정에서 온 기대 크기
+    ///
+    ///   if (resolver.IsLeaderFor(router, CompactionRole, quorum))
+    ///   {
+    ///       await CompactAsync();   // 중복 실행돼도 안전한 일이어야 한다
+    ///   }
+    /// </code>
+    /// </remarks>
+    public bool IsLeaderFor(IClusterRouter router, PartitionKey role, ClusterQuorum quorum)
+    {
+        ArgumentNullException.ThrowIfNull(router);
+
+        // ⚠ 정족수를 소유자 계산보다 **먼저** 본다. 순서가 반대면 소수파도 자기 무리의
+        //   소유자를 계산해 잠시 리더로 행동한 뒤 물러나게 된다.
+        if (!quorum.IsSatisfiedBy(router.View))
+        {
+            return false;
+        }
+
+        return router.TryGetOwner(role, out ClusterNode? owner) && owner!.Id == _membership.Self.Id;
+    }
+
+    /// <summary>이 노드가 그 역할의 리더인가. <b>판정 하나짜리 경로용</b>이다.</summary>
+    /// <param name="role">역할을 가리키는 고정 키.</param>
+    /// <param name="quorum">정족수 게이트. 원하지 않으면 <see cref="ClusterQuorum.None"/>.</param>
+    /// <returns>리더면 <see langword="true"/>.</returns>
+    /// <remarks>
+    /// <b>⚠ 리더 판정과 그에 딸린 라우팅 결정을 함께 할 때는 쓰지 않는다.</b> 그 사이에
+    /// 뷰가 바뀌면 <b>리더는 옛 뷰로, 라우팅은 새 뷰로</b> 정해진다 — 그때는
+    /// <see cref="Router"/> 를 한 번 받아 <see cref="IsLeaderFor(IClusterRouter, PartitionKey, ClusterQuorum)"/>
+    /// 를 쓴다.
+    /// </remarks>
+    public bool IsLeaderFor(PartitionKey role, ClusterQuorum quorum) => IsLeaderFor(Router, role, quorum);
+
+    /// <summary>
     /// 구성이 바뀔 때마다 <b>그 뷰에 묶인 라우터</b>를 하나씩 준다 —
     /// <b>노드가 늘거나 줄었을 때 소유권을 재검토하는 신호</b>다.
     /// </summary>

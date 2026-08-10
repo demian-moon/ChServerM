@@ -24,3 +24,5 @@ ChServerM.Cluster.ClusterRouteResolver.Resolve(ChServerM.Identity.PartitionKey k
 ChServerM.Cluster.ClusterRouteResolver.Router.get -> ChServerM.Cluster.IClusterRouter!
 ChServerM.Cluster.ClusterRouteResolver.Self.get -> ChServerM.Cluster.ClusterNode!
 ChServerM.Cluster.ClusterRouteResolver.WatchAsync(System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IAsyncEnumerable<ChServerM.Cluster.IClusterRouter!>!
+ChServerM.Cluster.ClusterRouteResolver.IsLeaderFor(ChServerM.Cluster.IClusterRouter! router, ChServerM.Identity.PartitionKey role, ChServerM.Cluster.ClusterQuorum quorum) -> bool
+ChServerM.Cluster.ClusterRouteResolver.IsLeaderFor(ChServerM.Identity.PartitionKey role, ChServerM.Cluster.ClusterQuorum quorum) -> bool
