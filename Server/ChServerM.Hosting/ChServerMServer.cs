@@ -6,6 +6,7 @@ using ChServerM.Connections;
 using ChServerM.Execution;
 using ChServerM.Framing;
 using ChServerM.Transports;
+using ChServerM.Hosting.Sessions;
 
 namespace ChServerM.Hosting;
 
@@ -43,8 +44,12 @@ public sealed class ChServerMServer : IAsyncDisposable
         IExecutionModel? executionModel,
         ServerLifecycleState lifecycle,
         HealthCheckService health,
-        DiagnosticsService diagnostics)
+        DiagnosticsService diagnostics,
+        SessionResumeService? sessions,
+        Sessions.SessionResumeDispatch? sessionDispatch)
     {
+        Sessions = sessions;
+        SessionDispatch = sessionDispatch;
         _transport = transport;
         _handler = handler;
         _executionModel = executionModel;
@@ -96,6 +101,23 @@ public sealed class ChServerMServer : IAsyncDisposable
     /// </para>
     /// </remarks>
     public DiagnosticsService Diagnostics { get; }
+
+    /// <summary>
+    /// 세션 재개 서비스. <c>UseSessions</c> 로 얹지 않았으면 <see langword="null"/>.
+    /// </summary>
+    /// <remarks>
+    /// 앱의 인증 핸들러가 세션을 <b>수립</b>할 때 쓴다 — 재개는 프레임워크가 이미 배선했다.
+    /// </remarks>
+    public SessionResumeService? Sessions { get; }
+
+    /// <summary>
+    /// 세션 재개 배선. <c>UseSessions</c> 로 얹지 않았으면 <see langword="null"/>.
+    /// </summary>
+    /// <remarks>
+    /// 수립 통지(<c>WriteEstablishedAsync</c>)를 보낼 때 쓴다. 재개 처리는 이미
+    /// 예약 메시지에 매핑돼 있으므로 앱이 직접 부를 일이 없다.
+    /// </remarks>
+    public Sessions.SessionResumeDispatch? SessionDispatch { get; }
 
     /// <summary>수용을 시작한다.</summary>
     /// <param name="cancellationToken">시작 작업의 취소 토큰.</param>

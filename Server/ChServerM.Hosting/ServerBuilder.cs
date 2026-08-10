@@ -6,6 +6,8 @@ using ChServerM.Diagnostics;
 using ChServerM.Execution;
 using ChServerM.Framing;
 using ChServerM.Hosting.Dispatch;
+using ChServerM.Identity;
+using ChServerM.Hosting.Sessions;
 using ChServerM.Security;
 using ChServerM.Transports;
 
@@ -46,6 +48,7 @@ public sealed class ServerBuilder
     private IExecutionModel? _executionModel;
     private ITransportSecurity? _transportSecurity;
     private VersionNegotiationOptions? _versionNegotiation;
+    private SessionResumeService? _sessionResume;
     private IPayloadCodec? _payloadCodec;
     private IMetricsSink? _metricsSink;
     private bool _tracingEnabled;
@@ -287,6 +290,35 @@ public sealed class ServerBuilder
         return this;
     }
 
+    /// <summary>세션 축을 얹는다 — 재개 흐름의 예약 메시지가 자동으로 배선된다.</summary>
+    /// <param name="resumeService">재개 서비스. 세션 저장소는 이것이 들고 있다.</param>
+    /// <returns>메서드 체이닝을 위한 자기 자신.</returns>
+    /// <remarks>
+    /// <para>
+    /// <b>존재 이유 — 앱이 예약 메시지 ID 를 알아야 할 이유가 없다.</b> 이것을 부르지 않으면
+    /// 앱이 <c>FrameworkMessageIds.SessionResume</c> 을 직접 매핑해야 하는데, 그것은
+    /// 프레임워크 내부 규약을 앱에 새게 하는 일이다.
+    /// </para>
+    /// <para>
+    /// <b>⚠ 서비스를 받고 만들지는 않는다.</b> 저장소·만료·서킷 브레이커 조합은 앱이 정한다
+    /// (인메모리인지 Redis 인지, 브레이커를 씌울지). 빌더가 그것을 대신 정하면 축 교체
+    /// 가능성이 사라진다. 빌더의 몫은 <b>예약 메시지 배선</b>과 <b>서버 표면 노출</b>이다.
+    /// </para>
+    /// <para>
+    /// <b>수립은 여전히 앱의 몫이다</b> — "이 사람에게 세션을 줘도 되는가" 는 정책이므로
+    /// 앱의 인증 핸들러가 <c>SessionResumeService.TryCreateAsync</c> 를 부르고
+    /// <c>SessionResumeDispatch.WriteEstablishedAsync</c> 로 통지한다.
+    /// 프레임워크가 자동으로 하는 것은 <b>재개</b>뿐이다(ADR-0036).
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="resumeService"/> 가 <see langword="null"/> 이다.</exception>
+    public ServerBuilder UseSessions(SessionResumeService resumeService)
+    {
+        ArgumentNullException.ThrowIfNull(resumeService);
+        _sessionResume = resumeService;
+        return this;
+    }
+
     /// <summary>미들웨어와 라우팅을 설정한다.</summary>
     /// <param name="configure">설정 함수.</param>
     /// <returns>메서드 체이닝을 위한 자기 자신.</returns>
@@ -322,6 +354,15 @@ public sealed class ServerBuilder
 
         // 축 하나하나가 유효해도 조합이 성립하지 않을 수 있다.
         CompositionGuard.EnsureFrameFitsInTransportBuffer(transport, decoder, encoder);
+
+        // 세션 축이 있으면 재개 예약 메시지를 배선한다. 앱이 ID 40007 을 알 필요가 없다.
+        // 라우팅 등록이므로 미들웨어 조립보다 먼저 해도 순서에 영향이 없다.
+        SessionResumeDispatch? sessionDispatch = null;
+        if (_sessionResume is not null)
+        {
+            sessionDispatch = new SessionResumeDispatch(_sessionResume, encoder);
+            _dispatcher.MapRaw(FrameworkMessageIds.SessionResume, sessionDispatch.HandleResumeAsync);
+        }
 
         // 관측 축이 있으면 디스패치 지연·처리량·실패 미들웨어를 파이프라인 가장 바깥에
         // 끼운다(빌드 전에 — 지연이 파이프라인 전체를 감싸야 의미가 있다, Phase 11).
@@ -377,7 +418,8 @@ public sealed class ServerBuilder
         DiagnosticsService diagnostics = new(BuildDiagnosticsSources());
 
         return new ChServerMServer(
-            transport, handler, encoder, _executionModel, lifecycle, health, diagnostics);
+            transport, handler, encoder, _executionModel, lifecycle, health, diagnostics,
+            _sessionResume, sessionDispatch);
     }
 
     /// <summary>내장 헬스 체크와 사용자 등록을 하나의 목록으로 모은다.</summary>

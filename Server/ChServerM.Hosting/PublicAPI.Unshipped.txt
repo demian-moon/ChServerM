@@ -324,3 +324,6 @@ ChServerM.Hosting.Sessions.SessionResumeDispatch
 ChServerM.Hosting.Sessions.SessionResumeDispatch.HandleResumeAsync(ChServerM.Dispatch.MessageContext! context) -> System.Threading.Tasks.ValueTask<ChServerM.Dispatch.DispatchStatus>
 ChServerM.Hosting.Sessions.SessionResumeDispatch.SessionResumeDispatch(ChServerM.Hosting.Sessions.SessionResumeService! service, ChServerM.Framing.IFrameEncoder! encoder) -> void
 ChServerM.Hosting.Sessions.SessionResumeDispatch.WriteEstablishedAsync(ChServerM.Dispatch.MessageContext! context, ChServerM.Identity.SessionId sessionId, ChServerM.Hosting.Sessions.SessionBinding binding) -> System.Threading.Tasks.ValueTask
+ChServerM.Hosting.ChServerMServer.SessionDispatch.get -> ChServerM.Hosting.Sessions.SessionResumeDispatch?
+ChServerM.Hosting.ChServerMServer.Sessions.get -> ChServerM.Hosting.Sessions.SessionResumeService?
+ChServerM.Hosting.ServerBuilder.UseSessions(ChServerM.Hosting.Sessions.SessionResumeService! resumeService) -> ChServerM.Hosting.ServerBuilder!
