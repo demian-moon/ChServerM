@@ -1,0 +1,16 @@
+#nullable enable
+ChServerM.Persistence.Redis.RedisSessionStore
+ChServerM.Persistence.Redis.RedisSessionStore.RedisSessionStore(StackExchange.Redis.IConnectionMultiplexer! multiplexer, ChServerM.Persistence.Redis.RedisSessionStoreOptions? options = null) -> void
+ChServerM.Persistence.Redis.RedisSessionStore.TryReadAsync(ChServerM.Identity.SessionId id, System.Buffers.IBufferWriter<byte>! destination, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Sessions.SessionReadResult>
+ChServerM.Persistence.Redis.RedisSessionStore.TryRemoveAsync(ChServerM.Identity.SessionId id, ChServerM.Sessions.SessionVersion expectedVersion, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
+ChServerM.Persistence.Redis.RedisSessionStore.TryRenewAsync(ChServerM.Identity.SessionId id, ChServerM.Sessions.SessionVersion expectedVersion, System.TimeSpan timeToLive, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
+ChServerM.Persistence.Redis.RedisSessionStore.TryWriteAsync(ChServerM.Identity.SessionId id, System.ReadOnlyMemory<byte> state, ChServerM.Sessions.SessionVersion expectedVersion, System.TimeSpan? timeToLive = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Sessions.SessionWriteResult>
+ChServerM.Persistence.Redis.RedisSessionStoreOptions
+ChServerM.Persistence.Redis.RedisSessionStoreOptions.KeyPrefix.get -> string!
+ChServerM.Persistence.Redis.RedisSessionStoreOptions.KeyPrefix.set -> void
+ChServerM.Persistence.Redis.RedisSessionStoreOptions.RedisSessionStoreOptions() -> void
+ChServerM.Persistence.Redis.RedisSessionStoreOptions.Validate() -> void
+ChServerM.Persistence.Redis.RedisSessionStoreOptions.VersionCounterKey.get -> string!
+ChServerM.Persistence.Redis.RedisSessionStoreOptions.VersionCounterKey.set -> void
+const ChServerM.Persistence.Redis.RedisSessionStoreOptions.DefaultKeyPrefix = "chsm:sess:" -> string!
+const ChServerM.Persistence.Redis.RedisSessionStoreOptions.DefaultVersionCounterKey = "chsm:sess:__ver" -> string!

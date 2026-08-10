@@ -5,8 +5,6 @@
   <PropertyGroup>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-
-    <!-- 테스트 어셈블리는 AOT 배포 대상이 아니다. 분석기 소음을 줄인다. -->
     <IsAotCompatible>false</IsAotCompatible>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
@@ -16,10 +14,11 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Testcontainers.Redis" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Server\ChServerM.Persistence.InMemory\ChServerM.Persistence.InMemory.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Persistence.Redis\ChServerM.Persistence.Redis.csproj" />
     <ProjectReference Include="..\ChServerM.Persistence.Conformance\ChServerM.Persistence.Conformance.csproj" />
   </ItemGroup>
 

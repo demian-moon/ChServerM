@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.Persistence.Conformance</RootNamespace>
+    <IsPackable>false</IsPackable>
+
+    <!--
+      ⚠ 테스트 프로젝트가 아니라 **테스트 라이브러리**다. 자기 자신은 실행되지 않고,
+      각 어댑터의 테스트 프로젝트가 상속해서 같은 단언을 돌린다.
+      IsTestProject 를 켜면 러너가 이 어셈블리를 직접 열어 "테스트 0개" 로 보고한다.
+    -->
+    <IsTestProject>false</IsTestProject>
+    <IsAotCompatible>false</IsAotCompatible>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit" />
+    <PackageReference Include="Xunit.SkippableFact" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Server\ChServerM.Core\ChServerM.Core.csproj" />
+  </ItemGroup>
+
+</Project>

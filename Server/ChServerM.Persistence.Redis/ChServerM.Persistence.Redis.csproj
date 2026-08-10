@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.Persistence.Redis</RootNamespace>
+    <Description>ChServerM 세션 저장소 축(ISessionStore)의 Redis 어댑터 (ADR-0034). Lua 로 CAS·TTL 을 원자적으로 처리한다.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ChServerM.Core\ChServerM.Core.csproj" />
+  </ItemGroup>
+
+  <!-- 벤더(StackExchange.Redis)는 이 어셈블리에만 존재한다. 삭제해도 Core 는 컴파일된다. -->
+  <ItemGroup>
+    <PackageReference Include="StackExchange.Redis" />
+  </ItemGroup>
+
+</Project>
