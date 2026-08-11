@@ -26,6 +26,8 @@
   -->
   <ItemGroup>
     <ProjectReference Include="..\..\Server\ChServerM.Hosting\ChServerM.Hosting.csproj" />
+    <!-- 전송 세금 A/B (ADR-0057 마감 전 조건) — 같은 하네스로 TCP vs HTTP 를 잰다. -->
+    <ProjectReference Include="..\..\Server\ChServerM.Transport.Http\ChServerM.Transport.Http.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Transport.Tcp\ChServerM.Transport.Tcp.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Framing\ChServerM.Framing.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Concurrency\ChServerM.Concurrency.csproj" />

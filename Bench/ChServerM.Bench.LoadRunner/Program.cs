@@ -78,6 +78,7 @@ internal static class Program
         Console.WriteLine("         [--defenses true|false (기본 false. 수용 제어를 켠다 — 스파이크 시나리오용)]");
         Console.WriteLine("         [--accept-rate N] [--accept-burst N (defenses 켰을 때 초당 수용 한도)]");
         Console.WriteLine("  client --port 15000 --connections 512 [--payload 128] [--seconds 30]");
+        Console.WriteLine("         [--transport socket|http (기본 socket. 서버와 같게 맞춘다 — ADR-0057 전송 세금 A/B)]");
         Console.WriteLine("         [--rampup 5] [--active N (기본: 전부)] [--host 127.0.0.1]");
         Console.WriteLine("         [--pipeline P (기본 1=닫힌 루프. P>1 이면 burst P개 송신 후 P개 수신)]");
         Console.WriteLine("         [--tls true|false (기본 false. 서버와 같게 맞춘다)]");
@@ -165,6 +166,21 @@ internal static class Program
             KestrelSocketServerTransport kestrel = new(bindPoint);
             transport = kestrel;
             connectionCount = () => kestrel.ConnectionCount;
+        }
+        else if (string.Equals(transportKind, "http", StringComparison.OrdinalIgnoreCase))
+        {
+            // 전송 세금 A/B (ADR-0057) — HTTP/2 스트림 = 커넥션. TLS 는 이 전송에서
+            // Kestrel 소유라 벤치 TLS 조합(SslStream 데코레이터)과 겹치지 않는다.
+            if (tls || defenses)
+            {
+                return Fail("http 전송은 tls/defenses 조합을 지원하지 않는다 — 전송 세금 A/B 전용이다.");
+            }
+
+            ChServerM.Transport.Http.HttpServerTransport http = new(
+                bindPoint,
+                new ChServerM.Transport.Http.HttpTransportOptions { MaxConnections = maxConnections });
+            transport = http;
+            connectionCount = () => http.ConnectionCount;
         }
         else
         {
@@ -277,11 +293,21 @@ internal static class Program
         FixedHeaderFrameEncoder encoder = new(framing);
         IPEndPoint target = new(IPAddress.Parse(host), port);
 
+        // 전송 세금 A/B (ADR-0057) — 서버의 --transport 와 짝을 맞춘다.
+        string transportKind = options.TryGetValue("transport", out string? kind) ? kind : "socket";
+        if (tls && string.Equals(transportKind, "http", StringComparison.OrdinalIgnoreCase))
+        {
+            return Fail("http 전송은 tls 조합을 지원하지 않는다 — 전송 세금 A/B 전용이다.");
+        }
+
 #pragma warning disable CA2007 // await using 선언에는 ConfigureAwait 를 붙일 수 없다. 콘솔 앱 — 컨텍스트 없음.
-        await using TcpClientTransport clientTransport = new(new TcpTransportOptions());
+        await using IClientTransport clientTransport =
+            string.Equals(transportKind, "http", StringComparison.OrdinalIgnoreCase)
+                ? new ChServerM.Transport.Http.HttpClientTransport()
+                : new TcpClientTransport(new TcpTransportOptions());
 #pragma warning restore CA2007
 
-        Console.WriteLine($"연결 {connections}개 (램프업 {rampUpSeconds}s, 활성 {active})...");
+        Console.WriteLine($"연결 {connections}개 (램프업 {rampUpSeconds}s, 활성 {active}, 전송 {transportKind})...");
 
         // ── 램프업: 초당 connections/rampUpSeconds 로 나눠 붙인다. 한꺼번에 붙이면
         //    accept 백로그·SYN 처리로 실패가 나고, 그것은 서버 측정이 아니다.
@@ -789,7 +815,7 @@ internal static class Program
     }
 
     private static async Task<IConnection> ConnectOneAsync(
-        TcpClientTransport transport, IPEndPoint target, TlsTransportSecurity? tlsSecurity)
+        IClientTransport transport, IPEndPoint target, TlsTransportSecurity? tlsSecurity)
     {
         IConnection connection = await transport.ConnectAsync(target).ConfigureAwait(false);
 

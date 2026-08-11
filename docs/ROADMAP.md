@@ -434,7 +434,7 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 - [ ] ⚠ `ChServerM.Transport.Udp` — 신뢰 UDP(순서·재전송·단편화). 실시간 게임에서 TCP head-of-line blocking 회피용. 자체 구현 vs LiteNetLib/ENet 어댑터 판단 필요
 - [ ] QUIC / HTTP/3 (`System.Net.Quic`) 검토
 - [ ] 전송 축 교체 테스트 — 같은 핸들러가 TCP/HTTP/WS에서 동작 (진행 중: TCP·InMemory·HTTP 3전송은 `CrossTransportTests` 가 고정. **WS 가 남았다**)
-- [ ] HTTP 전송 성능 측정 — 프레임워크 세금(TCP 대비 HTTP 경유 비용)·h2c 다중화의 손익. ADR-0057 이 Phase 16 마감 전 조건으로 명시
+- [x] HTTP 전송 성능 측정 — 프레임워크 세금(TCP 대비 HTTP 경유 비용)·h2c 다중화의 손익 (2026-08-11, BENCHMARKS "HTTP 전송 세금"). `LoadRunner --transport socket|http` 신설 — 서버 조립·프레이밍·핸들러·클라이언트 루프가 완전히 동일하고 전송 축만 갈린다. **지연 바닥(16 활성): p50 +8~9 µs · RPS −6.1%**(HTTP/2 프레임당 고정 비용). ⭐⭐ **고동시성(512 활성): 5.9× 역전**(883k vs 149k RPS · p50 419 µs vs 2.9 ms · p99 −81%) — 512 소켓이 스트림 512개/TCP 연결 ~6개로 다중화되어 **syscall 이 두 자릿수 배로 준다**. 10k+256 도 같은 경향(5.0×). 오류 0 · 생성기 비포화. ⚠ 루프백·128B 조건 — 실 NIC·대형 페이로드에서는 격차가 줄 것(한계 명시)
 
 ---
 

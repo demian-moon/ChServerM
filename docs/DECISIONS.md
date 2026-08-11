@@ -4600,9 +4600,11 @@ HTTP/2 흐름 제어 윈도(`StreamReceiveWindowSize`)가 TCP 의 `PauseWriterTh
 
 ### 남은 것
 
-- **성능 측정** — 프레임워크 세금(TCP 대비 HTTP 경유 비용)을 Phase 16 마감 전에
-  BENCHMARKS.md 에 남긴다. h2c 다중화가 TCP 대비 유리한 지점(연결 수)과 불리한 지점
-  (프레임당 오버헤드)을 수치로
+- ~~**성능 측정** — 프레임워크 세금(TCP 대비 HTTP 경유 비용)~~ → **같은 날 측정 완료**
+  (BENCHMARKS "HTTP 전송 세금"): 지연 바닥에서 p50 +8~9 µs·RPS −6%(프레임당 고정 비용),
+  **고동시성에서는 스트림 다중화의 syscall 배칭으로 5~6배 역전**(512 활성 883k vs 149k RPS,
+  p99 −81%). 예상("연결 수에서 유리, 프레임당에서 불리")이 수치로 확정됐고 크기는 예상보다
+  컸다
 - **TLS(h2 + ALPN)** — Kestrel `ListenOptions.UseHttps` 옵션 노출
 - **수용 제어·메트릭 배선** — TCP·인메모리 전송의 `AdmissionControl`/`MetricsSink` 옵션과
   같은 접점을 아직 열지 않았다. 필요 시 같은 모양으로
