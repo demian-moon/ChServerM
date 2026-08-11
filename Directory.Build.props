@@ -10,6 +10,12 @@
     <LangVersion>14.0</LangVersion>
     <Nullable>enable</Nullable>
 
+    <!--
+      전 패키지 락스텝 버전의 정본(ADR-0069) — ChServerM.* 전부가 이 하나로 함께 릴리스된다.
+      0.x 동안 파괴적 변경은 minor 승격 + 릴리스 노트. 판정표는 docs/VERSIONING.md.
+    -->
+    <VersionPrefix>0.1.0</VersionPrefix>
+
     <!-- 프레임워크 코드는 의존성이 명시적이어야 한다. 암묵적 using은 쓰지 않는다. -->
     <ImplicitUsings>disable</ImplicitUsings>
 
