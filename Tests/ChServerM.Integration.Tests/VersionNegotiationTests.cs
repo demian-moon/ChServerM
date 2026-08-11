@@ -160,10 +160,13 @@ public sealed class VersionNegotiationTests : IDisposable
             VersionNegotiationException rejected = await Assert.ThrowsAsync<VersionNegotiationException>(
                 async () => await futureClient.ConnectAsync(target, _timeout.Token));
 
-            // 이 단언은 한때 CI 에서만 간헐 실패했다(2026-08-10~11, 3회): 서버가 거부
-            // 프레임 flush 직후 Abort 를 불러, 송신 펌프가 소켓에 쓰기 전에 프레임이
-            // 파괴될 수 있었다. 거부 경로가 정상 종료(FIN)로 바뀌어 이제 전달이 보장된다 —
-            // 여기서 null 이 다시 보이면 그 회귀다(VersionNegotiatingConnectionHandler 참조).
+            // 이 단언은 한때 CI 에서만 간헐 실패했다(2026-08-10~11). 원인은 둘 겹쳐 있었다:
+            // ① 서버가 거부 프레임 flush 직후 Abort — 송신 데이터가 소켓에 닿기 전에 파괴될
+            //    수 있었다(→ 거부 경로를 정상 종료로 교체).
+            // ② 클라이언트 협상 읽기가 ConnectionClosed 토큰을 물고 있어, 거부 프레임과 FIN 이
+            //    붙어 도착하면 종료 신호가 버퍼를 읽기 전에 read 를 취소했다 — 지배적 원인
+            //    (→ ClientBuilder.NegotiateAsync 에서 토큰 제거, 파이프 완료가 종료 신호다).
+            // 여기서 null 이 다시 보이면 그 회귀다.
             Assert.Equal(new ProtocolVersionRange(1, 1), rejected.ServerSupportedVersions);
         }
 

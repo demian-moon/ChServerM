@@ -354,9 +354,16 @@ public sealed class ChServerMClient : IAsyncDisposable
         VersionNegotiationOptions negotiation = _negotiation!;
 
         // 제한 시간은 CTS 가 센다 — 응답 없는 서버에 매달리지 않는다.
+        //
+        // ⚠ linked 에 connection.ConnectionClosed 를 넣지 않는다. 커넥션이 닫히면 수신
+        // 펌프가 Input 파이프를 완료하므로 읽기는 IsCompleted 로 깨어난다(매달림 없음).
+        // 토큰까지 걸면 종료 신호가 버퍼에 이미 도착한 서버 응답(거부 프레임)을 읽기 전에
+        // read 를 취소하는 경합이 생긴다 — 응답과 FIN 이 붙어 도착하는 느린 CI 루프백에서
+        // "거부에 서버 구간이 없다(null)"로 재현되던 실결함의 원인이다(2026-08-10~11).
+        // 파이프 완료가 곧 종료 신호일 때 취소 토큰을 겹치면 원천이 둘이 된다(Phase 1 규약).
         using CancellationTokenSource timeoutCts = new(negotiation.HandshakeTimeout, _timeProvider);
         using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(
-            connection.ConnectionClosed, cancellationToken, timeoutCts.Token);
+            cancellationToken, timeoutCts.Token);
 
         try
         {
