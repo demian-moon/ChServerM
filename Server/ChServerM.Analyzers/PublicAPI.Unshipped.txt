@@ -1,0 +1,13 @@
+#nullable enable
+ChServerM.Analyzers.AsyncVoidAnalyzer
+ChServerM.Analyzers.AsyncVoidAnalyzer.AsyncVoidAnalyzer() -> void
+ChServerM.Analyzers.BlockingCallInAsyncAnalyzer
+ChServerM.Analyzers.BlockingCallInAsyncAnalyzer.BlockingCallInAsyncAnalyzer() -> void
+ChServerM.Analyzers.PayloadEscapeAnalyzer
+ChServerM.Analyzers.PayloadEscapeAnalyzer.PayloadEscapeAnalyzer() -> void
+override ChServerM.Analyzers.AsyncVoidAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override ChServerM.Analyzers.AsyncVoidAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
+override ChServerM.Analyzers.BlockingCallInAsyncAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override ChServerM.Analyzers.BlockingCallInAsyncAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>
+override ChServerM.Analyzers.PayloadEscapeAnalyzer.Initialize(Microsoft.CodeAnalysis.Diagnostics.AnalysisContext! context) -> void
+override ChServerM.Analyzers.PayloadEscapeAnalyzer.SupportedDiagnostics.get -> System.Collections.Immutable.ImmutableArray<Microsoft.CodeAnalysis.DiagnosticDescriptor!>

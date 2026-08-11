@@ -2,7 +2,7 @@
 
 빌드 시점에 프레임워크 규약 위반을 잡는 진단들의 정본 문서다.
 대역 배정: **CHSM0xxx = 빌드/구조 가드(MSBuild)**, **CHSM1xxx = 디스패치 소스 제너레이터**,
-**CHSM2xxx = 데이터 테이블 접근자 소스 제너레이터**.
+**CHSM2xxx = 데이터 테이블 접근자 소스 제너레이터**, **CHSM3xxx = 사용 규약 분석기**.
 새 대역이 필요하면 여기에 먼저 배정을 기록한다.
 
 ## CHSM0xxx — 빌드/구조 가드
@@ -76,7 +76,23 @@
 **오류가 하나라도 있으면 그 행 타입의 접근자를 생성하지 않는다.** 반쯤 맞는 접근자를
 내보내면 컴파일 오류가 먼저 눈에 들어와 진단이 가리키는 진짜 원인이 묻힌다.
 
+## CHSM3xxx — 사용 규약 분석기 (`ChServerM.Analyzers`, ADR-0066)
+
+프레임워크를 **사용하는 코드**의 오류를 잡는다 — CHSM1xxx·2xxx 가 보는 "선언"이 아니라
+핸들러·서비스 본문이다. 전부 레거시에서 실제로 서버를 멈추거나 데이터를 오염시킨 패턴이다.
+
+> **이 대역의 기본 심각도는 Warning 이다.** 구문 분석의 한계 안에서 판정하는 휴리스틱이라
+> 오탐 가능성이 0 이 아니다 — 오탐 있는 Error 는 사용자에게 진단 끄는 법부터 가르친다.
+> 판정 범위도 같은 이유로 좁다(아래 각 항목). 확대는 실수요 확인 후 한다.
+
+| ID | 심각도 | 원인 | 해결 |
+|---|---|---|---|
+| CHSM3001 | Warning | `async void` 메서드·로컬 함수·람다. 예외가 호출자가 아니라 스레드풀로 새서 프로세스를 죽이고, 완료를 기다릴 방법이 없다 | `async ValueTask`/`async Task` 로 바꾼다. UI 이벤트 핸들러 형태(`object, EventArgs`)는 델리게이트 계약이 void 를 강제하므로 보고하지 않는다 |
+| CHSM3002 | Warning | **async 함수 안**의 블로킹 호출 — `.Result`·`Task.Wait()`·`GetAwaiter().GetResult()`·`Thread.Sleep`. 블로킹된 스레드가 쌓이면 스레드풀 고갈로 서버 전체가 멈춘다 (레거시 `Dispose` 의 `Thread.Sleep(1000)`) | `await` 로 바꾼다. 함수 경계는 가장 가까운 람다·로컬 함수가 이긴다 — async 메서드 안의 동기 람다는 보고하지 않고, 동기 메서드 안의 async 람다는 보고한다. 동기 메서드의 sync-over-async 는 1차 범위 밖이다(콘솔 Main 등 정당한 경우와 구분 불가) |
+| CHSM3003 | Warning | `MessageContext.Payload` 를 필드·속성에 저장. 페이로드 버퍼는 커넥션당 재사용이라 핸들러 반환 후 다음 프레임이 덮어쓴다 — **과거 메시지가 조용히 오염된다** | 복사(`ToArray()`)하거나 반환 전에 역직렬화한다. 지역 변수 대입과 복사본 저장은 합법이다. `Slice()` 결과 저장(같은 버퍼 공유)은 1차 범위 밖 — 넓히면 오탐이 생긴다 |
+
 ## 릴리스 추적
 
-CHSM1xxx·CHSM2xxx 의 추가·변경은 `Server/ChServerM.SourceGen/AnalyzerReleases.Unshipped.md` 에
+CHSM1xxx·CHSM2xxx 의 추가·변경은 `Server/ChServerM.SourceGen/AnalyzerReleases.Unshipped.md`,
+CHSM3xxx 는 `Server/ChServerM.Analyzers/AnalyzerReleases.Unshipped.md` 에
 기록한다(RS2008 게이트). 릴리스 시 Shipped 로 옮긴다 — `PublicAPI.*.txt` 와 같은 규약이다.

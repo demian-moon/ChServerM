@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <!--
+      분석기는 SDK 컴파일러 프로세스(및 IDE 분석기 호스트)에 로드된다.
+      호스트 호환의 표준 타깃은 netstandard2.0 이다 (SourceGen 과 같은 이유).
+    -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>ChServerM.Analyzers</RootNamespace>
+    <Description>ChServerM 사용 규약 분석기 (Phase 20, ADR-0066) — 사용자의 흔한 실수를 컴파일 타임에 잡는다.</Description>
+
+    <!-- 트리밍 분석은 netstandard2.0 을 지원하지 않는다. 분석기는 배포 대상도 아니다. -->
+    <IsAotCompatible>false</IsAotCompatible>
+
+    <!-- 분석기 저작 규칙(RS1036 등)을 켠다. -->
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+  </PropertyGroup>
+
+  <!--
+    Core 를 참조하지 않는다 — 분석기는 소비 컴파일레이션을 메타데이터 이름 문자열로
+    조사한다(SourceGen 과 같은 규약). 참조하면 분석기 로드 시 dll 해석 문제와 버전 결박이 생긴다.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- 진단 릴리스 추적(RS2008) — PublicAPI 승인 파일과 같은 목적의 diff 게이트다. -->
+  <ItemGroup>
+    <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+  </ItemGroup>
+
+</Project>
