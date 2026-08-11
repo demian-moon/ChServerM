@@ -333,12 +333,16 @@ else {
             # 링크 성공만으로는 부족하다 — 서드파티(MemoryPack)의 리플렉션 폴백 경고를
             # 좁게 억제했으므로(샘플 csproj 주석 참조), 그 경로가 정말 실행되지 않는지는
             # 바이너리를 실제로 돌려 자체 검증(exit 0)으로 증명한다.
+            # ⚠ 파일명을 통째로 비교한다 — GetFileNameWithoutExtension 을 쓰면 안 된다.
+            # 리눅스 바이너리는 확장자가 없어서('ChServerM.Samples.EchoServer') 마지막 점
+            # 뒤('.EchoServer')가 확장자로 파싱되고, 비교가 절대 성립하지 않는다.
+            # ubuntu 러너가 테스트 실패로 이 단계에 도달하지 못하는 동안 잠복해 있다가
+            # 2026-08-11 재실행에서 드러난 실결함이다.
             $baseName = [System.IO.Path]::GetFileNameWithoutExtension($proj.Name)
             $published = Get-ChildItem -Path (Join-Path $proj.DirectoryName 'bin') -Recurse -File |
                 Where-Object {
                     $_.Directory.Name -eq 'publish' -and
-                    [System.IO.Path]::GetFileNameWithoutExtension($_.Name) -eq $baseName -and
-                    ($_.Extension -eq '.exe' -or $_.Extension -eq '')
+                    ($_.Name -eq "$baseName.exe" -or $_.Name -eq $baseName)
                 } |
                 Sort-Object LastWriteTimeUtc -Descending |
                 Select-Object -First 1

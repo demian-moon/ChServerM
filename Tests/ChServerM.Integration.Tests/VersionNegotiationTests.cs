@@ -160,6 +160,10 @@ public sealed class VersionNegotiationTests : IDisposable
             VersionNegotiationException rejected = await Assert.ThrowsAsync<VersionNegotiationException>(
                 async () => await futureClient.ConnectAsync(target, _timeout.Token));
 
+            // 이 단언은 한때 CI 에서만 간헐 실패했다(2026-08-10~11, 3회): 서버가 거부
+            // 프레임 flush 직후 Abort 를 불러, 송신 펌프가 소켓에 쓰기 전에 프레임이
+            // 파괴될 수 있었다. 거부 경로가 정상 종료(FIN)로 바뀌어 이제 전달이 보장된다 —
+            // 여기서 null 이 다시 보이면 그 회귀다(VersionNegotiatingConnectionHandler 참조).
             Assert.Equal(new ProtocolVersionRange(1, 1), rejected.ServerSupportedVersions);
         }
 

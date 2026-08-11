@@ -29,11 +29,12 @@ namespace ChServerM.Hosting;
 /// </para>
 /// <para>
 /// <b>실패는 전부 시끄럽다.</b> 교집합 없음 = 거부 프레임(서버 지원 구간 포함, R-3) 송신 후
-/// <see cref="ErrorCode.ProtocolVersionMismatch"/> 종료. 형식 위반 =
+/// <b>정상 종료</b> — Abort 가 아니다. Abort 는 대기 중인 송신 데이터를 보장하지 않아
+/// 거부 프레임 자체를 파괴할 수 있다(느린 러너에서 실제 유실 3회). 형식 위반 =
 /// <see cref="ErrorCode.MalformedFrame"/> 종료. 제한 시간 초과 =
 /// <see cref="ErrorCode.TransportTimeout"/> 종료(T-16 — 협상 없이 매달리는 커넥션은
-/// 슬롯 점유 공격이다). 결과는 버전별 로그로 남는다(R-5 — 롤링 배포 중 "구버전이 얼마나
-/// 남았나"의 근거. 카운터 승격은 Phase 11 관측 축에서).
+/// 슬롯 점유 공격이다). 뒤의 둘은 실을 데이터가 없으므로 Abort 가 맞다. 결과는 버전별
+/// 로그로 남는다(R-5 — 롤링 배포 중 "구버전이 얼마나 남았나"의 근거).
 /// </para>
 /// <para>
 /// <b>스레드 규약.</b> 협상 동안 이 타입이 <c>Input</c>/<c>Output</c> 의 단독 소유자다.
@@ -137,9 +138,14 @@ internal sealed class VersionNegotiatingConnectionHandler : IConnectionHandler
         {
             LogRejected(connection.Id, clientSupported);
             await SendRejectionAsync(connection).ConfigureAwait(false);
-            connection.Abort(ConnectionCloseInfo.ProtocolError(
-                ErrorCode.ProtocolVersionMismatch,
-                $"지원 버전 교집합이 없다. 서버 {_supportedVersions}, 클라이언트 {clientSupported}."));
+
+            // ⚠ 여기서 Abort 를 부르면 안 된다. Abort 는 대기 중인 송신 데이터를 보장하지
+            // 않으므로(IConnection 계약), 방금 실은 거부 프레임이 소켓에 도달하기 전에
+            // 파괴될 수 있다 — 느린 CI 러너에서 실제로 유실됐다(2026-08-10~11, 3회).
+            // 그냥 반환하면 소유자(전송 수락 루프)의 정상 종료가 남은 데이터를 내보내고
+            // FIN 을 보낸다. 종료는 전송의 ShutdownTimeout 으로 유계라, 거부 경로가
+            // 상대를 무한정 기다리는 공격 표면이 되지도 않는다. 거부 사유의 관측 정본은
+            // 위의 R-5 로그다.
             return;
         }
 
