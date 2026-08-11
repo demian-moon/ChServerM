@@ -33,4 +33,26 @@
     <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
   </ItemGroup>
 
+  <!--
+    분석기 패키징(Phase 21): lib/ 가 아니라 analyzers/dotnet/cs 로 실린다 —
+    소비 프로젝트의 컴파일러에 로드될 뿐 런타임 참조가 아니다.
+    NU5128(lib 폴더 없음 경고)은 분석기 패키지의 정상 형태라 끈다.
+  -->
+  <PropertyGroup>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <!-- lib/ 가 없는 패키지라 심볼 패키지(snupkg)가 비어 NU5017 로 터진다 - 분석기는 끈다. -->
+    <IncludeSymbols>false</IncludeSymbols>
+    <!-- 산출 경로는 정적 평가 시점에 비어 있으므로(OutputPath 는 targets 에서 확정) 타깃 훅으로 넣는다. -->
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);PackAnalyzerAssets</TargetsForTfmSpecificContentInPackage>
+  </PropertyGroup>
+
+  <Target Name="PackAnalyzerAssets">
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="$(TargetPath)" PackagePath="analyzers/dotnet/cs" />
+    </ItemGroup>
+  </Target>
+
 </Project>

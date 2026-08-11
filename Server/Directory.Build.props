@@ -39,4 +39,27 @@
     <AdditionalFiles Include="PublicAPI.Unshipped.txt" Condition="Exists('PublicAPI.Unshipped.txt')" />
   </ItemGroup>
 
+  <!--
+    ══════════════════════════════════════════════════════════════
+    NuGet 패키징 공통 메타데이터 (Phase 21)
+
+    버전은 루트 VersionPrefix 락스텝(ADR-0069). 패키지 ID = 어셈블리명,
+    Description 은 각 csproj 가 진다(전 프로젝트 보유 확인, 2026-08-11).
+    ⚠ 라이선스는 의도적으로 비어 있다 — 사업 결정이라 사용자 확정 전에는
+    공개 피드에 밀 수 없다(ROADMAP Phase 21 "라이선스 확정" 항목).
+    ══════════════════════════════════════════════════════════════
+  -->
+  <PropertyGroup>
+    <Authors>ChServerM</Authors>
+    <RepositoryUrl>https://github.com/demian-moon/ChServerM</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/demian-moon/ChServerM</PackageProjectUrl>
+    <!-- SDK 내장 SourceLink 가 RepositoryUrl·커밋을 심는다. 심볼은 snupkg 로 분리 발행. -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <!-- 패키지 구조 검증(다중 타깃·의존 일관성). 릴리스 후 baseline 비교로 확장한다(Phase 21). -->
+    <EnablePackageValidation>true</EnablePackageValidation>
+  </PropertyGroup>
+
 </Project>
