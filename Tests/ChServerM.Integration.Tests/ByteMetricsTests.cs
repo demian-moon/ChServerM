@@ -82,11 +82,22 @@ public sealed class ByteMetricsTests : IDisposable
         // 에코가 돌아왔으면 서버가 프레임을 받고(수신) 되돌려 보냈다(송신).
         await echoed.Task.WaitAsync(_timeout.Token);
 
+        // 수신 카운터는 수신 펌프가 디스패치 전에 올리므로 에코 수신이 곧 증거다.
         long received = sink.Total(MetricNames.BytesReceived);
+        Assert.True(received >= payload.Length, $"수신 바이트가 페이로드보다 적다: {received}");
+
+        // ⚠ 송신 카운터는 폴링해야 한다. 송신 펌프는 SendAsync 가 반환한 뒤에 세는데,
+        // 클라이언트는 커널이 바이트를 넘기는 즉시 에코를 받을 수 있어 순서가 고정되지
+        // 않는다 — 느린 CI 러너에서 0 으로 관측된 실사례(2026-08-11). 상한은 테스트
+        // 전역 타임아웃이 진다.
         long sent = sink.Total(MetricNames.BytesSent);
+        while (sent < payload.Length)
+        {
+            await Task.Delay(10, _timeout.Token);
+            sent = sink.Total(MetricNames.BytesSent);
+        }
 
         // 최소한 페이로드 + 고정 헤더만큼은 양방향으로 흘렀다.
-        Assert.True(received >= payload.Length, $"수신 바이트가 페이로드보다 적다: {received}");
         Assert.True(sent >= payload.Length, $"송신 바이트가 페이로드보다 적다: {sent}");
     }
 

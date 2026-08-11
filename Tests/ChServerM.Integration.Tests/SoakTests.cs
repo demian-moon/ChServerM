@@ -105,7 +105,19 @@ public sealed class SoakTests
         // 2. 메모리 평탄(통계적) — 정착 메모리가 기준선 근처로 돌아온다. 수천 사이클 동안
         //    사이클당 상태가 샜다면 이 배수를 훨씬 넘는다. 짧은 판은 대량 누수를, 24h 판은
         //    미세 추세를 잡는다.
-        Assert.True(final <= (baseline * 3 / 2) + (4L * 1024 * 1024),
+        //
+        //    ⚠ 임계 초과 시 바로 실패하지 않고 짧게 재정착을 기다리며 다시 잰다 — 느린
+        //    CI 러너에서는 처치 직후 비동기 정리가 끝나기 전에 측정될 수 있다(2026-08-11
+        //    CI: 717KB→5854KB 관측 후 다음 실행 통과). 누수라면 기다려도 내려오지 않으므로
+        //    판정력은 잃지 않는다.
+        long threshold = (baseline * 3 / 2) + (4L * 1024 * 1024);
+        for (int settle = 0; settle < 10 && final > threshold; settle++)
+        {
+            await Task.Delay(200, harnessTimeout.Token);
+            final = GetStableMemory();
+        }
+
+        Assert.True(final <= threshold,
             $"정착 메모리가 기준선 대비 과도하게 늘었다: 기준선 {baseline / 1024}KB, 최종 {final / 1024}KB. 누수 의심.");
     }
 
