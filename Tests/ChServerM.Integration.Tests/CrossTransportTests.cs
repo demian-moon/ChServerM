@@ -16,18 +16,18 @@ using Xunit;
 namespace ChServerM.Integration.Tests;
 
 /// <summary>
-/// <b>ADR-0004 의 합격 기준을 직접 검증한다 — 같은 핸들러 코드가 두 전송에서 동작하는가.</b>
+/// <b>ADR-0004 의 합격 기준을 직접 검증한다 — 같은 핸들러 코드가 모든 전송에서 동작하는가.</b>
 /// </summary>
 /// <remarks>
 /// <para>
-/// 모든 테스트가 <c>[Theory]</c> 로 <see cref="TransportKind.InMemory"/> 와
-/// <see cref="TransportKind.Tcp"/> 양쪽을 돈다. 핸들러·프레이밍·디스패치 코드는
-/// 두 경우에 <b>완전히 동일</b>하다. 한쪽만 통과하는 항목이 생기면 그것은
-/// 추상화가 전송 세부를 흘리고 있다는 신호다.
+/// 모든 테스트가 <c>[SkippableTheory]</c> 로 <b>다섯 전송</b>(인메모리·TCP·HTTP·WebSocket·
+/// QUIC)을 돈다. 핸들러·프레이밍·디스패치 코드는 모든 경우에 <b>완전히 동일</b>하다.
+/// 일부만 통과하는 항목이 생기면 그것은 추상화가 전송 세부를 흘리고 있다는 신호다.
+/// 전송을 추가하는 비용이 항목당 <c>[InlineData]</c> 한 줄인 것 자체가 축이 서 있다는 증거다.
 /// </para>
 /// <para>
-/// 이것이 통과하면 "TCP 커넥션 서버로도, 무상태 웹서버로도 조립할 수 있는 프레임워크"라는
-/// 목표의 첫 증거가 확보된다.
+/// QUIC 은 플랫폼 조건부(msquic)라 미지원 환경에서 실패가 아니라 <b>건너뜀</b>이 된다 —
+/// 조용히 통과하면 "검증됐다"는 착각을 준다(Redis 픽스처와 같은 판단).
 /// </para>
 /// </remarks>
 public sealed class CrossTransportTests
@@ -84,11 +84,12 @@ public sealed class CrossTransportTests
             maxPayloadLength: maxPayloadLength);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
     [InlineData(TransportKind.Http)]
     [InlineData(TransportKind.WebSocket)]
+    [InlineData(TransportKind.Quic)]
     public async Task RequestResponse_RoundTrips(TransportKind kind)
     {
         await using TestHarness harness = await StartEchoAsync(kind);
@@ -103,11 +104,12 @@ public sealed class CrossTransportTests
         Assert.Equal(payload, echoed);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
     [InlineData(TransportKind.Http)]
     [InlineData(TransportKind.WebSocket)]
+    [InlineData(TransportKind.Quic)]
     public async Task TypedHandler_Works(TransportKind kind)
     {
         await using TestHarness harness = await StartEchoAsync(kind);
@@ -119,11 +121,12 @@ public sealed class CrossTransportTests
         Assert.Equal("안녕, 세계", Encoding.UTF8.GetString(reply));
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
     [InlineData(TransportKind.Http)]
     [InlineData(TransportKind.WebSocket)]
+    [InlineData(TransportKind.Quic)]
     public async Task EmptyPayload_RoundTrips(TransportKind kind)
     {
         await using TestHarness harness = await StartEchoAsync(kind);
@@ -136,11 +139,12 @@ public sealed class CrossTransportTests
         Assert.Empty(echoed);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
     [InlineData(TransportKind.Http)]
     [InlineData(TransportKind.WebSocket)]
+    [InlineData(TransportKind.Quic)]
     public async Task ManyFrames_RoundTripInOrder(TransportKind kind)
     {
         await using TestHarness harness = await StartEchoAsync(kind);
@@ -155,11 +159,12 @@ public sealed class CrossTransportTests
         }
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
     [InlineData(TransportKind.Http)]
     [InlineData(TransportKind.WebSocket)]
+    [InlineData(TransportKind.Quic)]
     public async Task PipelinedFrames_PreserveOrder(TransportKind kind)
     {
         // 응답을 기다리지 않고 몰아서 보낸다. TCP 에서는 한 번의 read 에 프레임 여러 개가
@@ -180,11 +185,12 @@ public sealed class CrossTransportTests
         }
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
     [InlineData(TransportKind.Http)]
     [InlineData(TransportKind.WebSocket)]
+    [InlineData(TransportKind.Quic)]
     public async Task LargePayload_SpanningManySegments_RoundTrips(TransportKind kind)
     {
         // TCP 에서 40KB 는 반드시 여러 번의 read 로 쪼개져 도착한다.
@@ -204,11 +210,12 @@ public sealed class CrossTransportTests
         Assert.Equal(payload, echoed);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
     [InlineData(TransportKind.Http)]
     [InlineData(TransportKind.WebSocket)]
+    [InlineData(TransportKind.Quic)]
     public async Task ConcurrentConnections_AllRoundTrip(TransportKind kind)
     {
         await using TestHarness harness = await StartEchoAsync(kind);
@@ -236,11 +243,12 @@ public sealed class CrossTransportTests
         await Task.WhenAll(clients);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
     [InlineData(TransportKind.Http)]
     [InlineData(TransportKind.WebSocket)]
+    [InlineData(TransportKind.Quic)]
     public async Task UnknownMessageId_DoesNotCloseConnectionByDefault(TransportKind kind)
     {
         await using TestHarness harness = await StartEchoAsync(kind);
@@ -253,11 +261,12 @@ public sealed class CrossTransportTests
         Assert.Equal<byte>([4, 5, 6], echoed);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
     [InlineData(TransportKind.Http)]
     [InlineData(TransportKind.WebSocket)]
+    [InlineData(TransportKind.Quic)]
     public async Task UnknownMessageId_ClosesConnection_WhenConfigured(TransportKind kind)
     {
         await using TestHarness harness = await StartEchoAsync(
@@ -270,11 +279,12 @@ public sealed class CrossTransportTests
             () => harness.ReceiveAsync(connection, TestTimeout.Token));
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
     [InlineData(TransportKind.Http)]
     [InlineData(TransportKind.WebSocket)]
+    [InlineData(TransportKind.Quic)]
     public async Task EndPointFeature_IsAvailableOnBothTransports(TransportKind kind)
     {
         // 같은 기능 인터페이스를 두 전송이 각자 제공한다 — 이것이 Features 의 목적이다.
@@ -287,11 +297,12 @@ public sealed class CrossTransportTests
         Assert.NotNull(feature.RemoteEndPoint);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
     [InlineData(TransportKind.Http)]
     [InlineData(TransportKind.WebSocket)]
+    [InlineData(TransportKind.Quic)]
     public async Task Unbind_StopsNewConnections_ButKeepsExistingAlive(TransportKind kind)
     {
         await using TestHarness harness = await StartEchoAsync(kind);
@@ -302,8 +313,17 @@ public sealed class CrossTransportTests
 
         await harness.Server.UnbindAsync();
 
-        // 신규 연결은 실패한다. 전송마다 예외 타입이 다르므로 종류만 확인한다.
-        await Assert.ThrowsAnyAsync<Exception>(async () => await harness.ConnectAsync());
+        // 신규 커넥션은 쓸 수 없다. 실패 지점은 전송마다 다르다 — 연결 시점에 던지는
+        // 전송(TCP·인메모리·HTTP·WS)도 있고, 스트림 열기가 로컬 연산이라 거부가 첫
+        // 입출력에서야 드러나는 전송(QUIC — 서버가 드레인 중 스트림을 즉시 중단)도 있다.
+        // 이 테스트가 확인하려는 것은 "어디서 실패하는가"가 아니라 "쓸 수 없다"이다
+        // (MaxConnections 테스트의 플랫폼별 실패 지점과 같은 판단).
+        await Assert.ThrowsAnyAsync<Exception>(async () =>
+        {
+            await using IConnection rejected = await harness.ConnectAsync();
+            await harness.SendAsync(rejected, EchoMessageId, [9]);
+            await harness.ReceiveAsync(rejected, TestTimeout.Token);
+        });
 
         // 기존 커넥션은 계속 산다 — 무중단 배포의 창.
         await harness.SendAsync(existing, EchoMessageId, [2]);
@@ -311,11 +331,12 @@ public sealed class CrossTransportTests
         Assert.Equal<byte>([2], echoed);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
     [InlineData(TransportKind.Http)]
     [InlineData(TransportKind.WebSocket)]
+    [InlineData(TransportKind.Quic)]
     public async Task Stop_DrainsClosedConnections(TransportKind kind)
     {
         await using TestHarness harness = await StartEchoAsync(kind);
@@ -332,11 +353,12 @@ public sealed class CrossTransportTests
         Assert.Equal(0, harness.ServerConnectionCount);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
     [InlineData(TransportKind.Http)]
     [InlineData(TransportKind.WebSocket)]
+    [InlineData(TransportKind.Quic)]
     public async Task AbruptClientDisconnect_DoesNotAffectOtherConnections(TransportKind kind)
     {
         // 한 클라이언트가 사고로 끊기는 것은 일상이다. 다른 커넥션이 영향받으면
@@ -356,11 +378,12 @@ public sealed class CrossTransportTests
         Assert.Equal<byte>([2], echoed);
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
     [InlineData(TransportKind.Http)]
     [InlineData(TransportKind.WebSocket)]
+    [InlineData(TransportKind.Quic)]
     public async Task OversizedFrameHeader_ClosesConnection(TransportKind kind)
     {
         // 상한을 넘는 길이를 선언하면 페이로드를 기다리지 않고 즉시 끊어야 한다.

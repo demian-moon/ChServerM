@@ -11,9 +11,11 @@ using ChServerM.Hosting.Dispatch;
 using ChServerM.Identity;
 using ChServerM.Transport.Http;
 using ChServerM.Transport.InMemory;
+using ChServerM.Transport.Quic;
 using ChServerM.Transport.Tcp;
 using ChServerM.Transport.WebSocket;
 using ChServerM.Transports;
+using Xunit;
 
 namespace ChServerM.Integration.Tests;
 
@@ -36,6 +38,9 @@ public enum TransportKind
 
     /// <summary>Kestrel 기반 WebSocket(루프백 주소).</summary>
     WebSocket,
+
+    /// <summary>QUIC 양방향 스트림(루프백 주소). msquic 이 없는 환경에서는 건너뛴다.</summary>
+    Quic,
 }
 #pragma warning restore CA1515
 
@@ -98,6 +103,7 @@ internal sealed class TestHarness : IAsyncDisposable
         TcpServerTransport tcp => tcp.ConnectionCount,
         HttpServerTransport http => http.ConnectionCount,
         WebSocketServerTransport webSocket => webSocket.ConnectionCount,
+        QuicServerTransport quic => quic.ConnectionCount,
         _ => throw new NotSupportedException($"알 수 없는 전송: {Server.GetType().Name}"),
     };
 
@@ -209,6 +215,36 @@ internal sealed class TestHarness : IAsyncDisposable
             return (null, httpActual, httpServer, new HttpClientTransport(httpOptions));
         }
 
+        if (kind == TransportKind.Quic)
+        {
+            // msquic 이 없는 환경(일부 리눅스·구형 OS)은 실패가 아니라 건너뜀이다 —
+            // 조용히 통과시키면 "QUIC 전송이 검증됐다"는 착각을 준다(Redis 픽스처와 같은 판단).
+            Skip.If(
+                !System.Net.Quic.QuicListener.IsSupported,
+                "이 환경은 QUIC 을 지원하지 않는다 (msquic/TLS 스택).");
+
+#pragma warning disable CA1416 // 바로 위의 IsSupported 게이트가 플랫폼 지원을 확인했다.
+            QuicTransportOptions quicOptions = new()
+            {
+                ServerCertificate = CreateTestCertificate(),
+                PauseWriterThreshold = Math.Max(QuicTransportOptions.DefaultPauseWriterThreshold, pause),
+                ResumeWriterThreshold = Math.Max(QuicTransportOptions.DefaultResumeWriterThreshold, resume),
+
+                // 테스트 전용 신뢰 정책 — 실행마다 새 자가서명 인증서라 검증할 신뢰 체계가
+                // 없다. 무조건 true 콜백은 프로덕션 금지 패턴이다(옵션 문서).
+                RemoteCertificateValidation = static (_, _, _, _) => true,
+            };
+
+            QuicServerTransport quicServer = new(new IPEndPoint(IPAddress.Loopback, 0), quicOptions);
+            await quicServer.BindAsync(handler).ConfigureAwait(false);
+
+            EndPoint quicActual = quicServer.LocalEndPoint
+                ?? throw new InvalidOperationException("바인드 후에도 LocalEndPoint 가 없다.");
+
+            return (null, quicActual, quicServer, new QuicClientTransport(quicOptions));
+#pragma warning restore CA1416
+        }
+
         if (kind == TransportKind.WebSocket)
         {
             WebSocketTransportOptions wsOptions = new()
@@ -238,6 +274,33 @@ internal sealed class TestHarness : IAsyncDisposable
             ?? throw new InvalidOperationException("바인드 후에도 LocalEndPoint 가 없다.");
 
         return (null, actual, tcpServer, new TcpClientTransport(tcpOptions));
+    }
+
+    /// <summary>QUIC 테스트용 자가서명 인증서를 만든다.</summary>
+    /// <remarks>
+    /// ADR-0060 실측이 확인한 함정 둘을 반영한다 — serverAuth EKU 가 없으면 Schannel 이
+    /// 거부하고, 임시 생성 인증서는 PFX 왕복으로 다시 로드해야 한다(비영속 키 거부).
+    /// </remarks>
+    private static System.Security.Cryptography.X509Certificates.X509Certificate2 CreateTestCertificate()
+    {
+        using System.Security.Cryptography.RSA rsa = System.Security.Cryptography.RSA.Create(2048);
+        System.Security.Cryptography.X509Certificates.CertificateRequest request = new(
+            "CN=chsm-test",
+            rsa,
+            System.Security.Cryptography.HashAlgorithmName.SHA256,
+            System.Security.Cryptography.RSASignaturePadding.Pkcs1);
+
+        request.CertificateExtensions.Add(
+            new System.Security.Cryptography.X509Certificates.X509EnhancedKeyUsageExtension(
+                [new System.Security.Cryptography.Oid("1.3.6.1.5.5.7.3.1")], critical: false));
+
+        using System.Security.Cryptography.X509Certificates.X509Certificate2 ephemeral =
+            request.CreateSelfSigned(
+                DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddHours(1));
+
+        return System.Security.Cryptography.X509Certificates.X509CertificateLoader.LoadPkcs12(
+            ephemeral.Export(System.Security.Cryptography.X509Certificates.X509ContentType.Pfx),
+            password: null);
     }
 
     /// <summary>클라이언트 커넥션을 하나 연다.</summary>

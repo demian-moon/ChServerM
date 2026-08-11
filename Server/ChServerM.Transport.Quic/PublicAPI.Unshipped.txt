@@ -1,0 +1,40 @@
+#nullable enable
+ChServerM.Transport.Quic.QuicClientTransport
+ChServerM.Transport.Quic.QuicClientTransport.ConnectAsync(System.Net.EndPoint! endPoint, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Connections.IConnection!>
+ChServerM.Transport.Quic.QuicClientTransport.DisposeAsync() -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.Quic.QuicClientTransport.QuicClientTransport(ChServerM.Transport.Quic.QuicTransportOptions? options = null) -> void
+ChServerM.Transport.Quic.QuicServerTransport
+ChServerM.Transport.Quic.QuicServerTransport.BindAsync(ChServerM.Connections.IConnectionHandler! handler, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.Quic.QuicServerTransport.ConnectionCount.get -> int
+ChServerM.Transport.Quic.QuicServerTransport.DisposeAsync() -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.Quic.QuicServerTransport.LocalEndPoint.get -> System.Net.EndPoint?
+ChServerM.Transport.Quic.QuicServerTransport.MaxBufferedBytesPerConnection.get -> long
+ChServerM.Transport.Quic.QuicServerTransport.QuicServerTransport(System.Net.IPEndPoint! listenEndPoint, ChServerM.Transport.Quic.QuicTransportOptions! options, ChServerM.Diagnostics.IServerLogger? logger = null) -> void
+ChServerM.Transport.Quic.QuicServerTransport.StopAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.Quic.QuicServerTransport.UnbindAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.Quic.QuicTransportOptions
+ChServerM.Transport.Quic.QuicTransportOptions.AlpnProtocol.get -> string!
+ChServerM.Transport.Quic.QuicTransportOptions.AlpnProtocol.set -> void
+ChServerM.Transport.Quic.QuicTransportOptions.MaxConnections.get -> int
+ChServerM.Transport.Quic.QuicTransportOptions.MaxConnections.set -> void
+ChServerM.Transport.Quic.QuicTransportOptions.MaxStreamsPerConnection.get -> int
+ChServerM.Transport.Quic.QuicTransportOptions.MaxStreamsPerConnection.set -> void
+ChServerM.Transport.Quic.QuicTransportOptions.PauseWriterThreshold.get -> long
+ChServerM.Transport.Quic.QuicTransportOptions.PauseWriterThreshold.set -> void
+ChServerM.Transport.Quic.QuicTransportOptions.QuicTransportOptions() -> void
+ChServerM.Transport.Quic.QuicTransportOptions.RemoteCertificateValidation.get -> System.Net.Security.RemoteCertificateValidationCallback?
+ChServerM.Transport.Quic.QuicTransportOptions.RemoteCertificateValidation.set -> void
+ChServerM.Transport.Quic.QuicTransportOptions.ResumeWriterThreshold.get -> long
+ChServerM.Transport.Quic.QuicTransportOptions.ResumeWriterThreshold.set -> void
+ChServerM.Transport.Quic.QuicTransportOptions.ServerCertificate.get -> System.Security.Cryptography.X509Certificates.X509Certificate2?
+ChServerM.Transport.Quic.QuicTransportOptions.ServerCertificate.set -> void
+ChServerM.Transport.Quic.QuicTransportOptions.ShutdownTimeout.get -> System.TimeSpan
+ChServerM.Transport.Quic.QuicTransportOptions.ShutdownTimeout.set -> void
+ChServerM.Transport.Quic.QuicTransportOptions.TargetHost.get -> string?
+ChServerM.Transport.Quic.QuicTransportOptions.TargetHost.set -> void
+ChServerM.Transport.Quic.QuicTransportOptions.Validate(bool requireServerCertificate = false) -> void
+const ChServerM.Transport.Quic.QuicTransportOptions.DefaultAlpnProtocol = "chsm" -> string!
+const ChServerM.Transport.Quic.QuicTransportOptions.DefaultMaxStreamsPerConnection = 512 -> int
+const ChServerM.Transport.Quic.QuicTransportOptions.DefaultPauseWriterThreshold = 65536 -> long
+const ChServerM.Transport.Quic.QuicTransportOptions.DefaultResumeWriterThreshold = 32768 -> long
+static readonly ChServerM.Transport.Quic.QuicTransportOptions.DefaultShutdownTimeout -> System.TimeSpan

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.Transport.Quic</RootNamespace>
+    <Description>ChServerM 의 QUIC 전송. 양방향 스트림 하나가 커넥션 하나다.</Description>
+  </PropertyGroup>
+
+  <!--
+    System.Net.Quic 은 BCL 이다 — 이 어댑터는 서드파티 의존이 0 이고 공유 프레임워크
+    참조도 없다(HTTP·WebSocket 전송과 달리 Kestrel 이 필요 없다). msquic 네이티브
+    라이브러리는 런타임과 함께 온다(ADR-0060).
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\ChServerM.Core\ChServerM.Core.csproj" />
+  </ItemGroup>
+
+</Project>
