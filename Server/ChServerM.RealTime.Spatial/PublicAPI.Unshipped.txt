@@ -1,0 +1,68 @@
+#nullable enable
+ChServerM.RealTime.Spatial.Aabb
+ChServerM.RealTime.Spatial.Aabb.Aabb() -> void
+ChServerM.RealTime.Spatial.Aabb.Aabb(System.Numerics.Vector2 min, System.Numerics.Vector2 max) -> void
+ChServerM.RealTime.Spatial.Aabb.Center.get -> System.Numerics.Vector2
+ChServerM.RealTime.Spatial.Aabb.Contains(System.Numerics.Vector2 point) -> bool
+ChServerM.RealTime.Spatial.Aabb.Equals(ChServerM.RealTime.Spatial.Aabb other) -> bool
+ChServerM.RealTime.Spatial.Aabb.Intersects(in ChServerM.RealTime.Spatial.Aabb other) -> bool
+ChServerM.RealTime.Spatial.Aabb.IntersectsCircle(System.Numerics.Vector2 center, float radius) -> bool
+ChServerM.RealTime.Spatial.Aabb.Max.get -> System.Numerics.Vector2
+ChServerM.RealTime.Spatial.Aabb.Min.get -> System.Numerics.Vector2
+ChServerM.RealTime.Spatial.Aabb.Size.get -> System.Numerics.Vector2
+ChServerM.RealTime.Spatial.Aabb.Translated(System.Numerics.Vector2 offset) -> ChServerM.RealTime.Spatial.Aabb
+ChServerM.RealTime.Spatial.CollisionContact
+ChServerM.RealTime.Spatial.CollisionContact.CollisionContact() -> void
+ChServerM.RealTime.Spatial.CollisionContact.Depth.get -> float
+ChServerM.RealTime.Spatial.CollisionContact.Equals(ChServerM.RealTime.Spatial.CollisionContact other) -> bool
+ChServerM.RealTime.Spatial.CollisionContact.Normal.get -> System.Numerics.Vector2
+ChServerM.RealTime.Spatial.InterestGrid
+ChServerM.RealTime.Spatial.InterestGrid.Add(ChServerM.Identity.ObjectId id, System.Numerics.Vector2 position) -> bool
+ChServerM.RealTime.Spatial.InterestGrid.Count.get -> int
+ChServerM.RealTime.Spatial.InterestGrid.InterestGrid(System.Numerics.Vector2 worldMin, float cellSize, int cellsPerAxis) -> void
+ChServerM.RealTime.Spatial.InterestGrid.QueryAabb(in ChServerM.RealTime.Spatial.Aabb area, System.Collections.Generic.ICollection<ChServerM.Identity.ObjectId>! results) -> int
+ChServerM.RealTime.Spatial.InterestGrid.QueryCircle(System.Numerics.Vector2 center, float radius, System.Collections.Generic.ICollection<ChServerM.Identity.ObjectId>! results) -> int
+ChServerM.RealTime.Spatial.InterestGrid.Remove(ChServerM.Identity.ObjectId id) -> bool
+ChServerM.RealTime.Spatial.InterestGrid.TryGetPosition(ChServerM.Identity.ObjectId id, out System.Numerics.Vector2 position) -> bool
+ChServerM.RealTime.Spatial.InterestGrid.Update(ChServerM.Identity.ObjectId id, System.Numerics.Vector2 position) -> bool
+ChServerM.RealTime.Spatial.InterestSet
+ChServerM.RealTime.Spatial.InterestSet.BeginUpdate() -> void
+ChServerM.RealTime.Spatial.InterestSet.Contains(ChServerM.Identity.ObjectId id) -> bool
+ChServerM.RealTime.Spatial.InterestSet.Count.get -> int
+ChServerM.RealTime.Spatial.InterestSet.EndUpdate() -> void
+ChServerM.RealTime.Spatial.InterestSet.Entered.get -> System.ReadOnlySpan<ChServerM.Identity.ObjectId>
+ChServerM.RealTime.Spatial.InterestSet.InterestSet() -> void
+ChServerM.RealTime.Spatial.InterestSet.Left.get -> System.ReadOnlySpan<ChServerM.Identity.ObjectId>
+ChServerM.RealTime.Spatial.InterestSet.Observe(ChServerM.Identity.ObjectId id) -> bool
+ChServerM.RealTime.Spatial.MortonCode
+ChServerM.RealTime.Spatial.Obb
+ChServerM.RealTime.Spatial.Obb.AngleRadians.get -> float
+ChServerM.RealTime.Spatial.Obb.Center.get -> System.Numerics.Vector2
+ChServerM.RealTime.Spatial.Obb.Contains(System.Numerics.Vector2 point) -> bool
+ChServerM.RealTime.Spatial.Obb.Equals(ChServerM.RealTime.Spatial.Obb other) -> bool
+ChServerM.RealTime.Spatial.Obb.GetBoundingAabb() -> ChServerM.RealTime.Spatial.Aabb
+ChServerM.RealTime.Spatial.Obb.GetCorners(System.Span<System.Numerics.Vector2> corners) -> void
+ChServerM.RealTime.Spatial.Obb.HalfExtents.get -> System.Numerics.Vector2
+ChServerM.RealTime.Spatial.Obb.Intersects(in ChServerM.RealTime.Spatial.Obb other) -> bool
+ChServerM.RealTime.Spatial.Obb.Obb() -> void
+ChServerM.RealTime.Spatial.Obb.Obb(System.Numerics.Vector2 center, System.Numerics.Vector2 halfExtents, float angleRadians) -> void
+ChServerM.RealTime.Spatial.Obb.Rotated(float deltaRadians) -> ChServerM.RealTime.Spatial.Obb
+ChServerM.RealTime.Spatial.Obb.Translated(System.Numerics.Vector2 offset) -> ChServerM.RealTime.Spatial.Obb
+ChServerM.RealTime.Spatial.Obb.TryGetContact(in ChServerM.RealTime.Spatial.Obb other, out ChServerM.RealTime.Spatial.CollisionContact contact) -> bool
+override ChServerM.RealTime.Spatial.Aabb.Equals(object? obj) -> bool
+override ChServerM.RealTime.Spatial.Aabb.GetHashCode() -> int
+override ChServerM.RealTime.Spatial.Aabb.ToString() -> string!
+override ChServerM.RealTime.Spatial.CollisionContact.Equals(object? obj) -> bool
+override ChServerM.RealTime.Spatial.CollisionContact.GetHashCode() -> int
+override ChServerM.RealTime.Spatial.Obb.Equals(object? obj) -> bool
+override ChServerM.RealTime.Spatial.Obb.GetHashCode() -> int
+override ChServerM.RealTime.Spatial.Obb.ToString() -> string!
+static ChServerM.RealTime.Spatial.Aabb.FromCenter(System.Numerics.Vector2 center, System.Numerics.Vector2 halfExtents) -> ChServerM.RealTime.Spatial.Aabb
+static ChServerM.RealTime.Spatial.Aabb.operator !=(ChServerM.RealTime.Spatial.Aabb left, ChServerM.RealTime.Spatial.Aabb right) -> bool
+static ChServerM.RealTime.Spatial.Aabb.operator ==(ChServerM.RealTime.Spatial.Aabb left, ChServerM.RealTime.Spatial.Aabb right) -> bool
+static ChServerM.RealTime.Spatial.CollisionContact.operator !=(ChServerM.RealTime.Spatial.CollisionContact left, ChServerM.RealTime.Spatial.CollisionContact right) -> bool
+static ChServerM.RealTime.Spatial.CollisionContact.operator ==(ChServerM.RealTime.Spatial.CollisionContact left, ChServerM.RealTime.Spatial.CollisionContact right) -> bool
+static ChServerM.RealTime.Spatial.MortonCode.Decode(uint code) -> (ushort X, ushort Y)
+static ChServerM.RealTime.Spatial.MortonCode.Encode(ushort x, ushort y) -> uint
+static ChServerM.RealTime.Spatial.Obb.operator !=(ChServerM.RealTime.Spatial.Obb left, ChServerM.RealTime.Spatial.Obb right) -> bool
+static ChServerM.RealTime.Spatial.Obb.operator ==(ChServerM.RealTime.Spatial.Obb left, ChServerM.RealTime.Spatial.Obb right) -> bool

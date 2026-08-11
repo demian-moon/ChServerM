@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.RealTime.Spatial</RootNamespace>
+    <Description>ChServerM 의 공간 프리미티브(선택 축). 모튼 코드, 관심 영역(AOI) 그리드, SAT 충돌·공간 질의. 공간이 없는 워크로드는 이 축을 쓰지 않는다 (ADR-0065).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- ObjectId(강타입 엔티티 키)를 위해 Core 만 참조한다. 좌표는 BCL System.Numerics.Vector2 —
+         자동 SIMD 가속을 받으므로 자체 좌표 struct 를 만들지 않는다(CLAUDE.md 9.8). -->
+    <ProjectReference Include="..\ChServerM.Core\ChServerM.Core.csproj" />
+  </ItemGroup>
+
+</Project>

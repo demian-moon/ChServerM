@@ -1,0 +1,113 @@
+#nullable enable
+ChServerM.RealTime.Rooms.BroadcastFrame
+ChServerM.RealTime.Rooms.BroadcastFrame.Advance(int count) -> void
+ChServerM.RealTime.Rooms.BroadcastFrame.GetMemory(int sizeHint = 0) -> System.Memory<byte>
+ChServerM.RealTime.Rooms.BroadcastFrame.GetSpan(int sizeHint = 0) -> System.Span<byte>
+ChServerM.RealTime.Rooms.BroadcastFrame.Release() -> void
+ChServerM.RealTime.Rooms.BroadcastFrame.Written.get -> System.ReadOnlyMemory<byte>
+ChServerM.RealTime.Rooms.DirtySet<T>
+ChServerM.RealTime.Rooms.DirtySet<T>.Count.get -> int
+ChServerM.RealTime.Rooms.DirtySet<T>.DirtySet() -> void
+ChServerM.RealTime.Rooms.DirtySet<T>.Drain() -> System.ReadOnlySpan<T>
+ChServerM.RealTime.Rooms.DirtySet<T>.IsMarked(T item) -> bool
+ChServerM.RealTime.Rooms.DirtySet<T>.Mark(T item) -> bool
+ChServerM.RealTime.Rooms.DirtySet<T>.Unmark(T item) -> bool
+ChServerM.RealTime.Rooms.IRoomMemberSink
+ChServerM.RealTime.Rooms.IRoomMemberSink.ConnectionId.get -> ChServerM.Identity.ConnectionId
+ChServerM.RealTime.Rooms.IRoomMemberSink.TryDeliver(ChServerM.RealTime.Rooms.BroadcastFrame! frame) -> ChServerM.RealTime.Rooms.RoomDeliveryStatus
+ChServerM.RealTime.Rooms.PartitionedMemberSink
+ChServerM.RealTime.Rooms.PartitionedMemberSink.ConnectionId.get -> ChServerM.Identity.ConnectionId
+ChServerM.RealTime.Rooms.PartitionedMemberSink.IsFaulted.get -> bool
+ChServerM.RealTime.Rooms.PartitionedMemberSink.PartitionedMemberSink(ChServerM.Connections.IConnection! connection, ChServerM.Execution.IExecutionPartition! partition, ChServerM.RealTime.Rooms.PartitionedMemberSinkOptions? options = null) -> void
+ChServerM.RealTime.Rooms.PartitionedMemberSink.TryDeliver(ChServerM.RealTime.Rooms.BroadcastFrame! frame) -> ChServerM.RealTime.Rooms.RoomDeliveryStatus
+ChServerM.RealTime.Rooms.PartitionedMemberSinkOptions
+ChServerM.RealTime.Rooms.PartitionedMemberSinkOptions.Logger.get -> ChServerM.Diagnostics.IServerLogger!
+ChServerM.RealTime.Rooms.PartitionedMemberSinkOptions.Logger.set -> void
+ChServerM.RealTime.Rooms.PartitionedMemberSinkOptions.MetricsSink.get -> ChServerM.Diagnostics.IMetricsSink?
+ChServerM.RealTime.Rooms.PartitionedMemberSinkOptions.MetricsSink.set -> void
+ChServerM.RealTime.Rooms.PartitionedMemberSinkOptions.OnDeliveryFaulted.get -> System.Action<ChServerM.Identity.ConnectionId>?
+ChServerM.RealTime.Rooms.PartitionedMemberSinkOptions.OnDeliveryFaulted.set -> void
+ChServerM.RealTime.Rooms.PartitionedMemberSinkOptions.PartitionedMemberSinkOptions() -> void
+ChServerM.RealTime.Rooms.PartitionedMemberSinkOptions.SendQueueDepth.get -> int
+ChServerM.RealTime.Rooms.PartitionedMemberSinkOptions.SendQueueDepth.set -> void
+ChServerM.RealTime.Rooms.PartitionedMemberSinkOptions.Validate() -> void
+ChServerM.RealTime.Rooms.Room
+ChServerM.RealTime.Rooms.Room.Disband() -> int
+ChServerM.RealTime.Rooms.Room.Id.get -> ChServerM.RealTime.Rooms.RoomId
+ChServerM.RealTime.Rooms.Room.IsDisbanded.get -> bool
+ChServerM.RealTime.Rooms.Room.MaxMembers.get -> int
+ChServerM.RealTime.Rooms.Room.MemberCount.get -> int
+ChServerM.RealTime.Rooms.Room.TryJoin(ChServerM.RealTime.Rooms.IRoomMemberSink! member) -> ChServerM.RealTime.Rooms.RoomJoinStatus
+ChServerM.RealTime.Rooms.Room.TryLeave(ChServerM.Identity.ConnectionId connectionId) -> bool
+ChServerM.RealTime.Rooms.RoomBroadcaster
+ChServerM.RealTime.Rooms.RoomBroadcaster.Broadcast(ChServerM.RealTime.Rooms.Room! room, ChServerM.Identity.MessageId messageId, System.ReadOnlySpan<byte> payload, ChServerM.Framing.FrameFlags flags, ChServerM.Identity.ConnectionId exceptConnection = default(ChServerM.Identity.ConnectionId)) -> ChServerM.RealTime.Rooms.RoomBroadcastResult
+ChServerM.RealTime.Rooms.RoomBroadcaster.RoomBroadcaster(ChServerM.Framing.IFrameEncoder! encoder, System.Buffers.ArrayPool<byte>! payloadPool, ChServerM.RealTime.Rooms.RoomBroadcasterOptions? options = null) -> void
+ChServerM.RealTime.Rooms.RoomBroadcasterOptions
+ChServerM.RealTime.Rooms.RoomBroadcasterOptions.FramePoolCapacity.get -> int
+ChServerM.RealTime.Rooms.RoomBroadcasterOptions.FramePoolCapacity.set -> void
+ChServerM.RealTime.Rooms.RoomBroadcasterOptions.InitialFrameCapacity.get -> int
+ChServerM.RealTime.Rooms.RoomBroadcasterOptions.InitialFrameCapacity.set -> void
+ChServerM.RealTime.Rooms.RoomBroadcasterOptions.MetricsSink.get -> ChServerM.Diagnostics.IMetricsSink?
+ChServerM.RealTime.Rooms.RoomBroadcasterOptions.MetricsSink.set -> void
+ChServerM.RealTime.Rooms.RoomBroadcasterOptions.RoomBroadcasterOptions() -> void
+ChServerM.RealTime.Rooms.RoomBroadcasterOptions.Validate() -> void
+ChServerM.RealTime.Rooms.RoomBroadcastResult
+ChServerM.RealTime.Rooms.RoomBroadcastResult.Accepted.get -> int
+ChServerM.RealTime.Rooms.RoomBroadcastResult.Equals(ChServerM.RealTime.Rooms.RoomBroadcastResult other) -> bool
+ChServerM.RealTime.Rooms.RoomBroadcastResult.Rejected.get -> int
+ChServerM.RealTime.Rooms.RoomBroadcastResult.RoomBroadcastResult() -> void
+ChServerM.RealTime.Rooms.RoomDeliveryStatus
+ChServerM.RealTime.Rooms.RoomDeliveryStatus.Accepted = 0 -> ChServerM.RealTime.Rooms.RoomDeliveryStatus
+ChServerM.RealTime.Rooms.RoomDeliveryStatus.Closed = 2 -> ChServerM.RealTime.Rooms.RoomDeliveryStatus
+ChServerM.RealTime.Rooms.RoomDeliveryStatus.QueueFull = 1 -> ChServerM.RealTime.Rooms.RoomDeliveryStatus
+ChServerM.RealTime.Rooms.RoomDirectory
+ChServerM.RealTime.Rooms.RoomDirectory.RoomCount.get -> int
+ChServerM.RealTime.Rooms.RoomDirectory.RoomDirectory(ChServerM.RealTime.Rooms.RoomDirectoryOptions? options = null) -> void
+ChServerM.RealTime.Rooms.RoomDirectory.TryDisband(ChServerM.RealTime.Rooms.RoomId id) -> bool
+ChServerM.RealTime.Rooms.RoomDirectory.TryGet(ChServerM.RealTime.Rooms.RoomId id, out ChServerM.RealTime.Rooms.Room? room) -> bool
+ChServerM.RealTime.Rooms.RoomDirectory.TryGetOrCreate(ChServerM.RealTime.Rooms.RoomId id, out ChServerM.RealTime.Rooms.Room? room) -> ChServerM.RealTime.Rooms.RoomOpenStatus
+ChServerM.RealTime.Rooms.RoomDirectoryOptions
+ChServerM.RealTime.Rooms.RoomDirectoryOptions.MaxMembersPerRoom.get -> int
+ChServerM.RealTime.Rooms.RoomDirectoryOptions.MaxMembersPerRoom.set -> void
+ChServerM.RealTime.Rooms.RoomDirectoryOptions.MaxRooms.get -> int
+ChServerM.RealTime.Rooms.RoomDirectoryOptions.MaxRooms.set -> void
+ChServerM.RealTime.Rooms.RoomDirectoryOptions.RoomDirectoryOptions() -> void
+ChServerM.RealTime.Rooms.RoomDirectoryOptions.Validate() -> void
+ChServerM.RealTime.Rooms.RoomId
+ChServerM.RealTime.Rooms.RoomId.Equals(ChServerM.RealTime.Rooms.RoomId other) -> bool
+ChServerM.RealTime.Rooms.RoomId.IsNone.get -> bool
+ChServerM.RealTime.Rooms.RoomId.RoomId() -> void
+ChServerM.RealTime.Rooms.RoomId.RoomId(ulong value) -> void
+ChServerM.RealTime.Rooms.RoomId.ToPartitionKey() -> ChServerM.Identity.PartitionKey
+ChServerM.RealTime.Rooms.RoomId.Value.get -> ulong
+ChServerM.RealTime.Rooms.RoomJoinStatus
+ChServerM.RealTime.Rooms.RoomJoinStatus.AlreadyJoined = 1 -> ChServerM.RealTime.Rooms.RoomJoinStatus
+ChServerM.RealTime.Rooms.RoomJoinStatus.Disbanded = 3 -> ChServerM.RealTime.Rooms.RoomJoinStatus
+ChServerM.RealTime.Rooms.RoomJoinStatus.Joined = 0 -> ChServerM.RealTime.Rooms.RoomJoinStatus
+ChServerM.RealTime.Rooms.RoomJoinStatus.RoomFull = 2 -> ChServerM.RealTime.Rooms.RoomJoinStatus
+ChServerM.RealTime.Rooms.RoomMetricNames
+ChServerM.RealTime.Rooms.RoomOpenStatus
+ChServerM.RealTime.Rooms.RoomOpenStatus.Created = 1 -> ChServerM.RealTime.Rooms.RoomOpenStatus
+ChServerM.RealTime.Rooms.RoomOpenStatus.Existing = 0 -> ChServerM.RealTime.Rooms.RoomOpenStatus
+ChServerM.RealTime.Rooms.RoomOpenStatus.InvalidId = 3 -> ChServerM.RealTime.Rooms.RoomOpenStatus
+ChServerM.RealTime.Rooms.RoomOpenStatus.LimitReached = 2 -> ChServerM.RealTime.Rooms.RoomOpenStatus
+const ChServerM.RealTime.Rooms.PartitionedMemberSinkOptions.DefaultSendQueueDepth = 64 -> int
+const ChServerM.RealTime.Rooms.RoomBroadcasterOptions.DefaultFramePoolCapacity = 256 -> int
+const ChServerM.RealTime.Rooms.RoomBroadcasterOptions.DefaultInitialFrameCapacity = 4096 -> int
+const ChServerM.RealTime.Rooms.RoomDirectoryOptions.DefaultMaxMembersPerRoom = 1024 -> int
+const ChServerM.RealTime.Rooms.RoomDirectoryOptions.DefaultMaxRooms = 4096 -> int
+const ChServerM.RealTime.Rooms.RoomMetricNames.Broadcasts = "chserverm.room.broadcasts" -> string!
+const ChServerM.RealTime.Rooms.RoomMetricNames.FramesAccepted = "chserverm.room.frames.accepted" -> string!
+const ChServerM.RealTime.Rooms.RoomMetricNames.FramesDelivered = "chserverm.room.frames.delivered" -> string!
+const ChServerM.RealTime.Rooms.RoomMetricNames.FramesRejected = "chserverm.room.frames.rejected" -> string!
+const ChServerM.RealTime.Rooms.RoomMetricNames.SinkFaults = "chserverm.room.sink.faults" -> string!
+override ChServerM.RealTime.Rooms.RoomBroadcastResult.Equals(object? obj) -> bool
+override ChServerM.RealTime.Rooms.RoomBroadcastResult.GetHashCode() -> int
+override ChServerM.RealTime.Rooms.RoomId.Equals(object? obj) -> bool
+override ChServerM.RealTime.Rooms.RoomId.GetHashCode() -> int
+override ChServerM.RealTime.Rooms.RoomId.ToString() -> string!
+static ChServerM.RealTime.Rooms.RoomBroadcastResult.operator !=(ChServerM.RealTime.Rooms.RoomBroadcastResult left, ChServerM.RealTime.Rooms.RoomBroadcastResult right) -> bool
+static ChServerM.RealTime.Rooms.RoomBroadcastResult.operator ==(ChServerM.RealTime.Rooms.RoomBroadcastResult left, ChServerM.RealTime.Rooms.RoomBroadcastResult right) -> bool
+static ChServerM.RealTime.Rooms.RoomId.None.get -> ChServerM.RealTime.Rooms.RoomId
+static ChServerM.RealTime.Rooms.RoomId.operator !=(ChServerM.RealTime.Rooms.RoomId left, ChServerM.RealTime.Rooms.RoomId right) -> bool
+static ChServerM.RealTime.Rooms.RoomId.operator ==(ChServerM.RealTime.Rooms.RoomId left, ChServerM.RealTime.Rooms.RoomId right) -> bool

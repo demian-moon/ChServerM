@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.RealTime.Rooms</RootNamespace>
+    <Description>ChServerM 의 룸/채널 프리미티브(선택 축). 멤버십 생명주기, 직렬화 1회 브로드캐스트, 더티 추적. 전부 빼도 프레임워크가 성립한다 (ADR-0064).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Core 만 참조한다. 브로드캐스트의 소유권 문제는 Core 의 파티션 계약
+         (IExecutionPartition.TryEnqueueExclusive)으로 푼다 — 새 워커·큐 계층을 만들지 않는다. -->
+    <ProjectReference Include="..\ChServerM.Core\ChServerM.Core.csproj" />
+  </ItemGroup>
+
+</Project>

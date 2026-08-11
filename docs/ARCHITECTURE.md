@@ -91,13 +91,15 @@ Samples / Tests / Bench
 | 어셈블리 | 무엇인가 | 참조 |
 |---|---|---|
 | `ChServerM.RealTime` | 실시간 프리미티브 — 고정 타임스텝 틱 루프(`TickLoop`, 절대 스케줄 + 유계 캐치업) · 계층적 타이밍 휠(`TimerWheel`, 레거시 `TimeEventSchedulerM` 설계 승계) · 시간 동기화(`MicrosecondClock`/`RemoteClock`/`TimeSyncExchange`) · RTT 추정(`RttEstimator`, IQR) · `IntervalGate` (ADR-0061~0063) | Core |
-| (없음) | Core 에 이 축의 계약은 **없다** — 틱 루프는 계약이 아니라 구현체다. 두 번째 구현이 필요해질 때 인터페이스를 뽑는다(ADR-0061 결정 1) | — |
+| `ChServerM.RealTime.Rooms` | 룸/채널 — 멤버십 생명주기(`Room`/`RoomDirectory`, COW 배열) · **직렬화 1회 브로드캐스트**(`RoomBroadcaster` + 참조 계수 `BroadcastFrame`) · 커넥션 파티션 배타 슬롯에서 쓰는 기본 싱크(`PartitionedMemberSink` — Output 단일 라이터 규약을 지키는 유일한 합법 경로) · 더티 추적(`DirtySet<T>`) (ADR-0064) | Core |
+| `ChServerM.RealTime.Spatial` | 공간 — 모튼 코드(레거시 유일 생존 자산 승계) · AOI 균일 그리드(`InterestGrid`) · Enter/Leave 집합 차분(`InterestSet`) · 무할당 SAT 충돌(`Aabb`/`Obb`/`CollisionContact`) (ADR-0065). 좌표는 BCL `Vector2`, 각도는 라디안 하나 | Core |
+| (없음) | Core 에 이 축의 계약은 **없다** — 틱 루프는 계약이 아니라 구현체다. 두 번째 구현이 필요해질 때 인터페이스를 뽑는다(ADR-0061 결정 1). 세 어셈블리는 서로도 참조하지 않는다 — 룸만, 공간만, 틱만 따로 쓸 수 있다 | — |
 
 **이 축을 통째로 빼도 프레임워크가 성립한다**(ADR-0004의 명시 조건). Core 를 참조하되
 (`MonotonicTimestamp`·진단 계약 재사용 — 시간 표현이 두 벌이 되는 것을 막는다) Core 는
-이 어셈블리를 모르고, 메트릭 이름도 `RealTimeMetricNames` 로 자기 어셈블리에 있다.
-휠은 스레드를 갖지 않는 수동 자료구조이고 틱 루프가 드라이버가 된다 — 결합 방식은
-`TickLoopTimerWheelCompositionTests` 가 고정한다.
+이 어셈블리들을 모르고, 메트릭 이름도 `RealTimeMetricNames`/`RoomMetricNames` 로 자기
+어셈블리에 있다. 휠은 스레드를 갖지 않는 수동 자료구조이고 틱 루프가 드라이버가 된다 —
+결합 방식은 `TickLoopTimerWheelCompositionTests` 가 고정한다.
 
 ## 확정된 것
 
