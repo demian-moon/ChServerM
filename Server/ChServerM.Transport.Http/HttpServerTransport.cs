@@ -131,7 +131,9 @@ public sealed class HttpServerTransport : IServerTransport, ITransportBufferLimi
 
         if (Interlocked.CompareExchange(ref _state, 1, 0) != 0)
         {
-            throw new InvalidOperationException($"{_listenEndPoint} 에 이미 바인드돼 있다.");
+            throw new InvalidOperationException(
+                $"{_listenEndPoint} 에 이미 바인드돼 있다. 전송 인스턴스는 1회용이다 — "
+                + "다시 바인드하려면 StopAsync 후 새 인스턴스를 만든다. 재호출이 의도가 아니라면 BindAsync 를 두 곳에서 부르는 조립을 의심한다.");
         }
 
         _handler = handler;

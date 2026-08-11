@@ -38,7 +38,9 @@ public sealed class ProtobufMessageSerializerProvider : IMessageSerializerProvid
     {
         if (!_serializers.TryAdd(typeof(TMessage), new ProtobufMessageSerializer<TMessage>()))
         {
-            throw new ArgumentException($"{typeof(TMessage)} 는 이미 등록돼 있다.");
+            throw new ArgumentException(
+                $"{typeof(TMessage)} 는 이미 등록돼 있다. 제공자는 타입당 직렬화기 하나만 갖는다(교체 API 없음) — "
+                + "중복 Register 호출 지점을 찾아 하나로 합친다.");
         }
 
         return this;

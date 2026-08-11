@@ -104,7 +104,9 @@ public sealed class HealthHttpEndpoint : IAsyncDisposable
 
         if (Interlocked.CompareExchange(ref _started, 1, 0) != 0)
         {
-            throw new InvalidOperationException("엔드포인트가 이미 시작됐다.");
+            throw new InvalidOperationException(
+                "엔드포인트가 이미 시작됐다. HealthHttpEndpoint 는 1회용이다 — "
+                + "재시작하려면 DisposeAsync 후 새 인스턴스를 만든다.");
         }
 
         _listener.Start();

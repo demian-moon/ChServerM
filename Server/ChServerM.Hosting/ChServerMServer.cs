@@ -130,7 +130,9 @@ public sealed class ChServerMServer : IAsyncDisposable
 
         if (Interlocked.CompareExchange(ref _started, 1, 0) != 0)
         {
-            throw new InvalidOperationException("서버가 이미 시작됐다.");
+            throw new InvalidOperationException(
+                "서버가 이미 시작됐다. ChServerMServer 는 1회용이다 — "
+                + "재시작하려면 DisposeAsync 후 ServerBuilder 로 새로 조립한다.");
         }
 
         await _transport.BindAsync(_handler, cancellationToken).ConfigureAwait(false);

@@ -90,7 +90,9 @@ public readonly struct FrameDecodeResult : IEquatable<FrameDecodeResult>
     {
         if (status is FrameDecodeStatus.Decoded or FrameDecodeStatus.NeedMoreData)
         {
-            throw new ArgumentOutOfRangeException(nameof(status), status, "실패 상태가 아니다.");
+            throw new ArgumentOutOfRangeException(
+                nameof(status), status,
+                "실패 상태가 아니다. Decoded 는 Decoded(...) 팩토리로, NeedMoreData 는 NeedMoreData(...) 팩토리로 만든다.");
         }
 
         return new FrameDecodeResult(status, default, default, position, position);

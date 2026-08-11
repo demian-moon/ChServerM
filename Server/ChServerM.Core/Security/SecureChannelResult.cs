@@ -53,7 +53,9 @@ public readonly struct SecureChannelResult : IEquatable<SecureChannelResult>
     {
         if (status is SecureChannelStatus.Established or SecureChannelStatus.None)
         {
-            throw new ArgumentOutOfRangeException(nameof(status), status, "실패 상태가 아니다.");
+            throw new ArgumentOutOfRangeException(
+                nameof(status), status,
+                "실패 상태가 아니다. 확립된 채널은 Established(...) 팩토리로 만들고, None 은 '시도 없음' 센티넬이라 결과가 될 수 없다.");
         }
 
         return new SecureChannelResult(status, channel: null);
