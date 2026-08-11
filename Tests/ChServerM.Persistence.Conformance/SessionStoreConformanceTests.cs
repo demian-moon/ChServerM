@@ -284,14 +284,22 @@ public abstract class SessionStoreConformanceTests
     public async Task Write_resets_the_expiry()
     {
         // 계약: 쓰기가 성공하면 만료 시각이 다시 설정된다.
-        SessionId id = NewId();
-        SessionWriteResult v1 = await Store.TryWriteAsync(id, Bytes(1), SessionVersion.None, ShortTimeToLive);
+        //
+        // ⚠ 이 테스트(와 아래 Renew 판)는 "만료 전 여유 폭" 안에서 다음 호출이 도달해야
+        // 성립한다. 실서버 스토어의 1초 TTL 에서는 여유가 0.4초뿐이라 느린 CI 러너의
+        // 멈칫에 잡아먹혔다(2026-08-11, Postgres·Garnet 동시 실패). 이 테스트에서만
+        // TTL 을 4배로 키워 여유를 1.6×ShortTimeToLive 로 늘린다 — 만료를 기다리는
+        // 다른 테스트들의 대기 시간은 건드리지 않는다.
+        TimeSpan ttl = ShortTimeToLive * 4;
 
-        await AdvanceAsync(TimeSpan.FromMilliseconds(ShortTimeToLive.TotalMilliseconds * 0.6));
-        Assert.True((await Store.TryWriteAsync(id, Bytes(2), v1.Version, ShortTimeToLive)).Succeeded);
+        SessionId id = NewId();
+        SessionWriteResult v1 = await Store.TryWriteAsync(id, Bytes(1), SessionVersion.None, ttl);
+
+        await AdvanceAsync(TimeSpan.FromMilliseconds(ttl.TotalMilliseconds * 0.6));
+        Assert.True((await Store.TryWriteAsync(id, Bytes(2), v1.Version, ttl)).Succeeded);
 
         // 첫 만료 시각을 지났지만 두 번째 쓰기가 만료를 다시 설정했다.
-        await AdvanceAsync(TimeSpan.FromMilliseconds(ShortTimeToLive.TotalMilliseconds * 0.6));
+        await AdvanceAsync(TimeSpan.FromMilliseconds(ttl.TotalMilliseconds * 0.6));
         Assert.True((await Store.TryReadAsync(id, new ArrayBufferWriter<byte>())).Found);
     }
 
@@ -299,16 +307,19 @@ public abstract class SessionStoreConformanceTests
     public async Task Renew_extends_expiry_without_changing_the_version()
     {
         // ★ 버전을 올리지 않는 것이 계약이다 — 하트비트가 남의 CAS 를 깨면 안 된다.
+        // TTL 4배 스케일의 이유는 Write_resets_the_expiry 의 주석 참조(여유 폭 확보).
+        TimeSpan ttl = ShortTimeToLive * 4;
+
         SessionId id = NewId();
         SessionWriteResult created = await Store.TryWriteAsync(
-            id, Bytes(1), SessionVersion.None, ShortTimeToLive);
+            id, Bytes(1), SessionVersion.None, ttl);
 
         // 만료 전에 연장한다.
-        await AdvanceAsync(TimeSpan.FromMilliseconds(ShortTimeToLive.TotalMilliseconds * 0.6));
-        Assert.True(await Store.TryRenewAsync(id, created.Version, ShortTimeToLive));
+        await AdvanceAsync(TimeSpan.FromMilliseconds(ttl.TotalMilliseconds * 0.6));
+        Assert.True(await Store.TryRenewAsync(id, created.Version, ttl));
 
         // 원래 만료 시각을 지나도 살아 있어야 한다.
-        await AdvanceAsync(TimeSpan.FromMilliseconds(ShortTimeToLive.TotalMilliseconds * 0.6));
+        await AdvanceAsync(TimeSpan.FromMilliseconds(ttl.TotalMilliseconds * 0.6));
 
         ArrayBufferWriter<byte> destination = new();
         SessionReadResult read = await Store.TryReadAsync(id, destination);
