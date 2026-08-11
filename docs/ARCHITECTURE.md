@@ -112,7 +112,12 @@ Samples / Tests / Bench
   배제 — 정렬·패딩·호스트 엔디안에 와이어 포맷이 끌려간다), 직렬화는 페이로드에만 적용한다.
   위 "프레임 처리 흐름"의 `IFrameDecoder` ↔ `IMessageSerializer` 경계가 이 결정을 구현한다.
 
-## 미확정
+- **ADR-0001** — raw TCP 는 **순수 `Socket`+Pipelines** (2026-08-05 확정. Kestrel Socket
+  Transport 재사용안은 탈락 — 근거는 ADR 본문)
+- **ADR-0013** — 페이로드 직렬화 기본값은 **MemoryPack** (ADR-0002 잔여 해소.
+  Protobuf·FlatBuffers 는 상호운용·무역직렬화 접근용 대안 어댑터, ADR-0012)
 
-- **ADR-0001** — raw TCP 구현 방식 (Kestrel Socket Transport 재사용 vs 순수 `Socket`)
-- **ADR-0002 남은 부분** — 페이로드 직렬화 기본값 (Phase 6 벤치마크)
+## 축 선택
+
+"어떤 축에 무엇을 꽂을 것인가"는 [GUIDE-CHOOSING-AXES.md](GUIDE-CHOOSING-AXES.md)가 다룬다 —
+이 문서는 구조(무엇이 어디에 있는가)까지만 책임진다.
