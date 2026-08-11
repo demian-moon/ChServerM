@@ -54,6 +54,14 @@ internal static class Program
             return;
         }
 
+        // 틱 지터도 BDN 밖에서 돈다. BDN 은 연산당 평균을 재고, 지터는 **시작 지연의 분포**다.
+        // 슬립·OS 타이머 해상도가 측정 대상이므로 시간을 가짜로 밀 수도 없다.
+        if (args.Length > 0 && args[0] is "tickjitter")
+        {
+            RealTime.TickJitterReport.Run();
+            return;
+        }
+
         // 설정은 각 벤치마크 클래스의 [Config(typeof(BenchConfig))] 가 준다.
         // 여기서 전역 config 를 함께 넘기면 **같은 설정이 두 번 적용되어** BenchmarkDotNet 이
         // "The exporter JsonExporter-full is already present in configuration" 경고를 낸다.
