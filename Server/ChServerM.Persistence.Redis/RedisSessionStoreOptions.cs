@@ -30,7 +30,9 @@ public sealed class RedisSessionStoreOptions
     {
         if (string.IsNullOrEmpty(KeyPrefix))
         {
-            throw new InvalidOperationException($"{nameof(KeyPrefix)} 는 비어 있을 수 없다.");
+            throw new InvalidOperationException(
+                $"{nameof(KeyPrefix)} 는 비어 있을 수 없다. 같은 Redis 를 쓰는 다른 서비스와 키 공간을 "
+                + "가르는 유일한 장치다 — 빈 접두사는 남의 키를 밟는 사고로 이어진다(기본값 유지 권장).");
         }
     }
 }

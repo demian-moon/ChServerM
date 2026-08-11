@@ -65,7 +65,10 @@ public sealed class Lz4PayloadCodec : IPayloadCodec
         if (encoded < 0)
         {
             // MaximumOutputSize 버퍼에서는 도달 불가 — 도달했다면 벤더 계약이 깨진 것이다.
-            throw new InvalidOperationException("LZ4 인코딩이 산정된 최대 크기 버퍼에서 실패했다.");
+            throw new InvalidOperationException(
+                $"LZ4 인코딩이 산정된 최대 크기 버퍼에서 실패했다(반환 {encoded}, 입력 {source.Length}B, "
+                + $"출력 버퍼 {destination.Length - HeaderSize}B). MaximumOutputSize 계약상 도달 불가한 지점이므로 "
+                + "K4os.Compression.LZ4 버전 변경·버퍼 오염을 의심한다.");
         }
 
         return HeaderSize + encoded;

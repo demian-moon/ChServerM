@@ -74,7 +74,10 @@ public sealed class ClusterRouteResolver
         _membership = membership;
         _factory = routerFactory;
         _cached = routerFactory(membership.Current)
-            ?? throw new ArgumentException("라우터 생성기가 null 을 돌려줬다.", nameof(routerFactory));
+            ?? throw new ArgumentException(
+                "라우터 생성기가 null 을 돌려줬다. 생성기는 뷰마다 라우터를 반환해야 한다 — "
+                + "만들 수 없는 상태라면 null 이 아니라 예외로 알리고, 기본 동작이면 RendezvousRouter 를 반환한다.",
+                nameof(routerFactory));
     }
 
     /// <summary>기본 전략(<see cref="RendezvousRouter"/>)으로 만든다.</summary>
@@ -104,7 +107,9 @@ public sealed class ClusterRouteResolver
             }
 
             IClusterRouter fresh = _factory(view)
-                ?? throw new InvalidOperationException("라우터 생성기가 null 을 돌려줬다.");
+                ?? throw new InvalidOperationException(
+                    "라우터 생성기가 뷰 갱신 중 null 을 돌려줬다. 생성기는 뷰마다 라우터를 반환해야 한다 — "
+                    + "만들 수 없는 상태라면 null 이 아니라 예외로 알리고, 기본 동작이면 RendezvousRouter 를 반환한다.");
 
             // ⚠ 한 번만 시도하고 실패해도 다시 돌지 않는다. 진 쪽이 캐시에 더 오래된
             //   라우터를 남기더라도, 다음 호출이 Current 와 다시 대조해 스스로 고친다

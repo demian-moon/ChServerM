@@ -93,7 +93,9 @@ public sealed class PostgresSessionStoreOptions
     {
         if (string.IsNullOrEmpty(value))
         {
-            throw new InvalidOperationException($"{name} 은 비어 있을 수 없다.");
+            throw new InvalidOperationException(
+                $"{name} 은 비어 있을 수 없다. 이 값은 SQL 식별자로 직접 삽입되므로 "
+                + "소문자·숫자·밑줄·점만 허용된다 — 기본값을 바꿀 이유가 없다면 그대로 둔다.");
         }
 
         foreach (char c in value)
