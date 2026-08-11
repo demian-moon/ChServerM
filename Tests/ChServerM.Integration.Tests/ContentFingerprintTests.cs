@@ -224,7 +224,12 @@ public sealed class ContentFingerprintTests : IDisposable
             .UseFraming(new FixedHeaderFrameDecoder(framing), new FixedHeaderFrameEncoder(framing))
             .UseVersionNegotiation(new VersionNegotiationOptions
             {
-                HandshakeTimeout = TimeSpan.FromMilliseconds(300),
+                // ⚠ 300ms 로 두면 안 된다 — 이 테스트는 "협상은 성공하고, 그 뒤 지문
+                // 대기에서 제한 시간에 걸린다"는 경로를 단언하는데, 느린 CI 러너는
+                // 연결과 ClientHello 처리 사이에 300ms 이상 멈춰 협상 자체가 타임아웃
+                // 된다(2026-08-11 CI 실사례: ConnectAsync 가 "응답 없이 닫았다"로 실패).
+                // 3초는 러너 멈칫보다 길고, 지문 미송신 판정도 3초면 테스트 예산 안이다.
+                HandshakeTimeout = TimeSpan.FromSeconds(3),
             })
             .RequireContentFingerprint(ServerContent)
             .Build();
