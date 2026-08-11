@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.Transport.Http</RootNamespace>
+    <Description>ChServerM 의 Kestrel 기반 HTTP 전송. HTTP/2 스트림 하나가 커넥션 하나다.</Description>
+  </PropertyGroup>
+
+  <!--
+    Kestrel 은 NuGet 패키지가 아니라 공유 프레임워크(Microsoft.AspNetCore.App)로 온다.
+    KestrelServer 를 직접 세우고 IHttpApplication 을 구현한다 — WebApplication/제네릭 호스트/DI
+    컨테이너를 끌고 오지 않는다(ADR-0057). 이 참조는 이 어댑터 어셈블리에만 존재하고
+    Core 의 public API 에는 어떤 ASP.NET 타입도 노출되지 않는다(CLAUDE.md 하드 룰).
+  -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ChServerM.Core\ChServerM.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -87,6 +87,7 @@ public sealed class CrossTransportTests
     [Theory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
+    [InlineData(TransportKind.Http)]
     public async Task RequestResponse_RoundTrips(TransportKind kind)
     {
         await using TestHarness harness = await StartEchoAsync(kind);
@@ -104,6 +105,7 @@ public sealed class CrossTransportTests
     [Theory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
+    [InlineData(TransportKind.Http)]
     public async Task TypedHandler_Works(TransportKind kind)
     {
         await using TestHarness harness = await StartEchoAsync(kind);
@@ -118,6 +120,7 @@ public sealed class CrossTransportTests
     [Theory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
+    [InlineData(TransportKind.Http)]
     public async Task EmptyPayload_RoundTrips(TransportKind kind)
     {
         await using TestHarness harness = await StartEchoAsync(kind);
@@ -133,6 +136,7 @@ public sealed class CrossTransportTests
     [Theory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
+    [InlineData(TransportKind.Http)]
     public async Task ManyFrames_RoundTripInOrder(TransportKind kind)
     {
         await using TestHarness harness = await StartEchoAsync(kind);
@@ -150,6 +154,7 @@ public sealed class CrossTransportTests
     [Theory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
+    [InlineData(TransportKind.Http)]
     public async Task PipelinedFrames_PreserveOrder(TransportKind kind)
     {
         // 응답을 기다리지 않고 몰아서 보낸다. TCP 에서는 한 번의 read 에 프레임 여러 개가
@@ -173,6 +178,7 @@ public sealed class CrossTransportTests
     [Theory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
+    [InlineData(TransportKind.Http)]
     public async Task LargePayload_SpanningManySegments_RoundTrips(TransportKind kind)
     {
         // TCP 에서 40KB 는 반드시 여러 번의 read 로 쪼개져 도착한다.
@@ -195,6 +201,7 @@ public sealed class CrossTransportTests
     [Theory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
+    [InlineData(TransportKind.Http)]
     public async Task ConcurrentConnections_AllRoundTrip(TransportKind kind)
     {
         await using TestHarness harness = await StartEchoAsync(kind);
@@ -225,6 +232,7 @@ public sealed class CrossTransportTests
     [Theory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
+    [InlineData(TransportKind.Http)]
     public async Task UnknownMessageId_DoesNotCloseConnectionByDefault(TransportKind kind)
     {
         await using TestHarness harness = await StartEchoAsync(kind);
@@ -240,6 +248,7 @@ public sealed class CrossTransportTests
     [Theory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
+    [InlineData(TransportKind.Http)]
     public async Task UnknownMessageId_ClosesConnection_WhenConfigured(TransportKind kind)
     {
         await using TestHarness harness = await StartEchoAsync(
@@ -255,6 +264,7 @@ public sealed class CrossTransportTests
     [Theory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
+    [InlineData(TransportKind.Http)]
     public async Task EndPointFeature_IsAvailableOnBothTransports(TransportKind kind)
     {
         // 같은 기능 인터페이스를 두 전송이 각자 제공한다 — 이것이 Features 의 목적이다.
@@ -270,6 +280,7 @@ public sealed class CrossTransportTests
     [Theory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
+    [InlineData(TransportKind.Http)]
     public async Task Unbind_StopsNewConnections_ButKeepsExistingAlive(TransportKind kind)
     {
         await using TestHarness harness = await StartEchoAsync(kind);
@@ -292,6 +303,7 @@ public sealed class CrossTransportTests
     [Theory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
+    [InlineData(TransportKind.Http)]
     public async Task Stop_DrainsClosedConnections(TransportKind kind)
     {
         await using TestHarness harness = await StartEchoAsync(kind);
@@ -311,6 +323,7 @@ public sealed class CrossTransportTests
     [Theory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
+    [InlineData(TransportKind.Http)]
     public async Task AbruptClientDisconnect_DoesNotAffectOtherConnections(TransportKind kind)
     {
         // 한 클라이언트가 사고로 끊기는 것은 일상이다. 다른 커넥션이 영향받으면
@@ -333,6 +346,7 @@ public sealed class CrossTransportTests
     [Theory]
     [InlineData(TransportKind.InMemory)]
     [InlineData(TransportKind.Tcp)]
+    [InlineData(TransportKind.Http)]
     public async Task OversizedFrameHeader_ClosesConnection(TransportKind kind)
     {
         // 상한을 넘는 길이를 선언하면 페이로드를 기다리지 않고 즉시 끊어야 한다.

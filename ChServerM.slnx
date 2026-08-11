@@ -1,4 +1,4 @@
-﻿<Solution>
+<Solution>
   <Folder Name="/Server/">
     <Project Path="Server/ChServerM.Buffers/ChServerM.Buffers.csproj" />
     <Project Path="Server/ChServerM.Core/ChServerM.Core.csproj" />
@@ -22,6 +22,7 @@
     <Project Path="Server/ChServerM.Serialization.MemoryPack/ChServerM.Serialization.MemoryPack.csproj" />
     <Project Path="Server/ChServerM.Serialization.Protobuf/ChServerM.Serialization.Protobuf.csproj" />
     <Project Path="Server/ChServerM.SourceGen/ChServerM.SourceGen.csproj" />
+    <Project Path="Server/ChServerM.Transport.Http/ChServerM.Transport.Http.csproj" />
     <Project Path="Server/ChServerM.Transport.InMemory/ChServerM.Transport.InMemory.csproj" />
     <Project Path="Server/ChServerM.Transport.Tcp/ChServerM.Transport.Tcp.csproj" />
   </Folder>

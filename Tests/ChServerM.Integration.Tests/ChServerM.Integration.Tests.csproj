@@ -45,6 +45,7 @@
     <ProjectReference Include="..\..\Server\ChServerM.Serialization.FlatBuffers\ChServerM.Serialization.FlatBuffers.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Serialization.MemoryPack\ChServerM.Serialization.MemoryPack.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Serialization.Protobuf\ChServerM.Serialization.Protobuf.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Transport.Http\ChServerM.Transport.Http.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Transport.InMemory\ChServerM.Transport.InMemory.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Transport.Tcp\ChServerM.Transport.Tcp.csproj" />
     <!-- 디스패치 소스 제너레이터 — 분석기로만 참조한다(런타임 의존 아님). -->

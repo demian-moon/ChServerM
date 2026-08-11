@@ -9,6 +9,7 @@ using ChServerM.Framing;
 using ChServerM.Hosting;
 using ChServerM.Hosting.Dispatch;
 using ChServerM.Identity;
+using ChServerM.Transport.Http;
 using ChServerM.Transport.InMemory;
 using ChServerM.Transport.Tcp;
 using ChServerM.Transports;
@@ -28,6 +29,9 @@ public enum TransportKind
 
     /// <summary>실제 TCP 소켓(루프백 주소).</summary>
     Tcp,
+
+    /// <summary>Kestrel 기반 HTTP/2 스트림(루프백 주소).</summary>
+    Http,
 }
 #pragma warning restore CA1515
 
@@ -88,6 +92,7 @@ internal sealed class TestHarness : IAsyncDisposable
     {
         InMemoryServerTransport inMemory => inMemory.ConnectionCount,
         TcpServerTransport tcp => tcp.ConnectionCount,
+        HttpServerTransport http => http.ConnectionCount,
         _ => throw new NotSupportedException($"알 수 없는 전송: {Server.GetType().Name}"),
     };
 
@@ -107,6 +112,7 @@ internal sealed class TestHarness : IAsyncDisposable
     /// <param name="maxPayloadLength">프레임 페이로드 상한.</param>
     /// <param name="decoder">프레임 디코더. <see langword="null"/>이면 고정 헤더.</param>
     /// <param name="encoder">프레임 인코더. <see langword="null"/>이면 고정 헤더. 디코더와 같은 와이어여야 한다.</param>
+    /// <param name="executionModel">실행 모델. <see langword="null"/>이면 호출 스레드에서 그대로 디스패치한다. 수명은 호출자가 소유한다.</param>
     public static async Task<TestHarness> StartAsync(
         Action<MessageDispatcherBuilder> configure,
         TransportKind kind = TransportKind.InMemory,
@@ -115,7 +121,8 @@ internal sealed class TestHarness : IAsyncDisposable
         TcpTransportOptions? tcpOptions = null,
         int maxPayloadLength = 4096,
         IFrameDecoder? decoder = null,
-        IFrameEncoder? encoder = null)
+        IFrameEncoder? encoder = null,
+        ChServerM.Execution.IExecutionModel? executionModel = null)
     {
         ArgumentNullException.ThrowIfNull(configure);
 
@@ -127,7 +134,8 @@ internal sealed class TestHarness : IAsyncDisposable
         decoder ??= new FixedHeaderFrameDecoder(framing);
         encoder ??= new FixedHeaderFrameEncoder(framing);
 
-        FramedConnectionHandler handler = new(decoder, builder.Build(), connectionOptions);
+        FramedConnectionHandler handler = new(
+            decoder, builder.Build(), connectionOptions, executionModel: executionModel);
 
         (InMemoryTransportHub? hub, EndPoint endPoint, IServerTransport server, IClientTransport client) =
             await CreateTransportsAsync(kind, handler, transportOptions, tcpOptions, maxPayloadLength, encoder.MaxHeaderSize)
@@ -177,6 +185,23 @@ internal sealed class TestHarness : IAsyncDisposable
             await server.BindAsync(handler).ConfigureAwait(false);
 
             return (hub, endPoint, server, new InMemoryClientTransport(hub, null, transportOptions));
+        }
+
+        if (kind == TransportKind.Http)
+        {
+            // HTTP/2 흐름 제어 윈도가 이 전송의 버퍼 임계값이다. 최대 프레임이 들어가야 한다.
+            HttpTransportOptions httpOptions = new()
+            {
+                StreamReceiveWindowSize = (int)Math.Max(HttpTransportOptions.DefaultStreamReceiveWindowSize, pause),
+            };
+
+            HttpServerTransport httpServer = new(new IPEndPoint(IPAddress.Loopback, 0), httpOptions);
+            await httpServer.BindAsync(handler).ConfigureAwait(false);
+
+            EndPoint httpActual = httpServer.LocalEndPoint
+                ?? throw new InvalidOperationException("바인드 후에도 LocalEndPoint 가 없다.");
+
+            return (null, httpActual, httpServer, new HttpClientTransport(httpOptions));
         }
 
         tcpOptions ??= new TcpTransportOptions();

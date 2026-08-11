@@ -1,0 +1,28 @@
+#nullable enable
+ChServerM.Transport.Http.HttpClientTransport
+ChServerM.Transport.Http.HttpClientTransport.ConnectAsync(System.Net.EndPoint! endPoint, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Connections.IConnection!>
+ChServerM.Transport.Http.HttpClientTransport.DisposeAsync() -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.Http.HttpClientTransport.HttpClientTransport(ChServerM.Transport.Http.HttpTransportOptions? options = null) -> void
+ChServerM.Transport.Http.HttpServerTransport
+ChServerM.Transport.Http.HttpServerTransport.BindAsync(ChServerM.Connections.IConnectionHandler! handler, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.Http.HttpServerTransport.ConnectionCount.get -> int
+ChServerM.Transport.Http.HttpServerTransport.DisposeAsync() -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.Http.HttpServerTransport.HttpServerTransport(System.Net.IPEndPoint! listenEndPoint, ChServerM.Transport.Http.HttpTransportOptions? options = null, ChServerM.Diagnostics.IServerLogger? logger = null) -> void
+ChServerM.Transport.Http.HttpServerTransport.LocalEndPoint.get -> System.Net.EndPoint?
+ChServerM.Transport.Http.HttpServerTransport.MaxBufferedBytesPerConnection.get -> long
+ChServerM.Transport.Http.HttpServerTransport.StopAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.Http.HttpServerTransport.UnbindAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.Http.HttpTransportOptions
+ChServerM.Transport.Http.HttpTransportOptions.HttpTransportOptions() -> void
+ChServerM.Transport.Http.HttpTransportOptions.MaxConnections.get -> int
+ChServerM.Transport.Http.HttpTransportOptions.MaxConnections.set -> void
+ChServerM.Transport.Http.HttpTransportOptions.Path.get -> string!
+ChServerM.Transport.Http.HttpTransportOptions.Path.set -> void
+ChServerM.Transport.Http.HttpTransportOptions.ShutdownTimeout.get -> System.TimeSpan
+ChServerM.Transport.Http.HttpTransportOptions.ShutdownTimeout.set -> void
+ChServerM.Transport.Http.HttpTransportOptions.StreamReceiveWindowSize.get -> int
+ChServerM.Transport.Http.HttpTransportOptions.StreamReceiveWindowSize.set -> void
+ChServerM.Transport.Http.HttpTransportOptions.Validate() -> void
+const ChServerM.Transport.Http.HttpTransportOptions.DefaultPath = "/chsm" -> string!
+const ChServerM.Transport.Http.HttpTransportOptions.DefaultStreamReceiveWindowSize = 1048576 -> int
+static readonly ChServerM.Transport.Http.HttpTransportOptions.DefaultShutdownTimeout -> System.TimeSpan
