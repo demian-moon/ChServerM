@@ -43,7 +43,15 @@ public sealed class RedisFixture : IAsyncLifetime
             _container = new RedisBuilder("redis:7-alpine").Build();
 
             await _container.StartAsync();
-            Multiplexer = await ConnectionMultiplexer.ConnectAsync(_container.GetConnectionString());
+
+            // 타임아웃을 기본값(5초)보다 관대하게 — 2코어 CI 러너에서는 컨테이너와 테스트가
+            // CPU 를 다퉈 단순 GET 도 5초를 넘는 일이 실제로 났다(2026-08-11 CI).
+            // 이 테스트가 재는 것은 성능이 아니라 정합성이다 — 타임아웃은 실패 신호가 아니라
+            // 소음이므로 넉넉히 준다.
+            ConfigurationOptions configuration = ConfigurationOptions.Parse(_container.GetConnectionString());
+            configuration.SyncTimeout = 15000;
+            configuration.AsyncTimeout = 15000;
+            Multiplexer = await ConnectionMultiplexer.ConnectAsync(configuration);
         }
 #pragma warning disable CA1031 // Docker 부재·이미지 pull 실패 등 원인이 다양하다. 어느 쪽이든 결론은 "건너뛴다" 다.
         catch (Exception ex)

@@ -74,7 +74,11 @@ public sealed class RedisClusterFixture : IAsyncLifetime
                 EndPoints = { $"127.0.0.1:{hostPort}" },
                 AbortOnConnectFail = false,
                 ConnectTimeout = 2000,
-                SyncTimeout = 2000,
+
+                // 명령 타임아웃은 관대하게 — 2코어 CI 러너에서 명령이 2초를 넘는 일이
+                // 실제로 났다(2026-08-11 CI). 정합성 테스트에서 타임아웃은 소음이다.
+                SyncTimeout = 15000,
+                AsyncTimeout = 15000,
             });
         }
 #pragma warning disable CA1031 // Docker 부재·이미지 pull 실패 등 원인이 다양하다. 결론은 "건너뛴다" 다.

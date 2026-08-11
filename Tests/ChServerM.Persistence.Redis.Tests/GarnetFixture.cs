@@ -76,7 +76,12 @@ public sealed class GarnetFixture : IAsyncLifetime
             EndPoints = { endpoint },
             AbortOnConnectFail = false,
             ConnectTimeout = 2000,
-            SyncTimeout = 2000,
+
+            // 명령 타임아웃은 연결 재시도와 달리 관대하게 — 2코어 CI 러너에서 EVAL 이
+            // 2초를 넘는 일이 실제로 났다(2026-08-11 CI). 정합성 테스트에서 타임아웃은
+            // 실패 신호가 아니라 소음이다.
+            SyncTimeout = 15000,
+            AsyncTimeout = 15000,
         };
 
         ConnectionMultiplexer multiplexer = await ConnectionMultiplexer.ConnectAsync(configuration);
