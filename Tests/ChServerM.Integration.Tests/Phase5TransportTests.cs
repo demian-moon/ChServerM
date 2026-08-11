@@ -45,8 +45,11 @@ public sealed class Phase5TransportTests
             kind: TransportKind.Tcp,
             tcpOptions: new TcpTransportOptions
             {
-                // 스윕 주기의 하한이 1초이므로 판정은 1~2.5초 사이에 난다.
-                IdleTimeout = TimeSpan.FromSeconds(1),
+                // ⚠ 1초로 두면 안 된다 — 느린 CI 러너는 연결과 첫 왕복 사이에 1초 넘게
+                // 멈출 수 있어, 활동 중인 커넥션이 idle 로 오판당해 첫 에코부터 끊긴다
+                // (2026-08-11 CI 실사례). 4초는 러너 멈칫보다 길고 스윕 주기(하한 1초)
+                // 대비 판정 구간이 4~5초로 나와 테스트 타임아웃(15초) 안에 넉넉히 든다.
+                IdleTimeout = TimeSpan.FromSeconds(4),
             });
 
         await using IConnection connection = await harness.ConnectAsync();
@@ -61,9 +64,9 @@ public sealed class Phase5TransportTests
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => harness.ReceiveAsync(connection, timeout.Token));
 
-        // 판정이 타임아웃(1초)보다 빨리 나면 활동 중인 커넥션도 끊는다는 뜻이다.
+        // 판정이 타임아웃(4초)보다 빨리 나면 활동 중인 커넥션도 끊는다는 뜻이다.
         Assert.True(
-            waited.Elapsed >= TimeSpan.FromSeconds(0.9),
+            waited.Elapsed >= TimeSpan.FromSeconds(3.6),
             $"idle 판정이 너무 빨랐다: {waited.Elapsed}");
 
         await WaitForZeroAsync(harness, timeout.Token);
