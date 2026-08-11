@@ -10,7 +10,4 @@ ChServerM.Persistence.Redis.RedisSessionStoreOptions.KeyPrefix.get -> string!
 ChServerM.Persistence.Redis.RedisSessionStoreOptions.KeyPrefix.set -> void
 ChServerM.Persistence.Redis.RedisSessionStoreOptions.RedisSessionStoreOptions() -> void
 ChServerM.Persistence.Redis.RedisSessionStoreOptions.Validate() -> void
-ChServerM.Persistence.Redis.RedisSessionStoreOptions.VersionCounterKey.get -> string!
-ChServerM.Persistence.Redis.RedisSessionStoreOptions.VersionCounterKey.set -> void
 const ChServerM.Persistence.Redis.RedisSessionStoreOptions.DefaultKeyPrefix = "chsm:sess:" -> string!
-const ChServerM.Persistence.Redis.RedisSessionStoreOptions.DefaultVersionCounterKey = "chsm:sess:__ver" -> string!

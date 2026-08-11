@@ -36,9 +36,13 @@ namespace ChServerM.Persistence.Redis;
 /// </para>
 ///
 /// <para>
-/// <b>버전 발급도 서버가 한다.</b> 스크립트 안에서 전역 카운터를 <c>INCR</c> 한다 —
-/// 클라이언트가 만들면 여러 노드가 같은 값을 낼 수 있다. 전역 카운터를 쓰는 이유는
-/// <b>ABA 방지</b>이며 인메모리 구현과 같은 근거다(<see cref="SessionVersion"/> 계약 2번).
+/// <b>버전은 쓰기마다 클라이언트가 발급하는 64비트 난수다(ADR-0058).</b> 초판은 스크립트
+/// 안에서 전역 카운터를 <c>INCR</c> 했는데, 그 전역 키가 (1) Redis Cluster 에서 세션 키와
+/// 다른 해시 슬롯에 떨어져 <c>CROSSSLOT</c> 으로 <b>모든 쓰기를 거부</b>시켰고, (2) 모든
+/// 쓰기가 한 키를 두고 경쟁하는 <b>전역 핫 키</b>였다(공유하지 않는 것이 1순위, CLAUDE.md
+/// 9.1). 난수 버전은 계약 1("쓰기마다 다른 값")을 발급 루프의 기대-버전 배제로
+/// <b>결정적으로</b>, 계약 2("재사용 금지")를 확률적으로(충돌 2⁻⁶⁴) 만족한다 —
+/// <see cref="SessionVersion"/> 이 값을 불투명으로 정의했기에 가능한 교체다.
 /// </para>
 ///
 /// <para>
@@ -48,11 +52,10 @@ namespace ChServerM.Persistence.Redis;
 /// </para>
 ///
 /// <para>
-/// <b>⚠⚠ Redis Cluster 를 지원하지 않는다.</b> 쓰기 스크립트가 <b>키를 둘</b> 만지는데
-/// (세션 키 + 전역 버전 카운터), 클러스터는 Lua 가 만지는 모든 키가 <b>같은 해시 슬롯</b>에
-/// 있기를 요구한다. 두 키는 다른 슬롯에 떨어지므로 <c>CROSSSLOT</c> 으로 거부된다.
-/// <b>단일 노드 또는 클러스터가 아닌 복제 구성</b>에서 쓴다. 읽기·삭제·연장은 키를 하나만
-/// 만지므로 문제가 없고 <b>쓰기만</b> 걸린다. 해소 방안과 대가는 <c>docs/CONSISTENCY.md</c> 4절.
+/// <b>Redis Cluster 에서 동작한다(ADR-0058).</b> 모든 스크립트가 <b>정확히 키 하나</b>만
+/// 만지므로 클러스터의 슬롯 제약과 충돌할 것이 없고, 해시 태그도 필요 없다 — 세션 키가
+/// 슬롯 전체에 자연 분산된다. 검증은 클러스터 모드(슬롯 검사 활성) 컨테이너 위의 적합성
+/// 스위트가 한다.
 /// </para>
 /// <para>
 /// <b>⚠ 복제는 비동기다.</b> 마스터가 확인한 쓰기가 복제본에 도달하기 전에 페일오버가 나면
@@ -77,12 +80,13 @@ public sealed class RedisSessionStore : ISessionStore
     private const int VersionPrefixLength = 8;
 
     /// <summary>
-    /// CAS 쓰기. 기대 버전이 맞으면 새 버전을 발급해 값을 교체한다.
+    /// CAS 쓰기. 기대 버전이 맞으면 호출자가 발급한 새 버전으로 값을 교체한다.
     /// </summary>
     /// <remarks>
-    /// KEYS[1]=세션 키, KEYS[2]=버전 카운터 / ARGV[1]=기대 버전(8B, None 이면 빈 문자열),
-    /// ARGV[2]=상태 바이트, ARGV[3]=TTL(ms, 0 이면 만료 없음).
-    /// 반환: 성공이면 새 버전(8B 문자열), 실패면 false.
+    /// KEYS[1]=세션 키 / ARGV[1]=기대 버전(8B, None 이면 빈 문자열), ARGV[2]=상태 바이트,
+    /// ARGV[3]=TTL(ms, 0 이면 만료 없음), ARGV[4]=새 버전(8B, 클라이언트 발급 — ADR-0058).
+    /// 반환: 성공이면 1, 충돌이면 false.
+    /// <b>키 하나만 만진다</b> — 이것이 Redis Cluster 호환의 성립 조건이다.
     /// </remarks>
     private const string WriteScript = """
         local cur = redis.call('GET', KEYS[1])
@@ -93,23 +97,13 @@ public sealed class RedisSessionStore : ISessionStore
           if expected == '' then return false end
           if string.sub(cur, 1, 8) ~= expected then return false end
         end
-        local n = redis.call('INCR', KEYS[2])
-        local ver = string.char(
-          n % 256,
-          math.floor(n / 256) % 256,
-          math.floor(n / 65536) % 256,
-          math.floor(n / 16777216) % 256,
-          math.floor(n / 4294967296) % 256,
-          math.floor(n / 1099511627776) % 256,
-          math.floor(n / 281474976710656) % 256,
-          math.floor(n / 72057594037927936) % 256)
-        local value = ver .. ARGV[2]
+        local value = ARGV[4] .. ARGV[2]
         if tonumber(ARGV[3]) > 0 then
           redis.call('SET', KEYS[1], value, 'PX', tonumber(ARGV[3]))
         else
           redis.call('SET', KEYS[1], value)
         end
-        return ver
+        return 1
         """;
 
     /// <summary>CAS 삭제. KEYS[1]=세션 키 / ARGV[1]=기대 버전(8B).</summary>
@@ -133,7 +127,6 @@ public sealed class RedisSessionStore : ISessionStore
 
     private readonly IConnectionMultiplexer _multiplexer;
     private readonly RedisSessionStoreOptions _options;
-    private readonly RedisKey _versionCounterKey;
 
     /// <summary>Redis 세션 저장소를 만든다.</summary>
     /// <param name="multiplexer">
@@ -150,7 +143,6 @@ public sealed class RedisSessionStore : ISessionStore
         _options.Validate();
 
         _multiplexer = multiplexer;
-        _versionCounterKey = _options.VersionCounterKey;
     }
 
     /// <inheritdoc/>
@@ -194,27 +186,49 @@ public sealed class RedisSessionStore : ISessionStore
         ThrowIfInvalidTtl(timeToLive);
         cancellationToken.ThrowIfCancellationRequested();
 
+        SessionVersion newVersion = NewVersion(expectedVersion);
+
         RedisResult result = await Database.ScriptEvaluateAsync(
             WriteScript,
-            [KeyFor(id), _versionCounterKey],
+            [KeyFor(id)],
             [
                 ExpectedVersionArgument(expectedVersion),
                 state,
                 (long)(timeToLive?.TotalMilliseconds ?? 0),
+                VersionToBytes(newVersion),
             ]).ConfigureAwait(false);
 
-        if (result.IsNull)
-        {
-            return SessionWriteResult.Conflict;
-        }
+        return result.IsNull ? SessionWriteResult.Conflict : SessionWriteResult.Ok(newVersion);
+    }
 
-        byte[]? versionBytes = (byte[]?)result;
-        if (versionBytes is not { Length: VersionPrefixLength })
-        {
-            return SessionWriteResult.Conflict;
-        }
+    /// <summary>새 버전을 발급한다 — 64비트 난수 (ADR-0058).</summary>
+    /// <remarks>
+    /// <para>
+    /// 계약 1(쓰기마다 다른 값)은 <b>결정적으로</b> 지킨다 — CAS 가 성공하는 순간의 현재
+    /// 버전은 정확히 <paramref name="expected"/> 이므로, 그 값을 배제하고 발급하면 성공한
+    /// 쓰기의 버전은 반드시 이전과 다르다. 0 은 <see cref="SessionVersion.None"/> 의 자리라
+    /// 함께 배제한다.
+    /// </para>
+    /// <para>
+    /// 계약 2(만료·삭제를 가로질러 재사용 금지)는 <b>확률적</b>이다 — 낡은 쓰기 한 번이
+    /// ABA 로 성공할 확률이 2⁻⁶⁴ 다. 암호학적 난수를 쓰는 이유는 보안이 아니라
+    /// <b>프로세스·노드를 가로지르는 무상관성</b>이다 — 시드가 겹친 유사난수 열은 이 확률
+    /// 계산 자체를 무효화한다.
+    /// </para>
+    /// </remarks>
+    private static SessionVersion NewVersion(SessionVersion expected)
+    {
+        Span<byte> buffer = stackalloc byte[VersionPrefixLength];
+        ulong value;
 
-        return SessionWriteResult.Ok(new SessionVersion(BinaryPrimitives.ReadUInt64LittleEndian(versionBytes)));
+        do
+        {
+            System.Security.Cryptography.RandomNumberGenerator.Fill(buffer);
+            value = BinaryPrimitives.ReadUInt64LittleEndian(buffer);
+        }
+        while (value == 0 || value == expected.Value);
+
+        return new SessionVersion(value);
     }
 
     /// <inheritdoc/>
