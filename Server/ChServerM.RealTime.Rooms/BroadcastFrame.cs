@@ -68,7 +68,11 @@ public sealed class BroadcastFrame : IBufferWriter<byte>
         else if (remaining < 0)
         {
             // 이중 해제는 곧 풀 이중 반납이다 — 조용히 넘어가면 다른 프레임의 데이터가 오염된다.
-            throw new InvalidOperationException("BroadcastFrame 이 참조 수보다 많이 해제됐다.");
+            throw new InvalidOperationException(
+                $"BroadcastFrame 이 참조 수보다 {-remaining}번 더 해제됐다. 이중 해제는 풀 이중 반납이라 "
+                + "다른 브로드캐스트가 이 버퍼를 동시에 쓰게 되고, 증상은 무관한 룸의 페이로드 오염으로 나타난다. "
+                + "IRoomMemberSink.TryDeliver 의 '정확히 한 번 Release' 규약을 확인한다 — "
+                + "실패 경로에서 Release 한 뒤 finally 에서 또 부르는 형태가 전형이다.");
         }
     }
 

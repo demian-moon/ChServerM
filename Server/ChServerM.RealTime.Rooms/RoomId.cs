@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Globalization;
 using ChServerM.Identity;
 
@@ -15,6 +16,7 @@ namespace ChServerM.RealTime.Rooms;
 /// </para>
 /// <para><c>0</c> 은 미설정 센티널(<see cref="None"/>)이다. 디렉터리가 등록을 거부한다.</para>
 /// </remarks>
+[DebuggerDisplay("{ToString(),nq}")]
 public readonly struct RoomId : IEquatable<RoomId>
 {
     private readonly ulong _value;

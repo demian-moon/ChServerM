@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using ChServerM.Diagnostics;
 
 namespace ChServerM.Connections;
@@ -21,6 +22,7 @@ namespace ChServerM.Connections;
 /// 이 구조체는 서버 내부용이며 와이어로 나가지 않는다.
 /// </para>
 /// </remarks>
+[DebuggerDisplay("{ToString(),nq}")]
 public readonly struct ConnectionCloseInfo : IEquatable<ConnectionCloseInfo>
 {
     /// <summary>종료 정보를 만든다.</summary>

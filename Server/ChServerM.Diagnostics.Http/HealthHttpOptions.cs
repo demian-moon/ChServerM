@@ -47,9 +47,16 @@ public sealed class HealthHttpOptions
                 $"{nameof(Prefix)}는 비어 있지 않고 '/'로 끝나야 한다(HttpListener 규약). 현재 값: '{Prefix}'");
         }
 
-        if (!LivenessPath.StartsWith('/') || !ReadinessPath.StartsWith('/'))
+        if (!LivenessPath.StartsWith('/'))
         {
-            throw new InvalidOperationException("프로브 경로는 '/'로 시작해야 한다.");
+            throw new InvalidOperationException(
+                $"{nameof(LivenessPath)} 는 '/'로 시작해야 한다. 현재 값: '{LivenessPath}'");
+        }
+
+        if (!ReadinessPath.StartsWith('/'))
+        {
+            throw new InvalidOperationException(
+                $"{nameof(ReadinessPath)} 는 '/'로 시작해야 한다. 현재 값: '{ReadinessPath}'");
         }
 
         if (string.Equals(LivenessPath, ReadinessPath, StringComparison.Ordinal))
@@ -62,7 +69,8 @@ public sealed class HealthHttpOptions
         {
             if (!DiagnosticsPath.StartsWith('/'))
             {
-                throw new InvalidOperationException($"{nameof(DiagnosticsPath)} 는 '/'로 시작해야 한다.");
+                throw new InvalidOperationException(
+                    $"{nameof(DiagnosticsPath)} 는 '/'로 시작해야 한다. 현재 값: '{DiagnosticsPath}'");
             }
 
             if (string.Equals(DiagnosticsPath, LivenessPath, StringComparison.Ordinal)

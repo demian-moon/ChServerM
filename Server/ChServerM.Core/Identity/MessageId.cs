@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Globalization;
 
 namespace ChServerM.Identity;
@@ -19,6 +20,7 @@ namespace ChServerM.Identity;
 /// 센티넬로 남긴다.
 /// </para>
 /// </remarks>
+[DebuggerDisplay("{ToString(),nq}")]
 public readonly struct MessageId : IEquatable<MessageId>, IComparable<MessageId>
 {
     /// <summary>앱이 쓸 수 있는 첫 번째 값.</summary>

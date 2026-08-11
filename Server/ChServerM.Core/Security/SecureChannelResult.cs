@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using ChServerM.Diagnostics;
 
 namespace ChServerM.Security;
@@ -18,6 +19,7 @@ namespace ChServerM.Security;
 /// 반납 책임 단일 원칙(ADR-0016 과 같은 발상).
 /// </para>
 /// </remarks>
+[DebuggerDisplay("{ToString(),nq}")]
 public readonly struct SecureChannelResult : IEquatable<SecureChannelResult>
 {
     private SecureChannelResult(SecureChannelStatus status, ISecureChannel? channel)

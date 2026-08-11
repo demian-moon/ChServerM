@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 
 namespace ChServerM.Cluster;
 
@@ -39,6 +40,7 @@ public enum ClusterRouteKind
 /// </para>
 /// <para><b>스레드 규약.</b> 불변 값 타입이다.</para>
 /// </remarks>
+[DebuggerDisplay("{ToString(),nq}")]
 public readonly struct ClusterRoute : IEquatable<ClusterRoute>
 {
     private ClusterRoute(ClusterRouteKind kind, ClusterNode? target)

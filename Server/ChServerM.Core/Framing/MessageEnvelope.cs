@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using ChServerM.Identity;
 
 namespace ChServerM.Framing;
@@ -31,6 +32,7 @@ namespace ChServerM.Framing;
 /// </para>
 /// <para><b>스레드 규약.</b> 불변 값 타입이다. 어디서든 안전하다.</para>
 /// </remarks>
+[DebuggerDisplay("{ToString(),nq}")]
 public readonly struct MessageEnvelope : IEquatable<MessageEnvelope>
 {
     /// <summary>엔벨로프를 만든다.</summary>

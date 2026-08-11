@@ -66,12 +66,16 @@ public sealed class ClusterPeerOptions
     {
         if (SendQueueDepth <= 0)
         {
-            throw new InvalidOperationException($"{nameof(SendQueueDepth)} 는 1 이상이어야 한다.");
+            throw new InvalidOperationException(
+                $"{nameof(SendQueueDepth)} 는 1 이상이어야 한다. 현재 값: {SendQueueDepth}. "
+                + $"피어당 아웃바운드 큐 깊이라 최악 메모리가 (피어 수 × {nameof(SendQueueDepth)} × {nameof(MaxPayloadLength)}) 로 묶인다.");
         }
 
         if (MaxPayloadLength <= 0)
         {
-            throw new InvalidOperationException($"{nameof(MaxPayloadLength)} 는 1 이상이어야 한다.");
+            throw new InvalidOperationException(
+                $"{nameof(MaxPayloadLength)} 는 1 이상이어야 한다. 현재 값: {MaxPayloadLength}. "
+                + "큐에 넣기 전에 복사하므로 이 상한이 없으면 큐 깊이만으로 메모리를 묶을 수 없다.");
         }
     }
 }

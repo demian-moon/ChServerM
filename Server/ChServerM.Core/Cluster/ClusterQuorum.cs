@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 
 namespace ChServerM.Cluster;
 
@@ -41,6 +42,7 @@ namespace ChServerM.Cluster;
 ///
 /// <para><b>스레드 규약.</b> 불변 값 타입이다. 어디서든 안전하다.</para>
 /// </remarks>
+[DebuggerDisplay("{ToString(),nq}")]
 public readonly struct ClusterQuorum : IEquatable<ClusterQuorum>
 {
     private ClusterQuorum(int requiredNodes) => RequiredNodes = requiredNodes;

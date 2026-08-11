@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Globalization;
 
 namespace ChServerM.Identity;
@@ -18,6 +19,7 @@ namespace ChServerM.Identity;
 /// </para>
 /// <para>이 타입은 <b>영속화하지 않는다.</b> 프로세스 수명 안에서만 유효하다.</para>
 /// </remarks>
+[DebuggerDisplay("{ToString(),nq}")]
 public readonly struct ConnectionId : IEquatable<ConnectionId>
 {
     private readonly uint _slot;

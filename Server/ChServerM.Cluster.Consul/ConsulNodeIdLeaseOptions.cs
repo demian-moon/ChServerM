@@ -68,7 +68,8 @@ public sealed class ConsulNodeIdLeaseOptions
     {
         if (Address is null)
         {
-            throw new InvalidOperationException($"{nameof(Address)} 가 null 이다.");
+            throw new InvalidOperationException(
+                $"{nameof(Address)} 가 null 이다. Consul HTTP API 주소를 준다 — 로컬 에이전트 기본값은 http://localhost:8500 이다.");
         }
 
         if (string.IsNullOrWhiteSpace(HolderName))
@@ -79,24 +80,32 @@ public sealed class ConsulNodeIdLeaseOptions
 
         if (string.IsNullOrWhiteSpace(KeyPrefix))
         {
-            throw new InvalidOperationException($"{nameof(KeyPrefix)} 가 비어 있다.");
+            throw new InvalidOperationException(
+                $"{nameof(KeyPrefix)} 가 비어 있다. Consul KV 에서 번호 슬롯이 이 접두사 아래 놓인다 — "
+                + "같은 클러스터의 모든 노드가 같은 접두사를 써야 같은 번호 공간을 본다.");
         }
 
         if (SessionTtl <= TimeSpan.Zero)
         {
-            throw new InvalidOperationException($"{nameof(SessionTtl)} 은 0 보다 커야 한다.");
+            throw new InvalidOperationException(
+                $"{nameof(SessionTtl)}({SessionTtl}) 이 0 이하다. Consul 세션 TTL 은 10초~24시간만 받는다(기본 30초). "
+                + "이 값이 곧 노드가 죽고 나서 번호가 풀리기까지의 지연이다 — 짧을수록 회수는 빠르고 갱신 트래픽은 는다.");
         }
 
         if (LockDelay < TimeSpan.Zero)
         {
-            throw new InvalidOperationException($"{nameof(LockDelay)} 는 음수일 수 없다.");
+            throw new InvalidOperationException(
+                $"{nameof(LockDelay)}({LockDelay}) 가 음수다. 세션 무효화 후 다른 노드가 같은 번호를 잡기까지의 "
+                + "유예다(기본 15초) — 0 이면 죽은 줄 알았던 노드가 아직 살아 있을 때 번호가 겹칠 수 있다.");
         }
 
         if (RenewInterval is { } interval)
         {
             if (interval <= TimeSpan.Zero)
             {
-                throw new InvalidOperationException($"{nameof(RenewInterval)} 은 0 보다 커야 한다.");
+                throw new InvalidOperationException(
+                    $"{nameof(RenewInterval)}({interval}) 이 0 이하다. 지정하지 않으면 SessionTtl 의 절반을 쓴다 — "
+                    + "직접 줄 이유가 없다면 null 로 두는 것이 맞다.");
             }
 
             if (interval >= SessionTtl)

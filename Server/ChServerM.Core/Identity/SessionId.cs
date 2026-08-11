@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Globalization;
 
 namespace ChServerM.Identity;
@@ -16,6 +17,7 @@ namespace ChServerM.Identity;
 /// 세션 저장소의 빠른 조회는 별도 슬롯 핸들로 처리한다. 이 타입은 <b>안정 식별자</b> 역할만 한다.
 /// </para>
 /// </remarks>
+[DebuggerDisplay("{ToString(),nq}")]
 public readonly struct SessionId : IEquatable<SessionId>
 {
     private readonly ObjectId _value;
@@ -68,6 +70,7 @@ public readonly struct SessionId : IEquatable<SessionId>
 /// <b>만료가 조용히 동작하지 않았다.</b>
 /// </para>
 /// </remarks>
+[DebuggerDisplay("{ToString(),nq}")]
 public readonly struct JobId : IEquatable<JobId>
 {
     private readonly ulong _owner;
@@ -115,6 +118,7 @@ public readonly struct JobId : IEquatable<JobId>
 
 /// <summary>클러스터 노드를 가리키는 강타입 식별자.</summary>
 /// <remarks><see cref="ObjectId.MaxNodeId"/> 이하여야 <see cref="ObjectId"/>에 담을 수 있다.</remarks>
+[DebuggerDisplay("{ToString(),nq}")]
 public readonly struct NodeId : IEquatable<NodeId>
 {
     private readonly ushort _value;

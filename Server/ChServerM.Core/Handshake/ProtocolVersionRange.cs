@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Globalization;
 
 namespace ChServerM.Handshake;
@@ -21,6 +22,7 @@ namespace ChServerM.Handshake;
 /// </para>
 /// <para><b>스레드 규약.</b> 불변 값 타입. 어디서나 안전하다.</para>
 /// </remarks>
+[DebuggerDisplay("{ToString(),nq}")]
 public readonly struct ProtocolVersionRange : IEquatable<ProtocolVersionRange>
 {
     /// <summary>구간을 만든다.</summary>

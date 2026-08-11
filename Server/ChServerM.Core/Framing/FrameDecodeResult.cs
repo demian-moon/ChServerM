@@ -1,5 +1,6 @@
 using System;
 using System.Buffers;
+using System.Diagnostics;
 using ChServerM.Diagnostics;
 
 namespace ChServerM.Framing;
@@ -19,6 +20,7 @@ namespace ChServerM.Framing;
 /// 순간 무효가 된다. 저장하지 말고, 필요하면 <b>그 전에</b> 복사한다.
 /// </para>
 /// </remarks>
+[DebuggerDisplay("{ToString(),nq}")]
 public readonly struct FrameDecodeResult : IEquatable<FrameDecodeResult>
 {
     private FrameDecodeResult(

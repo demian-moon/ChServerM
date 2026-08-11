@@ -1,5 +1,6 @@
 using System;
 using System.Buffers.Binary;
+using System.Diagnostics;
 using System.Globalization;
 
 namespace ChServerM.Content;
@@ -36,6 +37,7 @@ namespace ChServerM.Content;
 ///
 /// <para><b>스레드 규약.</b> 불변 값 타입이다.</para>
 /// </remarks>
+[DebuggerDisplay("{ToString(),nq}")]
 public readonly struct ContentFingerprint : IEquatable<ContentFingerprint>
 {
     /// <summary>지문의 와이어 바이트 길이. 영구 동결.</summary>

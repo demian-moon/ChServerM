@@ -41,12 +41,19 @@ internal sealed class DuplexPipeStream : Stream
 
     public override bool CanWrite => true;
 
-    public override long Length => throw new NotSupportedException();
+    public override long Length =>
+        throw new NotSupportedException(
+            "DuplexPipeStream 은 파이프 위의 순방향 전용 스트림이라 길이가 없다. "
+            + "이 예외가 보이면 SslStream 이 아닌 코드가 이 스트림을 임의 접근 스트림으로 오용한 것이다.");
 
     public override long Position
     {
-        get => throw new NotSupportedException();
-        set => throw new NotSupportedException();
+        get => throw new NotSupportedException(
+            "DuplexPipeStream 은 파이프 위의 순방향 전용 스트림이라 위치 개념이 없다. "
+            + "바이트를 되돌리거나 재배치해야 한다면 PipeReader 에서 직접 읽어 버퍼링한다.");
+        set => throw new NotSupportedException(
+            "DuplexPipeStream 은 파이프 위의 순방향 전용 스트림이라 위치를 옮길 수 없다. "
+            + "바이트를 되돌리거나 재배치해야 한다면 PipeReader 에서 직접 읽어 버퍼링한다.");
     }
 
     public override int Read(byte[] buffer, int offset, int count) => _input.Read(buffer, offset, count);
@@ -73,9 +80,15 @@ internal sealed class DuplexPipeStream : Stream
 
     public override Task FlushAsync(CancellationToken cancellationToken) => _output.FlushAsync(cancellationToken);
 
-    public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+    public override long Seek(long offset, SeekOrigin origin) =>
+        throw new NotSupportedException(
+            "DuplexPipeStream 은 파이프 위의 순방향 전용 스트림이라 탐색할 수 없다(CanSeek=false). "
+            + "바이트를 되돌리거나 재배치해야 한다면 PipeReader 에서 직접 읽어 버퍼링한다.");
 
-    public override void SetLength(long value) => throw new NotSupportedException();
+    public override void SetLength(long value) =>
+        throw new NotSupportedException(
+            "DuplexPipeStream 은 파이프 위의 순방향 전용 스트림이라 길이를 바꿀 수 없다. "
+            + "이 예외가 보이면 SslStream 이 아닌 코드가 이 스트림을 파일처럼 오용한 것이다.");
 
     protected override void Dispose(bool disposing)
     {

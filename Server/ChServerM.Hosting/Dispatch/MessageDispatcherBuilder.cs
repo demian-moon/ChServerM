@@ -247,7 +247,9 @@ public sealed class MessageDispatcherBuilder
         for (int i = _middleware.Count - 1; i >= 0; i--)
         {
             pipeline = _middleware[i](pipeline)
-                ?? throw new InvalidOperationException($"{i}번째 미들웨어가 null 을 반환했다.");
+                ?? throw new InvalidOperationException(
+                    $"{i}번째(0부터) 미들웨어 팩토리가 null 을 반환했다. 팩토리는 다음 델리게이트를 감싼 "
+                    + "MessageDelegate 를 반환해야 한다 — 통과만 시키려면 받은 next 를 그대로 반환한다.");
         }
 
         return new MessageDispatcher(pipeline, _logger);

@@ -80,37 +80,51 @@ public sealed class ConsulClusterMembershipOptions
     {
         if (Address is null)
         {
-            throw new InvalidOperationException($"{nameof(Address)} 가 null 이다.");
+            throw new InvalidOperationException(
+                $"{nameof(Address)} 가 null 이다. Consul HTTP API 주소를 준다 — 로컬 에이전트 기본값은 http://localhost:8500 이다.");
         }
 
         if (string.IsNullOrWhiteSpace(ServiceName))
         {
-            throw new InvalidOperationException($"{nameof(ServiceName)} 이 비어 있다.");
+            throw new InvalidOperationException(
+                $"{nameof(ServiceName)} 이 비어 있다. 이 값이 Consul 서비스 카탈로그의 조회 키다 — "
+                + "같은 클러스터의 모든 노드가 같은 이름을 써야 서로를 발견한다.");
         }
 
         if (string.IsNullOrWhiteSpace(SelfName))
         {
-            throw new InvalidOperationException($"{nameof(SelfName)} 이 비어 있다.");
+            throw new InvalidOperationException(
+                $"{nameof(SelfName)} 이 비어 있다. Consul 서비스 인스턴스 ID 로 쓰이는 값이라 "
+                + "클러스터 안에서 유일해야 한다 — 노드 이름이나 호스트명+포트를 쓴다.");
         }
 
         if (SelfEndPoint is null)
         {
-            throw new InvalidOperationException($"{nameof(SelfEndPoint)} 이 null 이다.");
+            throw new InvalidOperationException(
+                $"{nameof(SelfEndPoint)} 이 null 이다. 다른 노드가 이 노드로 접속할 주소다 — "
+                + "바인드 주소가 아니라 밖에서 도달 가능한 주소를 준다(컨테이너라면 호스트 쪽 주소).");
         }
 
         if (string.IsNullOrWhiteSpace(NodeIdMetaKey))
         {
-            throw new InvalidOperationException($"{nameof(NodeIdMetaKey)} 가 비어 있다.");
+            throw new InvalidOperationException(
+                $"{nameof(NodeIdMetaKey)} 가 비어 있다. Consul 서비스 메타데이터에서 노드 번호를 읽는 키다 — "
+                + "모든 노드가 같은 키를 써야 하므로 기본값(chserverm-node-id)을 바꿀 이유가 없다면 두는 것이 맞다.");
         }
 
         if (WaitTime <= TimeSpan.Zero)
         {
-            throw new InvalidOperationException($"{nameof(WaitTime)} 은 0 보다 커야 한다.");
+            throw new InvalidOperationException(
+                $"{nameof(WaitTime)}({WaitTime}) 이 0 이하다. 이 값은 Consul 블로킹 쿼리의 대기 시간이라 "
+                + "0 이면 멤버십 감시가 바쁜 폴링으로 바뀌어 Consul 과 이 노드 양쪽 CPU 를 태운다. "
+                + "10초~10분 사이를 쓴다(기본 5분).");
         }
 
         if (RetryDelay < TimeSpan.Zero)
         {
-            throw new InvalidOperationException($"{nameof(RetryDelay)} 는 음수일 수 없다.");
+            throw new InvalidOperationException(
+                $"{nameof(RetryDelay)}({RetryDelay}) 가 음수다. Consul 이 죽었을 때 재시도 사이의 지연이다 — "
+                + "0 도 가능하지만 그러면 에이전트 재시작 구간에 재시도 루프가 CPU 를 태운다(기본 1초).");
         }
     }
 }

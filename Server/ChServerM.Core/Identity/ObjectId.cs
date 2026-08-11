@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Globalization;
 
 namespace ChServerM.Identity;
@@ -27,6 +28,7 @@ namespace ChServerM.Identity;
 /// </para>
 /// <para>대략적인 시간순 정렬이 보장되므로 데이터베이스 인덱스에 유리하다.</para>
 /// </remarks>
+[DebuggerDisplay("{ToString(),nq}")]
 public readonly struct ObjectId : IEquatable<ObjectId>, IComparable<ObjectId>
 {
     /// <summary>타임스탬프 비트 수.</summary>

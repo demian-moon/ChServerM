@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 
@@ -30,6 +31,7 @@ namespace ChServerM.Time;
 /// 호출자는 <see cref="TimeSpan"/>만 다룬다.
 /// </para>
 /// </remarks>
+[DebuggerDisplay("{ToString(),nq}")]
 public readonly struct MonotonicTimestamp : IEquatable<MonotonicTimestamp>, IComparable<MonotonicTimestamp>
 {
     private readonly long _raw;

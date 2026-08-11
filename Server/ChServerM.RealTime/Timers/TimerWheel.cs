@@ -129,8 +129,10 @@ public sealed class TimerWheel
             if (level < levels - 1 && duration > long.MaxValue / slotsPerLevel)
             {
                 throw new InvalidOperationException(
-                    $"휠 범위가 오버플로한다: {nameof(TimerWheelOptions.TickDuration)} × " +
-                    $"{nameof(TimerWheelOptions.SlotsPerLevel)}^{nameof(TimerWheelOptions.LevelCount)} 를 줄여야 한다.");
+                    $"휠 범위가 오버플로한다. 현재 조합: {nameof(TimerWheelOptions.TickDuration)}={_options.TickDuration}, "
+                    + $"{nameof(TimerWheelOptions.SlotsPerLevel)}={slotsPerLevel}, "
+                    + $"{nameof(TimerWheelOptions.LevelCount)}={levels} — 레벨 {level}에서 슬롯 길이가 long 범위를 넘는다. "
+                    + "셋 중 하나를 줄인다. 참고로 기본값(100ms × 512³)도 약 150일을 담는다 — 이 예외가 났다면 값 하나가 자릿수 실수일 가능성이 크다.");
             }
 
             duration *= slotsPerLevel;

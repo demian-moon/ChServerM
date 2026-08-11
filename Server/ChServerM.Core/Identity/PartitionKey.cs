@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 
@@ -22,6 +23,7 @@ namespace ChServerM.Identity;
 /// <c>n</c>이 0이면 <see cref="DivideByZeroException"/>이 나며, 순차 ID가 특정 샤드에 몰린다.
 /// </para>
 /// </remarks>
+[DebuggerDisplay("{ToString(),nq}")]
 public readonly struct PartitionKey : IEquatable<PartitionKey>
 {
     /// <summary>2⁶⁴ / φ. 황금비 역수를 64비트로 스케일한 값.</summary>

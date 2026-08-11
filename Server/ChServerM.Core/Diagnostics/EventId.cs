@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Globalization;
 
 namespace ChServerM.Diagnostics;
@@ -16,6 +17,7 @@ namespace ChServerM.Diagnostics;
 /// </para>
 /// <para>번호 대역은 <see cref="DiagnosticNames"/>에 정리한다.</para>
 /// </remarks>
+[DebuggerDisplay("{ToString(),nq}")]
 public readonly struct EventId : IEquatable<EventId>
 {
     private readonly int _id;
