@@ -97,6 +97,7 @@ internal sealed class TestHarness : IAsyncDisposable
     /// 이것만 전송별 분기가 남는다 — <c>IServerTransport</c> 에 올릴 만한 값이 아니기 때문이다.
     /// 커넥션 수는 메트릭(Phase 11)의 몫이지 전송 계약의 일부가 아니다.
     /// </remarks>
+#pragma warning disable CA1416 // QUIC 팔은 IsSupported 게이트를 통과한 하네스에서만 도달한다.
     public int ServerConnectionCount => Server switch
     {
         InMemoryServerTransport inMemory => inMemory.ConnectionCount,
@@ -106,6 +107,7 @@ internal sealed class TestHarness : IAsyncDisposable
         QuicServerTransport quic => quic.ConnectionCount,
         _ => throw new NotSupportedException($"알 수 없는 전송: {Server.GetType().Name}"),
     };
+#pragma warning restore CA1416
 
     /// <summary>인메모리 허브가 듣고 있는 종단 수. TCP 에서는 항상 0.</summary>
     public int ListenerCount => _hub?.ListenerCount ?? 0;
@@ -232,7 +234,9 @@ internal sealed class TestHarness : IAsyncDisposable
 
                 // 테스트 전용 신뢰 정책 — 실행마다 새 자가서명 인증서라 검증할 신뢰 체계가
                 // 없다. 무조건 true 콜백은 프로덕션 금지 패턴이다(옵션 문서).
+#pragma warning disable CA5359 // 위 주석 참조 — 테스트 전용 자가서명 인증서라 검증 대상이 없다.
                 RemoteCertificateValidation = static (_, _, _, _) => true,
+#pragma warning restore CA5359
             };
 
             QuicServerTransport quicServer = new(new IPEndPoint(IPAddress.Loopback, 0), quicOptions);
