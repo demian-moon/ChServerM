@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+  </PropertyGroup>
+
+  <!--
+    NuGet 패키지 발행(Phase 21) 전까지는 저장소 클론을 ProjectReference 로 참조한다.
+    경로가 다르면 dotnet new 의 ChServerMRoot 옵션으로 지정한다.
+    발행 후에는 이 블록이 PackageReference 로 바뀐다.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="CHSERVERM_ROOT\Server\ChServerM.Hosting\ChServerM.Hosting.csproj" />
+    <ProjectReference Include="CHSERVERM_ROOT\Server\ChServerM.Framing\ChServerM.Framing.csproj" />
+    <ProjectReference Include="CHSERVERM_ROOT\Server\ChServerM.Concurrency\ChServerM.Concurrency.csproj" />
+    <ProjectReference Include="CHSERVERM_ROOT\Server\ChServerM.Transport.Tcp\ChServerM.Transport.Tcp.csproj" />
+    <!-- 사용 규약 분석기(CHSM3xxx) — 흔한 실수를 컴파일 타임에 잡는다. -->
+    <ProjectReference Include="CHSERVERM_ROOT\Server\ChServerM.Analyzers\ChServerM.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>

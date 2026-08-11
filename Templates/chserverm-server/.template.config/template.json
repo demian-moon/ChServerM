@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "ChServerM",
+  "classifications": [ "Server", "ChServerM" ],
+  "identity": "ChServerM.Server.CSharp",
+  "name": "ChServerM 서버 (TCP + 고정 헤더 프레이밍 + 파티션 실행)",
+  "description": "에코 핸들러 하나가 도는 최소 ChServerM 서버. docs/GETTING-STARTED.md 의 검증된 조합과 동일하다.",
+  "shortName": "chserverm-server",
+  "sourceName": "MyChServer",
+  "preferNameDirectory": true,
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "symbols": {
+    "ChServerMRoot": {
+      "type": "parameter",
+      "datatype": "text",
+      "description": "ChServerM 저장소 루트 경로. NuGet 패키지 발행(Phase 21) 전까지는 ProjectReference 로 참조한다.",
+      "defaultValue": "..\\ChServerM",
+      "replaces": "CHSERVERM_ROOT"
+    }
+  }
+}

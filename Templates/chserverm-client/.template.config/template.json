@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "ChServerM",
+  "classifications": [ "Client", "ChServerM" ],
+  "identity": "ChServerM.Client.CSharp",
+  "name": "ChServerM 클라이언트 (TCP + 고정 헤더 프레이밍)",
+  "description": "서버와 같은 프레이밍·디스패치를 쓰는 최소 클라이언트. 에코 왕복 한 번을 수행한다.",
+  "shortName": "chserverm-client",
+  "sourceName": "MyChClient",
+  "preferNameDirectory": true,
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "symbols": {
+    "ChServerMRoot": {
+      "type": "parameter",
+      "datatype": "text",
+      "description": "ChServerM 저장소 루트 경로. NuGet 패키지 발행(Phase 21) 전까지는 ProjectReference 로 참조한다.",
+      "defaultValue": "..\\ChServerM",
+      "replaces": "CHSERVERM_ROOT"
+    }
+  }
+}
