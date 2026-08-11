@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.Matchmaking</RootNamespace>
+    <Description>ChServerM 매치메이킹 축 (Phase 19, ADR-0068) — 확장 창 대기열. 선택 축이며 Core 만 참조한다.</Description>
+  </PropertyGroup>
+
+  <!--
+    선택 축(ADR-0068 결정 1): Core 만 참조한다. Core 는 이 어셈블리를 모르고,
+    이 어셈블리를 지워도 프레임워크가 성립한다(ADR-0004 의 명시 조건).
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\ChServerM.Core\ChServerM.Core.csproj" />
+  </ItemGroup>
+
+</Project>

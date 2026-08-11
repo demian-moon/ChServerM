@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>ChServerM.Samples.Matchmaking</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!--
+    매치메이킹 축 + 레이팅 공식의 조립 예제(ADR-0068 결정 5):
+    레이팅 공식(여기서는 Elo)과 매치 결과 반영은 프레임워크가 아니라 이 샘플에 있다 —
+    그것이 ADR-0004("도메인 로직은 프레임워크가 아니다")의 요점이다.
+    전송·핸들러 없이 도는 오프라인 시뮬레이션이라 참조가 축 하나뿐이다.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\Server\ChServerM.Matchmaking\ChServerM.Matchmaking.csproj" />
+    <!-- 사용 규약 분석기(CHSM3xxx, ADR-0066). -->
+    <ProjectReference Include="..\..\Server\ChServerM.Analyzers\ChServerM.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>

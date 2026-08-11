@@ -13,6 +13,7 @@
     <Project Path="Server/ChServerM.Diagnostics.Http/ChServerM.Diagnostics.Http.csproj" />
     <Project Path="Server/ChServerM.Hosting/ChServerM.Hosting.csproj" />
     <Project Path="Server/ChServerM.Logging.Extensions/ChServerM.Logging.Extensions.csproj" />
+    <Project Path="Server/ChServerM.Matchmaking/ChServerM.Matchmaking.csproj" />
     <Project Path="Server/ChServerM.Observability/ChServerM.Observability.csproj" />
     <Project Path="Server/ChServerM.Persistence.InMemory/ChServerM.Persistence.InMemory.csproj" />
     <Project Path="Server/ChServerM.RealTime/ChServerM.RealTime.csproj" />
@@ -39,6 +40,7 @@
   <Folder Name="/Samples/">
     <Project Path="Samples/ChServerM.Samples.EchoServer/ChServerM.Samples.EchoServer.csproj" />
     <Project Path="Samples/ChServerM.Samples.GameRoom/ChServerM.Samples.GameRoom.csproj" />
+    <Project Path="Samples/ChServerM.Samples.Matchmaking/ChServerM.Samples.Matchmaking.csproj" />
     <Project Path="Samples/ChServerM.Samples.StatelessWeb/ChServerM.Samples.StatelessWeb.csproj" />
   </Folder>
   <Folder Name="/Tests/">
@@ -58,6 +60,7 @@
     <Project Path="Tests/ChServerM.Framing.Tests/ChServerM.Framing.Tests.csproj" />
     <Project Path="Tests/ChServerM.Integration.Tests/ChServerM.Integration.Tests.csproj" />
     <Project Path="Tests/ChServerM.Logging.Extensions.Tests/ChServerM.Logging.Extensions.Tests.csproj" />
+    <Project Path="Tests/ChServerM.Matchmaking.Tests/ChServerM.Matchmaking.Tests.csproj" />
     <Project Path="Tests/ChServerM.Observability.Tests/ChServerM.Observability.Tests.csproj" />
     <Project Path="Tests/ChServerM.Security.AspNetIdentity.Tests/ChServerM.Security.AspNetIdentity.Tests.csproj" />
     <Project Path="Tests/ChServerM.Security.Tls.Tests/ChServerM.Security.Tls.Tests.csproj" />
