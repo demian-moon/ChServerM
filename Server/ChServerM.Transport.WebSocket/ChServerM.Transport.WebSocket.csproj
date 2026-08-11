@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.Transport.WebSocket</RootNamespace>
+    <Description>ChServerM 의 WebSocket 전송. 바이너리 메시지 스트림을 바이트 스트림으로 나른다.</Description>
+  </PropertyGroup>
+
+  <!--
+    서버 쪽은 HTTP 전송과 같은 Kestrel 직접 호스팅이다(ADR-0057·0059) — 공유 프레임워크
+    참조이며 NuGet 패키지 0. 클라이언트 쪽(ClientWebSocket)은 BCL 이다.
+    벤더 타입은 이 어댑터 어셈블리 안에만 있다(CLAUDE.md 하드 룰).
+  -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ChServerM.Core\ChServerM.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -12,6 +12,7 @@ using ChServerM.Identity;
 using ChServerM.Transport.Http;
 using ChServerM.Transport.InMemory;
 using ChServerM.Transport.Tcp;
+using ChServerM.Transport.WebSocket;
 using ChServerM.Transports;
 
 namespace ChServerM.Integration.Tests;
@@ -32,6 +33,9 @@ public enum TransportKind
 
     /// <summary>Kestrel 기반 HTTP/2 스트림(루프백 주소).</summary>
     Http,
+
+    /// <summary>Kestrel 기반 WebSocket(루프백 주소).</summary>
+    WebSocket,
 }
 #pragma warning restore CA1515
 
@@ -93,6 +97,7 @@ internal sealed class TestHarness : IAsyncDisposable
         InMemoryServerTransport inMemory => inMemory.ConnectionCount,
         TcpServerTransport tcp => tcp.ConnectionCount,
         HttpServerTransport http => http.ConnectionCount,
+        WebSocketServerTransport webSocket => webSocket.ConnectionCount,
         _ => throw new NotSupportedException($"알 수 없는 전송: {Server.GetType().Name}"),
     };
 
@@ -202,6 +207,23 @@ internal sealed class TestHarness : IAsyncDisposable
                 ?? throw new InvalidOperationException("바인드 후에도 LocalEndPoint 가 없다.");
 
             return (null, httpActual, httpServer, new HttpClientTransport(httpOptions));
+        }
+
+        if (kind == TransportKind.WebSocket)
+        {
+            WebSocketTransportOptions wsOptions = new()
+            {
+                PauseWriterThreshold = Math.Max(WebSocketTransportOptions.DefaultPauseWriterThreshold, pause),
+                ResumeWriterThreshold = Math.Max(WebSocketTransportOptions.DefaultResumeWriterThreshold, resume),
+            };
+
+            WebSocketServerTransport wsServer = new(new IPEndPoint(IPAddress.Loopback, 0), wsOptions);
+            await wsServer.BindAsync(handler).ConfigureAwait(false);
+
+            EndPoint wsActual = wsServer.LocalEndPoint
+                ?? throw new InvalidOperationException("바인드 후에도 LocalEndPoint 가 없다.");
+
+            return (null, wsActual, wsServer, new WebSocketClientTransport(wsOptions));
         }
 
         tcpOptions ??= new TcpTransportOptions();

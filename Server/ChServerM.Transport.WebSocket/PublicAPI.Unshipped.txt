@@ -1,0 +1,31 @@
+#nullable enable
+ChServerM.Transport.WebSocket.WebSocketClientTransport
+ChServerM.Transport.WebSocket.WebSocketClientTransport.ConnectAsync(System.Net.EndPoint! endPoint, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Connections.IConnection!>
+ChServerM.Transport.WebSocket.WebSocketClientTransport.DisposeAsync() -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.WebSocket.WebSocketClientTransport.WebSocketClientTransport(ChServerM.Transport.WebSocket.WebSocketTransportOptions? options = null) -> void
+ChServerM.Transport.WebSocket.WebSocketServerTransport
+ChServerM.Transport.WebSocket.WebSocketServerTransport.BindAsync(ChServerM.Connections.IConnectionHandler! handler, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.WebSocket.WebSocketServerTransport.ConnectionCount.get -> int
+ChServerM.Transport.WebSocket.WebSocketServerTransport.DisposeAsync() -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.WebSocket.WebSocketServerTransport.LocalEndPoint.get -> System.Net.EndPoint?
+ChServerM.Transport.WebSocket.WebSocketServerTransport.MaxBufferedBytesPerConnection.get -> long
+ChServerM.Transport.WebSocket.WebSocketServerTransport.StopAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.WebSocket.WebSocketServerTransport.UnbindAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ChServerM.Transport.WebSocket.WebSocketServerTransport.WebSocketServerTransport(System.Net.IPEndPoint! listenEndPoint, ChServerM.Transport.WebSocket.WebSocketTransportOptions? options = null, ChServerM.Diagnostics.IServerLogger? logger = null) -> void
+ChServerM.Transport.WebSocket.WebSocketTransportOptions
+ChServerM.Transport.WebSocket.WebSocketTransportOptions.MaxConnections.get -> int
+ChServerM.Transport.WebSocket.WebSocketTransportOptions.MaxConnections.set -> void
+ChServerM.Transport.WebSocket.WebSocketTransportOptions.Path.get -> string!
+ChServerM.Transport.WebSocket.WebSocketTransportOptions.Path.set -> void
+ChServerM.Transport.WebSocket.WebSocketTransportOptions.PauseWriterThreshold.get -> long
+ChServerM.Transport.WebSocket.WebSocketTransportOptions.PauseWriterThreshold.set -> void
+ChServerM.Transport.WebSocket.WebSocketTransportOptions.ResumeWriterThreshold.get -> long
+ChServerM.Transport.WebSocket.WebSocketTransportOptions.ResumeWriterThreshold.set -> void
+ChServerM.Transport.WebSocket.WebSocketTransportOptions.ShutdownTimeout.get -> System.TimeSpan
+ChServerM.Transport.WebSocket.WebSocketTransportOptions.ShutdownTimeout.set -> void
+ChServerM.Transport.WebSocket.WebSocketTransportOptions.Validate() -> void
+ChServerM.Transport.WebSocket.WebSocketTransportOptions.WebSocketTransportOptions() -> void
+const ChServerM.Transport.WebSocket.WebSocketTransportOptions.DefaultPath = "/chsm" -> string!
+const ChServerM.Transport.WebSocket.WebSocketTransportOptions.DefaultPauseWriterThreshold = 65536 -> long
+const ChServerM.Transport.WebSocket.WebSocketTransportOptions.DefaultResumeWriterThreshold = 32768 -> long
+static readonly ChServerM.Transport.WebSocket.WebSocketTransportOptions.DefaultShutdownTimeout -> System.TimeSpan

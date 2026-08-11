@@ -25,6 +25,7 @@
     <Project Path="Server/ChServerM.Transport.Http/ChServerM.Transport.Http.csproj" />
     <Project Path="Server/ChServerM.Transport.InMemory/ChServerM.Transport.InMemory.csproj" />
     <Project Path="Server/ChServerM.Transport.Tcp/ChServerM.Transport.Tcp.csproj" />
+    <Project Path="Server/ChServerM.Transport.WebSocket/ChServerM.Transport.WebSocket.csproj" />
   </Folder>
   <Folder Name="/Bench/">
     <Project Path="Bench/ChServerM.Bench.LoadRunner/ChServerM.Bench.LoadRunner.csproj" />

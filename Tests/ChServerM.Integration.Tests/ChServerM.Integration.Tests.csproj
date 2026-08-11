@@ -48,6 +48,7 @@
     <ProjectReference Include="..\..\Server\ChServerM.Transport.Http\ChServerM.Transport.Http.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Transport.InMemory\ChServerM.Transport.InMemory.csproj" />
     <ProjectReference Include="..\..\Server\ChServerM.Transport.Tcp\ChServerM.Transport.Tcp.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Transport.WebSocket\ChServerM.Transport.WebSocket.csproj" />
     <!-- 디스패치 소스 제너레이터 — 분석기로만 참조한다(런타임 의존 아님). -->
     <ProjectReference Include="..\..\Server\ChServerM.SourceGen\ChServerM.SourceGen.csproj"
                       OutputItemType="Analyzer"

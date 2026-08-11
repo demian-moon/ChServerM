@@ -68,9 +68,10 @@ Samples / Tests / Bench
 - **스케일아웃(무상태)**: 세션을 `ISessionStore`로 외부화 → 노드를 자유롭게 추가/제거.
   `stateless-web` 프로필의 전송은 `ChServerM.Transport.Http`(Kestrel, **HTTP/2 스트림 하나 =
   커넥션 하나**, ADR-0057) — `WebApplication` 없이 `KestrelServer` 를 직접 세우며, 의존은
-  공유 프레임워크(`FrameworkReference`)라 NuGet 패키지 0. 같은 핸들러가 TCP·인메모리·HTTP
-  세 전송에서 동작함을 `CrossTransportTests` 와 `StatelessWebProfileTests`(2노드 세션
-  외부화)가 고정한다.
+  공유 프레임워크(`FrameworkReference`)라 NuGet 패키지 0. `ChServerM.Transport.WebSocket`
+  (ADR-0059)도 같은 호스팅 방식이며 **메시지 경계를 버리고 바이트 스트림으로** 나른다 —
+  경계는 언제나 프레이밍 축이 긋는다. 같은 핸들러가 **네 전송**(인메모리·TCP·HTTP·WS)에서
+  동작함을 `CrossTransportTests` 와 `StatelessWebProfileTests`(2노드 세션 외부화)가 고정한다.
 - **스케일아웃(상태 유지)**: `IClusterMembership` + 파티셔닝 키 라우팅. Phase 15.
 
 ### 클러스터 축의 어셈블리 배치
