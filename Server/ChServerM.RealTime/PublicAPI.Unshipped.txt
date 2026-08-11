@@ -1,0 +1,133 @@
+#nullable enable
+ChServerM.RealTime.IntervalGate
+ChServerM.RealTime.IntervalGate.IntervalGate(System.TimeSpan interval, System.TimeProvider! timeProvider) -> void
+ChServerM.RealTime.IntervalGate.TryConsume() -> bool
+ChServerM.RealTime.ITickHandler
+ChServerM.RealTime.ITickHandler.OnTick(in ChServerM.RealTime.TickContext context) -> void
+ChServerM.RealTime.ITimerJob
+ChServerM.RealTime.ITimerJob.OnTimerCanceled() -> void
+ChServerM.RealTime.ITimerJob.OnTimerExpired() -> void
+ChServerM.RealTime.MicrosecondClock
+ChServerM.RealTime.MicrosecondClock.CurrentMicros() -> long
+ChServerM.RealTime.MicrosecondClock.MicrosecondClock(System.TimeProvider! timeProvider) -> void
+ChServerM.RealTime.RealTimeMetricNames
+ChServerM.RealTime.RemoteClock
+ChServerM.RealTime.RemoteClock.HasSample.get -> bool
+ChServerM.RealTime.RemoteClock.RemoteClock(System.TimeProvider! timeProvider) -> void
+ChServerM.RealTime.RemoteClock.TryGetNowMicros(out long nowMicros) -> bool
+ChServerM.RealTime.RemoteClock.Update(long remoteMicros) -> void
+ChServerM.RealTime.RttEstimator
+ChServerM.RealTime.RttEstimator.AddSample(System.TimeSpan roundTrip) -> void
+ChServerM.RealTime.RttEstimator.RttEstimator(int windowSize = 32) -> void
+ChServerM.RealTime.RttEstimator.SampleCount.get -> int
+ChServerM.RealTime.RttEstimator.TryGetOneWayDelay(out System.TimeSpan delay) -> bool
+ChServerM.RealTime.RttEstimator.TryGetSmoothedRtt(out System.TimeSpan smoothed) -> bool
+ChServerM.RealTime.TickContext
+ChServerM.RealTime.TickContext.Interval.get -> System.TimeSpan
+ChServerM.RealTime.TickContext.ScheduledAt.get -> ChServerM.Time.MonotonicTimestamp
+ChServerM.RealTime.TickContext.StartDrift.get -> System.TimeSpan
+ChServerM.RealTime.TickContext.StartedAt.get -> ChServerM.Time.MonotonicTimestamp
+ChServerM.RealTime.TickContext.TickContext() -> void
+ChServerM.RealTime.TickContext.TickNumber.get -> long
+ChServerM.RealTime.TickLoop
+ChServerM.RealTime.TickLoop.DisposeAsync() -> System.Threading.Tasks.ValueTask
+ChServerM.RealTime.TickLoop.IsRunning.get -> bool
+ChServerM.RealTime.TickLoop.Start() -> void
+ChServerM.RealTime.TickLoop.Statistics.get -> ChServerM.RealTime.TickLoopStatistics
+ChServerM.RealTime.TickLoop.TickLoop(ChServerM.RealTime.ITickHandler! handler, ChServerM.RealTime.TickLoopOptions! options) -> void
+ChServerM.RealTime.TickLoopOptions
+ChServerM.RealTime.TickLoopOptions.Logger.get -> ChServerM.Diagnostics.IServerLogger!
+ChServerM.RealTime.TickLoopOptions.Logger.set -> void
+ChServerM.RealTime.TickLoopOptions.MaxCatchUpTicks.get -> int
+ChServerM.RealTime.TickLoopOptions.MaxCatchUpTicks.set -> void
+ChServerM.RealTime.TickLoopOptions.MetricsSink.get -> ChServerM.Diagnostics.IMetricsSink?
+ChServerM.RealTime.TickLoopOptions.MetricsSink.set -> void
+ChServerM.RealTime.TickLoopOptions.OverrunLogInterval.get -> System.TimeSpan
+ChServerM.RealTime.TickLoopOptions.OverrunLogInterval.set -> void
+ChServerM.RealTime.TickLoopOptions.SpinWaitWindow.get -> System.TimeSpan
+ChServerM.RealTime.TickLoopOptions.SpinWaitWindow.set -> void
+ChServerM.RealTime.TickLoopOptions.ThreadName.get -> string!
+ChServerM.RealTime.TickLoopOptions.ThreadName.set -> void
+ChServerM.RealTime.TickLoopOptions.TickInterval.get -> System.TimeSpan
+ChServerM.RealTime.TickLoopOptions.TickInterval.set -> void
+ChServerM.RealTime.TickLoopOptions.TickLoopOptions() -> void
+ChServerM.RealTime.TickLoopOptions.TimeProvider.get -> System.TimeProvider!
+ChServerM.RealTime.TickLoopOptions.TimeProvider.set -> void
+ChServerM.RealTime.TickLoopOptions.Validate() -> void
+ChServerM.RealTime.TickLoopStatistics
+ChServerM.RealTime.TickLoopStatistics.FaultedTicks.get -> long
+ChServerM.RealTime.TickLoopStatistics.LastTickDuration.get -> System.TimeSpan
+ChServerM.RealTime.TickLoopStatistics.MaxStartDrift.get -> System.TimeSpan
+ChServerM.RealTime.TickLoopStatistics.MaxTickDuration.get -> System.TimeSpan
+ChServerM.RealTime.TickLoopStatistics.OverrunTicks.get -> long
+ChServerM.RealTime.TickLoopStatistics.SkippedTicks.get -> long
+ChServerM.RealTime.TickLoopStatistics.TickLoopStatistics() -> void
+ChServerM.RealTime.TickLoopStatistics.TotalTicks.get -> long
+ChServerM.RealTime.TimerHandle
+ChServerM.RealTime.TimerHandle.IsNone.get -> bool
+ChServerM.RealTime.TimerHandle.TimerHandle() -> void
+ChServerM.RealTime.TimerHandle.TryCancel() -> bool
+ChServerM.RealTime.TimerScheduleStatus
+ChServerM.RealTime.TimerScheduleStatus.Accepted = 0 -> ChServerM.RealTime.TimerScheduleStatus
+ChServerM.RealTime.TimerScheduleStatus.CapacityExceeded = 1 -> ChServerM.RealTime.TimerScheduleStatus
+ChServerM.RealTime.TimerScheduleStatus.Stopped = 2 -> ChServerM.RealTime.TimerScheduleStatus
+ChServerM.RealTime.TimerWheel
+ChServerM.RealTime.TimerWheel.Advance() -> int
+ChServerM.RealTime.TimerWheel.Shutdown() -> int
+ChServerM.RealTime.TimerWheel.Statistics.get -> ChServerM.RealTime.TimerWheelStatistics
+ChServerM.RealTime.TimerWheel.TimerWheel(ChServerM.RealTime.TimerWheelOptions! options) -> void
+ChServerM.RealTime.TimerWheel.TrySchedule(ChServerM.RealTime.ITimerJob! job, System.TimeSpan delay, out ChServerM.RealTime.TimerHandle handle) -> ChServerM.RealTime.TimerScheduleStatus
+ChServerM.RealTime.TimerWheelOptions
+ChServerM.RealTime.TimerWheelOptions.LevelCount.get -> int
+ChServerM.RealTime.TimerWheelOptions.LevelCount.set -> void
+ChServerM.RealTime.TimerWheelOptions.Logger.get -> ChServerM.Diagnostics.IServerLogger!
+ChServerM.RealTime.TimerWheelOptions.Logger.set -> void
+ChServerM.RealTime.TimerWheelOptions.MaxPendingTimers.get -> int
+ChServerM.RealTime.TimerWheelOptions.MaxPendingTimers.set -> void
+ChServerM.RealTime.TimerWheelOptions.MetricsSink.get -> ChServerM.Diagnostics.IMetricsSink?
+ChServerM.RealTime.TimerWheelOptions.MetricsSink.set -> void
+ChServerM.RealTime.TimerWheelOptions.NodePoolCapacity.get -> int
+ChServerM.RealTime.TimerWheelOptions.NodePoolCapacity.set -> void
+ChServerM.RealTime.TimerWheelOptions.RejectionLogInterval.get -> System.TimeSpan
+ChServerM.RealTime.TimerWheelOptions.RejectionLogInterval.set -> void
+ChServerM.RealTime.TimerWheelOptions.SlotsPerLevel.get -> int
+ChServerM.RealTime.TimerWheelOptions.SlotsPerLevel.set -> void
+ChServerM.RealTime.TimerWheelOptions.TickDuration.get -> System.TimeSpan
+ChServerM.RealTime.TimerWheelOptions.TickDuration.set -> void
+ChServerM.RealTime.TimerWheelOptions.TimeProvider.get -> System.TimeProvider!
+ChServerM.RealTime.TimerWheelOptions.TimeProvider.set -> void
+ChServerM.RealTime.TimerWheelOptions.TimerWheelOptions() -> void
+ChServerM.RealTime.TimerWheelOptions.Validate() -> void
+ChServerM.RealTime.TimerWheelStatistics
+ChServerM.RealTime.TimerWheelStatistics.CanceledTimers.get -> long
+ChServerM.RealTime.TimerWheelStatistics.FaultedCallbacks.get -> long
+ChServerM.RealTime.TimerWheelStatistics.FiredTimers.get -> long
+ChServerM.RealTime.TimerWheelStatistics.PendingTimers.get -> long
+ChServerM.RealTime.TimerWheelStatistics.RejectedSchedules.get -> long
+ChServerM.RealTime.TimerWheelStatistics.ScheduledTimers.get -> long
+ChServerM.RealTime.TimerWheelStatistics.TimerWheelStatistics() -> void
+ChServerM.RealTime.TimeSyncExchange
+ChServerM.RealTime.TimeSyncExchange.OffsetMicros.get -> long
+ChServerM.RealTime.TimeSyncExchange.RoundTripMicros.get -> long
+ChServerM.RealTime.TimeSyncExchange.TimeSyncExchange() -> void
+const ChServerM.RealTime.RealTimeMetricNames.TickDuration = "chserverm.tick.duration" -> string!
+const ChServerM.RealTime.RealTimeMetricNames.TickFaults = "chserverm.tick.faults" -> string!
+const ChServerM.RealTime.RealTimeMetricNames.TickOverruns = "chserverm.tick.overruns" -> string!
+const ChServerM.RealTime.RealTimeMetricNames.TickSkipped = "chserverm.tick.skipped" -> string!
+const ChServerM.RealTime.RealTimeMetricNames.TimerCanceled = "chserverm.timer.canceled" -> string!
+const ChServerM.RealTime.RealTimeMetricNames.TimerFaults = "chserverm.timer.faults" -> string!
+const ChServerM.RealTime.RealTimeMetricNames.TimerFired = "chserverm.timer.fired" -> string!
+const ChServerM.RealTime.RealTimeMetricNames.TimerPending = "chserverm.timer.pending" -> string!
+const ChServerM.RealTime.RealTimeMetricNames.TimerRejected = "chserverm.timer.rejected" -> string!
+const ChServerM.RealTime.RealTimeMetricNames.TimerScheduled = "chserverm.timer.scheduled" -> string!
+const ChServerM.RealTime.RttEstimator.DefaultWindowSize = 32 -> int
+const ChServerM.RealTime.TickLoopOptions.DefaultMaxCatchUpTicks = 4 -> int
+const ChServerM.RealTime.TimerWheelOptions.DefaultLevelCount = 3 -> int
+const ChServerM.RealTime.TimerWheelOptions.DefaultMaxPendingTimers = 1048576 -> int
+const ChServerM.RealTime.TimerWheelOptions.DefaultNodePoolCapacity = 8192 -> int
+const ChServerM.RealTime.TimerWheelOptions.DefaultSlotsPerLevel = 512 -> int
+static ChServerM.RealTime.TimerHandle.None.get -> ChServerM.RealTime.TimerHandle
+static ChServerM.RealTime.TimeSyncExchange.Compute(long requestSentMicros, long peerReceivedMicros, long peerRepliedMicros, long responseReceivedMicros) -> ChServerM.RealTime.TimeSyncExchange
+static readonly ChServerM.RealTime.TickLoopOptions.DefaultSpinWaitWindow -> System.TimeSpan
+static readonly ChServerM.RealTime.TickLoopOptions.DefaultTickInterval -> System.TimeSpan
+static readonly ChServerM.RealTime.TimerWheelOptions.DefaultTickDuration -> System.TimeSpan

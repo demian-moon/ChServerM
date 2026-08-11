@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <RootNamespace>ChServerM.RealTime</RootNamespace>
+    <Description>ChServerM 의 실시간 프리미티브(선택 축). 고정 타임스텝 틱 루프, 계층적 타이밍 휠, 시간 동기화. 전부 빼도 프레임워크가 성립한다 (ADR-0004).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 선택 축이지만 Core 는 참조한다 — 방향(어댑터 → Core)이 합법이고,
+         MonotonicTimestamp·IServerLogger·IMetricsSink 를 재발명하지 않기 위해서다.
+         반대 방향(Core → RealTime)은 존재하지 않는다 (ADR-0061). -->
+    <ProjectReference Include="..\ChServerM.Core\ChServerM.Core.csproj" />
+  </ItemGroup>
+
+</Project>
