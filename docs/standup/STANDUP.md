@@ -1,52 +1,48 @@
 # ChServerM — 현재 상태
 
-**최종 갱신**: 2026-08-11 (5차)
-**현재 단계**: Phase 18 — 룸/존 & 관심 영역 **완료** (6/6) · 전체 178/239
+**최종 갱신**: 2026-08-11 (6차)
+**현재 단계**: Phase 20 — 개발자 경험 (4/10) · 전체 182/239 · **Phase 19 는 사용자 결정으로 Phase 20 뒤로**
 
 ## 완료된 것
 
-- **Part I~II 골격** — Core 무의존 추상화, 고정 헤더 프레이밍, 직렬화 4종, 소스 제너레이터
-  디스패치, 파티션 실행 모델, TLS, 미들웨어 파이프라인
-- **Part III 운영 축(Phase 9~12) 완결** — 수용 제어·속도 제한·열화·헬스·크래시·관측.
+- **Part I~III 골격 완결** — Core 무의존 추상화 → 운영 축(수용 제어·관측·크래시)까지.
   성능 기준선 169k RPS · 1만 접속 · 코어 확장 14.79×/16코어
-- **Phase 13 세션(11/13) · Phase 14 데이터 테이블(7/8) · Phase 15 클러스터(17/17) ·
-  Phase 16 전송 5종(8/9, UDP 조건부 보류)** — 같은 핸들러가 5전송에서 동작
-- **Phase 17 실시간 프리미티브 완료** — `ChServerM.RealTime`: 틱 루프(절대 스케줄+유계
-  캐치업+예산 관측)·타이밍 휠(레거시 승계+결함 전수 수정)·시간 동기화(µs 고정 단위)
-- ⭐ **Phase 18 룸/존 & AOI 완료** — 선택 축 2개 추가(상호 참조 없음, Core 만 참조):
-  `RealTime.Rooms`(1회 인코딩 브로드캐스트 — 소유권은 커넥션 파티션 배타 슬롯으로,
-  ADR-0064)·`RealTime.Spatial`(모튼·그리드 AOI·집합 차분·무할당 SAT, ADR-0065).
-  레거시 충돌 버그 8건 회귀 테스트 고정. 실측: 브로드캐스트 멤버당 ~400ns 일정·0 B
-- 전 스위트 **1,353개** 통과(24개 프로젝트), 전체 재빌드 경고 0
+- **Phase 13~18** — 세션 · 데이터 테이블 · 클러스터(17/17) · 전송 5종(같은 핸들러) ·
+  실시간 프리미티브(틱·휠·시간 동기화) · 룸/존 & AOI(1회 인코딩 브로드캐스트, ~400ns/멤버)
+- ⭐ **Phase 20 착수, 4/10** (2026-08-11 6차, **미커밋**):
+  샘플 3종(`EchoServer`·`StatelessWeb` — stateless-web 프로필 첫 실행체·`GameRoom`) ·
+  시작 가이드(코드 전부 실검증) · ⚠ 진단 분석기 `ChServerM.Analyzers`(CHSM3001~3003,
+  ADR-0066) · `dotnet new` 템플릿 2종(종단 검증). 부분: DebuggerDisplay 17종 ·
+  예외 메시지 감사+상위 수정
+- 전 스위트 **1,368개** 통과(25개 프로젝트), 전체 재빌드 경고 0
 
 ## 진행 중
 
-- 없음. 작업 트리 clean
+- **⚠ 이번 세션 산출물 전부 미커밋** — 커밋 분할 제안이 history 에 있다. 사용자 확인 대기
+- 디버깅 지원(DebuggerTypeProxy 수요 시) · 에러 메시지 잔여(상태 가드 7개소 등)
 
 ## 다음 (우선순위 순)
 
-1. **방향 결정** — Phase 19(매치메이킹·레이팅 — Part V 마지막, 레이팅 공식은 Samples 행)
-   vs Phase 20(개발자 경험 — 템플릿·진단 분석기·시작 가이드·샘플 정리). Phase 18 의
-   후속(핸들러→룸 브로드캐스트 조립 예제)이 Phase 20 샘플 정리와 겹친다
-2. **원격 CI 실행** — 5전송 매트릭스 + ubuntu msquic 확인 + 신규 RealTime 3종 포함
-3. **레거시 MongoDB 계정 폐기 확인** — 사용자 몫(2026-08-11 결정: 저장소 조치 없음)
+1. **미커밋 산출물 커밋** — feat(samples) / feat(analyzers) / feat(templates) /
+   docs(guide) / chore: DebuggerDisplay·에러 메시지
+2. **Phase 20 잔여** — 가이드 문서 3종(아키텍처·성능 튜닝·마이그레이션) + DocFX 검토.
+   분량이 커서 새 세션 집중 권장
+3. **Phase 19 매치메이킹** — 큐 설계 ADR(대기 시간 vs 품질, 틱 vs 이벤트 구동)부터.
+   레이팅 공식(Glicko/WengLin)은 Samples 행(ADR-0004)
+4. 원격 CI 실행 — 신규 Analyzers 테스트 포함 매트릭스 확인
 
 ## 블로커 / 열린 결정
 
-- **⚠ 검증되지 않은 클러스터 조건** — 별도 OS 프로세스 · 실제 네트워크 분단 ·
-  TCP 전송 위의 다중 노드
-- **⚠ 노드 번호 자동 배정 없음**(ADR-0056) · **리더는 상호 배제가 아니다**(ADR-0054) ·
-  **Redis 난수 버전은 재사용 금지가 확률적**(2⁻⁶⁴, ADR-0058)
-- **조건부 보류** — UDP 전송(ADR-0060) · Excel→CSV(ADR-0046) · Tsavorite(ADR-0038) ·
-  WS·QUIC 성능 측정 · wss/HTTPS 옵션 · 틱 지터 리눅스 수치 · 휠 멀티 프로듀서 경합 ·
-  실 파티션 위 종단 브로드캐스트 부하 · 쿼드트리(밀집 편차 워크로드 수요 시)
-- **GC 기본값 잠정**(ADR-0031) · **CI 24h soak 스케줄 미정**
-- **환경 상태** — SDK **10.0.201** 고정. Docker Desktop 실행 중(Redis·Garnet·PostgreSQL·Consul)
+- **⚠ 검증되지 않은 클러스터 조건** — 별도 OS 프로세스 · 실제 네트워크 분단 · TCP 위 다중 노드
+- **조건부 보류** — UDP(ADR-0060) · Excel→CSV(ADR-0046) · Tsavorite(ADR-0038) ·
+  WS·QUIC 성능 측정 · 틱 지터 리눅스 수치 · 쿼드트리 · 분석기 후보 규칙(TryWrite 등)
+- **GC 기본값 잠정**(ADR-0031) · **CI 24h soak 미정** · 템플릿 CI 검증(Phase 21 패키징 때)
+- **환경** — SDK 10.0.201 고정. Docker Desktop 실행 중(Redis·Garnet·PostgreSQL·Consul)
 
 ## 참조
 
 - 상세 이력: `docs/standup/history/`
 - 계획: `docs/ROADMAP.md`
-- 설계 결정: `docs/DECISIONS.md` (ADR-0065 까지)
-- 측정: `docs/BENCHMARKS.md` · 프로파일링: `docs/PROFILING.md` · 일관성: `docs/CONSISTENCY.md`
-- 진단 대역: `docs/DIAGNOSTICS.md` (CHSM0xxx · CHSM1xxx · CHSM2xxx)
+- 설계 결정: `docs/DECISIONS.md` (ADR-0066 까지)
+- 측정: `docs/BENCHMARKS.md` · 진단 대역: `docs/DIAGNOSTICS.md` (CHSM0~3xxx)
+- 시작 가이드: `docs/GETTING-STARTED.md`

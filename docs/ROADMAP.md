@@ -509,12 +509,12 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 
 ## Phase 20 — 개발자 경험
 
-- [ ] `dotnet new` 템플릿 — `chserverm-server`, `chserverm-client`
-- [ ] 시작 가이드 — 5분 안에 에코 서버가 도는 문서
-- [ ] ⚠ **진단 분석기** — 사용자의 흔한 실수를 컴파일 타임에 잡는 Roslyn 분석기. 핫패스에서 `async void`, 풀 버퍼 미반납, 핸들러 미등록 등. 프레임워크 품질의 체감 차이가 여기서 난다
-- [ ] 축 조합별 샘플 정리 (`Samples/`) — TCP+MemoryPack, HTTP+Protobuf, 게임 룸 예제
-- [ ] 디버깅 지원 — `DebuggerDisplay`, `DebuggerTypeProxy`, 의미 있는 예외 메시지
-- [ ] 에러 메시지 품질 검토 — 무엇이 잘못됐고 어떻게 고치는지 알려주는가
+- [x] `dotnet new` 템플릿 — `chserverm-server`, `chserverm-client` (`Templates/`. NuGet 발행 전이라 `ChServerMRoot` 파라미터 → ProjectReference 생성 방식, Phase 21 발행 후 PackageReference 로 전환한다. 설치→생성→빌드→서버·클라이언트 실왕복→제거까지 수동 종단 검증. **CI 자동 검증은 미구성** — Phase 21 패키징 때 함께)
+- [x] 시작 가이드 — `docs/GETTING-STARTED.md`. **실린 코드 조각 전부를 스크래치 프로젝트로 컴파일 + 실왕복 검증했다** — 그 과정에서 초안의 실제 결함(클라이언트 기본 임계값 < 최대 프레임)을 `CompositionGuard` 가 잡아 문서를 고쳤다
+- [x] ⚠ **진단 분석기** — `ChServerM.Analyzers` 신설(ADR-0066, 대역 CHSM3xxx). CHSM3001 async void · CHSM3002 async 경로 블로킹 · CHSM3003 Payload 수명 위반 — 전부 레거시에서 서버를 멈추거나 데이터를 오염시킨 패턴. 기본 Warning + 좁은 판정(오탐이 진단을 끄게 만든다), 규칙마다 "조용해야 한다" 테스트 동수(15개), 샘플 3개에 적용. 후보 규칙(유계 Wait 채널 TryWrite·풀 미반납·옵션 Validate 의 현재 값 누락)은 수요 확인 후
+- [x] 축 조합별 샘플 정리 (`Samples/`) — 3개: `EchoServer`(TCP+MemoryPack) · `StatelessWeb`(HTTP/2+Protobuf+병렬 실행 — **stateless-web 프로필의 첫 실행 가능 형태**, 시퀀스로 응답 짝짓기) · `GameRoom`(룸 브로드캐스트, Phase 18 후속 — 1회 인코딩·룸 격리·퇴장 3경로). 셋 다 인자 없이 실행하면 자체 검증 후 exit code 보고
+- [ ] 디버깅 지원 — `DebuggerDisplay`, `DebuggerTypeProxy`, 의미 있는 예외 메시지 (진행 중: `[DebuggerDisplay("{ToString(),nq}")]` 를 값 타입 17종에 적용 완료. `DebuggerTypeProxy` 는 미착수 — 컬렉션형 타입 수요 확인 후)
+- [ ] 에러 메시지 품질 검토 — 무엇이 잘못됐고 어떻게 고치는지 알려주는가 (진행 중: Server/ 전수 감사 완료 — 평가 "품질보다 일관성이 문제". 상위 지적 수정: `DuplexPipeStream` 무메시지 5개소·Consul 옵션 2파일·`BroadcastFrame` 이중 해제·`TimerWheel` 오버플로·`ClusterPeerSet`·`HealthHttpOptions`·미들웨어 null 반환. **남은 것**: 상태 기계 가드 7개소("이미 시작됐다"류에 해법 추가), 직렬화 제공자 중복 등록 paramName, `FrameDecodeResult.Failed`/`SecureChannelResult` 허용값 안내)
 - [ ] API 문서 사이트 (XML doc → DocFX 등)
 - [ ] 아키텍처 가이드 — 축을 어떻게 고르는가, 언제 무엇을 쓰는가
 - [ ] 성능 튜닝 가이드 — 측정 근거와 함께
