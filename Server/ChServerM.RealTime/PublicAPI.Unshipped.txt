@@ -1,12 +1,12 @@
 #nullable enable
-ChServerM.RealTime.IntervalGate
-ChServerM.RealTime.IntervalGate.IntervalGate(System.TimeSpan interval, System.TimeProvider! timeProvider) -> void
-ChServerM.RealTime.IntervalGate.TryConsume() -> bool
 ChServerM.RealTime.ITickHandler
 ChServerM.RealTime.ITickHandler.OnTick(in ChServerM.RealTime.TickContext context) -> void
 ChServerM.RealTime.ITimerJob
 ChServerM.RealTime.ITimerJob.OnTimerCanceled() -> void
 ChServerM.RealTime.ITimerJob.OnTimerExpired() -> void
+ChServerM.RealTime.IntervalGate
+ChServerM.RealTime.IntervalGate.IntervalGate(System.TimeSpan interval, System.TimeProvider! timeProvider) -> void
+ChServerM.RealTime.IntervalGate.TryConsume() -> bool
 ChServerM.RealTime.MicrosecondClock
 ChServerM.RealTime.MicrosecondClock.CurrentMicros() -> long
 ChServerM.RealTime.MicrosecondClock.MicrosecondClock(System.TimeProvider! timeProvider) -> void
@@ -23,6 +23,7 @@ ChServerM.RealTime.RttEstimator.SampleCount.get -> int
 ChServerM.RealTime.RttEstimator.TryGetOneWayDelay(out System.TimeSpan delay) -> bool
 ChServerM.RealTime.RttEstimator.TryGetSmoothedRtt(out System.TimeSpan smoothed) -> bool
 ChServerM.RealTime.TickContext
+ChServerM.RealTime.TickContext.Equals(ChServerM.RealTime.TickContext other) -> bool
 ChServerM.RealTime.TickContext.Interval.get -> System.TimeSpan
 ChServerM.RealTime.TickContext.ScheduledAt.get -> ChServerM.Time.MonotonicTimestamp
 ChServerM.RealTime.TickContext.StartDrift.get -> System.TimeSpan
@@ -55,6 +56,7 @@ ChServerM.RealTime.TickLoopOptions.TimeProvider.get -> System.TimeProvider!
 ChServerM.RealTime.TickLoopOptions.TimeProvider.set -> void
 ChServerM.RealTime.TickLoopOptions.Validate() -> void
 ChServerM.RealTime.TickLoopStatistics
+ChServerM.RealTime.TickLoopStatistics.Equals(ChServerM.RealTime.TickLoopStatistics other) -> bool
 ChServerM.RealTime.TickLoopStatistics.FaultedTicks.get -> long
 ChServerM.RealTime.TickLoopStatistics.LastTickDuration.get -> System.TimeSpan
 ChServerM.RealTime.TickLoopStatistics.MaxStartDrift.get -> System.TimeSpan
@@ -63,7 +65,13 @@ ChServerM.RealTime.TickLoopStatistics.OverrunTicks.get -> long
 ChServerM.RealTime.TickLoopStatistics.SkippedTicks.get -> long
 ChServerM.RealTime.TickLoopStatistics.TickLoopStatistics() -> void
 ChServerM.RealTime.TickLoopStatistics.TotalTicks.get -> long
+ChServerM.RealTime.TimeSyncExchange
+ChServerM.RealTime.TimeSyncExchange.Equals(ChServerM.RealTime.TimeSyncExchange other) -> bool
+ChServerM.RealTime.TimeSyncExchange.OffsetMicros.get -> long
+ChServerM.RealTime.TimeSyncExchange.RoundTripMicros.get -> long
+ChServerM.RealTime.TimeSyncExchange.TimeSyncExchange() -> void
 ChServerM.RealTime.TimerHandle
+ChServerM.RealTime.TimerHandle.Equals(ChServerM.RealTime.TimerHandle other) -> bool
 ChServerM.RealTime.TimerHandle.IsNone.get -> bool
 ChServerM.RealTime.TimerHandle.TimerHandle() -> void
 ChServerM.RealTime.TimerHandle.TryCancel() -> bool
@@ -100,16 +108,13 @@ ChServerM.RealTime.TimerWheelOptions.TimerWheelOptions() -> void
 ChServerM.RealTime.TimerWheelOptions.Validate() -> void
 ChServerM.RealTime.TimerWheelStatistics
 ChServerM.RealTime.TimerWheelStatistics.CanceledTimers.get -> long
+ChServerM.RealTime.TimerWheelStatistics.Equals(ChServerM.RealTime.TimerWheelStatistics other) -> bool
 ChServerM.RealTime.TimerWheelStatistics.FaultedCallbacks.get -> long
 ChServerM.RealTime.TimerWheelStatistics.FiredTimers.get -> long
 ChServerM.RealTime.TimerWheelStatistics.PendingTimers.get -> long
 ChServerM.RealTime.TimerWheelStatistics.RejectedSchedules.get -> long
 ChServerM.RealTime.TimerWheelStatistics.ScheduledTimers.get -> long
 ChServerM.RealTime.TimerWheelStatistics.TimerWheelStatistics() -> void
-ChServerM.RealTime.TimeSyncExchange
-ChServerM.RealTime.TimeSyncExchange.OffsetMicros.get -> long
-ChServerM.RealTime.TimeSyncExchange.RoundTripMicros.get -> long
-ChServerM.RealTime.TimeSyncExchange.TimeSyncExchange() -> void
 const ChServerM.RealTime.RealTimeMetricNames.TickDuration = "chserverm.tick.duration" -> string!
 const ChServerM.RealTime.RealTimeMetricNames.TickFaults = "chserverm.tick.faults" -> string!
 const ChServerM.RealTime.RealTimeMetricNames.TickOverruns = "chserverm.tick.overruns" -> string!
@@ -126,8 +131,28 @@ const ChServerM.RealTime.TimerWheelOptions.DefaultLevelCount = 3 -> int
 const ChServerM.RealTime.TimerWheelOptions.DefaultMaxPendingTimers = 1048576 -> int
 const ChServerM.RealTime.TimerWheelOptions.DefaultNodePoolCapacity = 8192 -> int
 const ChServerM.RealTime.TimerWheelOptions.DefaultSlotsPerLevel = 512 -> int
-static ChServerM.RealTime.TimerHandle.None.get -> ChServerM.RealTime.TimerHandle
+override ChServerM.RealTime.TickContext.Equals(object? obj) -> bool
+override ChServerM.RealTime.TickContext.GetHashCode() -> int
+override ChServerM.RealTime.TickLoopStatistics.Equals(object? obj) -> bool
+override ChServerM.RealTime.TickLoopStatistics.GetHashCode() -> int
+override ChServerM.RealTime.TimeSyncExchange.Equals(object? obj) -> bool
+override ChServerM.RealTime.TimeSyncExchange.GetHashCode() -> int
+override ChServerM.RealTime.TimerHandle.Equals(object? obj) -> bool
+override ChServerM.RealTime.TimerHandle.GetHashCode() -> int
+override ChServerM.RealTime.TimerWheelStatistics.Equals(object? obj) -> bool
+override ChServerM.RealTime.TimerWheelStatistics.GetHashCode() -> int
+static ChServerM.RealTime.TickContext.operator !=(ChServerM.RealTime.TickContext left, ChServerM.RealTime.TickContext right) -> bool
+static ChServerM.RealTime.TickContext.operator ==(ChServerM.RealTime.TickContext left, ChServerM.RealTime.TickContext right) -> bool
+static ChServerM.RealTime.TickLoopStatistics.operator !=(ChServerM.RealTime.TickLoopStatistics left, ChServerM.RealTime.TickLoopStatistics right) -> bool
+static ChServerM.RealTime.TickLoopStatistics.operator ==(ChServerM.RealTime.TickLoopStatistics left, ChServerM.RealTime.TickLoopStatistics right) -> bool
 static ChServerM.RealTime.TimeSyncExchange.Compute(long requestSentMicros, long peerReceivedMicros, long peerRepliedMicros, long responseReceivedMicros) -> ChServerM.RealTime.TimeSyncExchange
+static ChServerM.RealTime.TimeSyncExchange.operator !=(ChServerM.RealTime.TimeSyncExchange left, ChServerM.RealTime.TimeSyncExchange right) -> bool
+static ChServerM.RealTime.TimeSyncExchange.operator ==(ChServerM.RealTime.TimeSyncExchange left, ChServerM.RealTime.TimeSyncExchange right) -> bool
+static ChServerM.RealTime.TimerHandle.None.get -> ChServerM.RealTime.TimerHandle
+static ChServerM.RealTime.TimerHandle.operator !=(ChServerM.RealTime.TimerHandle left, ChServerM.RealTime.TimerHandle right) -> bool
+static ChServerM.RealTime.TimerHandle.operator ==(ChServerM.RealTime.TimerHandle left, ChServerM.RealTime.TimerHandle right) -> bool
+static ChServerM.RealTime.TimerWheelStatistics.operator !=(ChServerM.RealTime.TimerWheelStatistics left, ChServerM.RealTime.TimerWheelStatistics right) -> bool
+static ChServerM.RealTime.TimerWheelStatistics.operator ==(ChServerM.RealTime.TimerWheelStatistics left, ChServerM.RealTime.TimerWheelStatistics right) -> bool
 static readonly ChServerM.RealTime.TickLoopOptions.DefaultSpinWaitWindow -> System.TimeSpan
 static readonly ChServerM.RealTime.TickLoopOptions.DefaultTickInterval -> System.TimeSpan
 static readonly ChServerM.RealTime.TimerWheelOptions.DefaultTickDuration -> System.TimeSpan
