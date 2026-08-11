@@ -496,10 +496,10 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 대기열에서 조건에 맞는 참가자를 묶는 문제는 게임 밖에서도 나타난다 —
 대전 매칭, 배차, 상담 배정. 레이팅 공식 자체는 도메인이므로 `Samples/`에 둘 수도 있다.
 
-- [ ] 레이팅 시스템 — 레거시 `GlickoM.cs`(301) / `WengLinM.cs`(626)는 **참조 0인 준비 코드**다. 알고리즘 구현은 참고하되 **프레임워크가 아니라 `Samples/`에 둔다** (ADR-0004: 도메인 로직은 프레임워크가 아니다)
-- [ ] 매치메이킹 큐 — 대기 시간 vs 매칭 품질 트레이드오프
-- [ ] 파티/그룹 매칭
-- [ ] 매치 결과 반영 / 레이팅 갱신
+- [x] 레이팅 시스템 — `Samples/ChServerM.Samples.Matchmaking` 에 **Elo 참조 구현**(ADR-0004 대로 프레임워크 밖). 레거시 Glicko/WengLin 은 참조 0 준비 코드라 승계하지 않았다 — 불확실성 추적 공식이 필요하면 같은 이음새(매치 결과 → 새 레이팅)에 새로 구현한다
+- [x] 매치메이킹 큐 — `ChServerM.Matchmaking.Matchmaker` (ADR-0068): **확장 창** — 대기할수록 허용 레이팅 창이 자라고, 호환은 양쪽 창이 서로를 덮을 때만. 최대 대기 초과는 억지 매치가 아니라 만료로 드러난다. 유계 큐(9.6) + 수동 자료구조·단일 소유자 계약(휠과 같은 패턴). 테스트 16개 전부 수동 시계로 결정적
+- [x] 파티/그룹 매칭 — 파티는 원자 티켓(쪼개지 않는다), 팀 구성은 최장 대기 앵커 우선 first-fit-decreasing. 전역 최적 빈 패킹은 추구하지 않는다 — 패스당 비용 유계가 우선(ADR-0068 결정 4)
+- [x] 매치 결과 반영 / 레이팅 갱신 — **프레임워크 밖이 설계다**(ADR-0068 결정 5): 큐는 결과를 모르고, 샘플의 32명 리그 시뮬레이션이 반영 이음새를 실증한다(1,280매치 성립·만료 0·실력-레이팅 순위 상관)
 
 ---
 
@@ -513,12 +513,12 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 - [x] 시작 가이드 — `docs/GETTING-STARTED.md`. **실린 코드 조각 전부를 스크래치 프로젝트로 컴파일 + 실왕복 검증했다** — 그 과정에서 초안의 실제 결함(클라이언트 기본 임계값 < 최대 프레임)을 `CompositionGuard` 가 잡아 문서를 고쳤다
 - [x] ⚠ **진단 분석기** — `ChServerM.Analyzers` 신설(ADR-0066, 대역 CHSM3xxx). CHSM3001 async void · CHSM3002 async 경로 블로킹 · CHSM3003 Payload 수명 위반 — 전부 레거시에서 서버를 멈추거나 데이터를 오염시킨 패턴. 기본 Warning + 좁은 판정(오탐이 진단을 끄게 만든다), 규칙마다 "조용해야 한다" 테스트 동수(15개), 샘플 3개에 적용. 후보 규칙(유계 Wait 채널 TryWrite·풀 미반납·옵션 Validate 의 현재 값 누락)은 수요 확인 후
 - [x] 축 조합별 샘플 정리 (`Samples/`) — 3개: `EchoServer`(TCP+MemoryPack) · `StatelessWeb`(HTTP/2+Protobuf+병렬 실행 — **stateless-web 프로필의 첫 실행 가능 형태**, 시퀀스로 응답 짝짓기) · `GameRoom`(룸 브로드캐스트, Phase 18 후속 — 1회 인코딩·룸 격리·퇴장 3경로). 셋 다 인자 없이 실행하면 자체 검증 후 exit code 보고
-- [ ] 디버깅 지원 — `DebuggerDisplay`, `DebuggerTypeProxy`, 의미 있는 예외 메시지 (진행 중: `[DebuggerDisplay("{ToString(),nq}")]` 를 값 타입 17종에 적용 완료. `DebuggerTypeProxy` 는 미착수 — 컬렉션형 타입 수요 확인 후)
-- [ ] 에러 메시지 품질 검토 — 무엇이 잘못됐고 어떻게 고치는지 알려주는가 (진행 중: Server/ 전수 감사 완료 — 평가 "품질보다 일관성이 문제". 상위 지적 수정: `DuplexPipeStream` 무메시지 5개소·Consul 옵션 2파일·`BroadcastFrame` 이중 해제·`TimerWheel` 오버플로·`ClusterPeerSet`·`HealthHttpOptions`·미들웨어 null 반환. **남은 것**: 상태 기계 가드 7개소("이미 시작됐다"류에 해법 추가), 직렬화 제공자 중복 등록 paramName, `FrameDecodeResult.Failed`/`SecureChannelResult` 허용값 안내)
-- [ ] API 문서 사이트 (XML doc → DocFX 등)
-- [ ] 아키텍처 가이드 — 축을 어떻게 고르는가, 언제 무엇을 쓰는가
-- [ ] 성능 튜닝 가이드 — 측정 근거와 함께
-- [ ] 마이그레이션 가이드 — 레거시 서버에서 옮겨오는 경로
+- [ ] 디버깅 지원 — `DebuggerDisplay`, `DebuggerTypeProxy`, 의미 있는 예외 메시지 (진행 중: `[DebuggerDisplay("{ToString(),nq}")]` 값 타입 17종 + 예외 메시지는 아래 항목으로 완결. **`DebuggerTypeProxy` 만 남았다** — 컬렉션형 타입의 실수요 확인 후)
+- [x] 에러 메시지 품질 검토 — Server/ 전수 감사(기준: 값+결과+해법) 후 지적 전량 수정. 평가는 "품질보다 일관성이 문제"였다. 수정: `DuplexPipeStream` 무메시지 5개소 · Consul 옵션 2파일(품질 저지대) · `BroadcastFrame` 이중 해제 · `TimerWheel` 오버플로(실제 값 3종) · 상태 기계 가드 7개소(1회용 계약과 재시작 경로) · 직렬화 제공자 중복 등록 · `Failed` 팩토리 허용값 · LZ4 방어 지점 · `ClusterRouteResolver` · Postgres/Redis 식별자. 감사가 제안한 "옵션 Validate 의 현재 값 포함을 CHSM 규칙으로 강제"는 분석기 후보 규칙으로 기록
+- [x] API 문서 사이트 — DocFX 2.78.5 로컬 dotnet tool 고정(ADR-0067), `docs/docfx/`. API 페이지 327개 생성 확인, 생성물은 미커밋(XML 주석이 정본). 빌드 경고 58건(cref 수준)은 릴리스 전 정리 대상. CI 편입·호스팅은 Phase 21
+- [x] 아키텍처 가이드 — `docs/GUIDE-CHOOSING-AXES.md`. 무상태/상태 유지 첫 질문부터 축별 선택 기준·근거 ADR·참조 샘플. ARCHITECTURE.md 의 낡은 "미확정" 절도 정리(ADR-0001·0013 은 확정)
+- [x] 성능 튜닝 가이드 — `docs/GUIDE-PERFORMANCE.md`. BENCHMARKS.md 를 결정 순서로 재구성: 기준선·튜닝 노브(효과 순)·**기각된 최적화 8건**·측정 절차·미측정 목록. 모든 수치에 원문 절 표기
+- [x] 마이그레이션 가이드 — `docs/GUIDE-MIGRATION.md`. 레거시 대응표 28건·이전 순서(ID 확정부터)·핸들러 규약 차이(CHSM 진단과 연결)·회귀 방지 체크리스트
 
 ## Phase 21 — API 안정성 & 릴리스 엔지니어링
 
