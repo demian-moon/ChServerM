@@ -5081,3 +5081,39 @@ sync-over-async 는 콘솔 Main 등 정당한 경우와 구분 불가), CHSM3003
 | CHSM3003 | `MessageContext.Payload` 를 필드·속성에 저장 | 재사용 버퍼 수명 위반 — 과거 메시지 조용한 오염 |
 
 후보(수요 확인 후): 유계 Wait 채널에 TryWrite(9.6), 풀 대여 버퍼 미반납, 핫패스 `lock`.
+
+
+## ADR-0067: API 문서 사이트 — **DocFX, 로컬 dotnet tool, 생성물은 커밋하지 않는다**
+
+- **날짜**: 2026-08-11
+- **상태**: 승인
+- **단계**: Phase 20
+
+### 배경
+
+public API 전부에 한글 XML 문서가 있다(CLAUDE.md 8.2 — 문서가 제품의 일부다). 그것을
+탐색 가능한 사이트로 내보내는 도구가 필요하다. 요구: XML 주석 → 사이트 직행(중간 변환
+파이프라인 최소), 빌드 재현성(버전 고정), CI 편입 가능.
+
+### 후보
+
+| 후보 | 판정 |
+|---|---|
+| **DocFX (채택)** | dotnet 공식 계열, `.csproj` 에서 metadata 직접 추출, 로컬 도구 매니페스트로 버전 고정(2.78.5), 검색 내장. API 페이지 327개 생성 확인 |
+| Sandcastle / SHFB | 사실상 유지보수 종료 — 탈락 |
+| 정적 사이트 생성기(Docusaurus 등) + xmldoc→md 변환기 | 파이프라인이 2단이 되고 변환기가 또 하나의 의존이 된다. 다국어·다레포 포털이 필요해지면 그때 재검토 — 지금은 과잉 |
+
+### 결정
+
+- `docfx` 를 **로컬 dotnet tool**(`.config/dotnet-tools.json`)로 고정한다 — 전역 설치
+  드리프트로 CI 와 로컬이 다른 사이트를 내는 것을 막는다(SDK `global.json` 고정과 같은 이유).
+- 구성은 `docs/docfx/docfx.json`. **생성물(`api/`·`_site/`)은 커밋하지 않는다** —
+  XML 주석이 정본이고 사이트는 파생물이다(.gitignore 등재).
+- `ChServerM.SourceGen`·`ChServerM.Analyzers` 는 metadata 대상에서 **제외**한다 —
+  사용자 대면 런타임 API 가 아니고, 진단의 정본 문서는 `docs/DIAGNOSTICS.md` 다.
+- 생성 명령: `dotnet tool restore && dotnet docfx docs/docfx/docfx.json`.
+  CI 편입·호스팅(GitHub Pages 등)은 Phase 21 릴리스 엔지니어링에서 결정한다.
+
+### 남은 것
+
+빌드 경고 58건(XML 주석 안의 cref 해석 실패 수준) — 릴리스 전 정리 대상이지 게이트는 아니다.

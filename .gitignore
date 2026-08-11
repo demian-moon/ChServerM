@@ -441,3 +441,8 @@ FodyWeavers.xsd
 *.msm
 *.msp
 artifacts/
+
+# DocFX 생성물 - XML 주석이 정본, 사이트는 파생물
+docs/docfx/_site/
+docs/docfx/api/
+docs/docfx/obj/
