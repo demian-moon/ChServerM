@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>ChServerM.Samples.GameRoom</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <!-- AOT publish 게이트는 EchoServer 가 맡는다. 이 프로젝트는 분석기(IsAotCompatible)만 상속한다. -->
+  </PropertyGroup>
+
+  <!--
+    게임 룸 예제의 조합:
+      TCP + 고정 헤더 프레이밍 + 파티션 실행 모델 + 룸/브로드캐스트(선택 축, Phase 18)
+    룸 축은 커넥션 파티션의 배타 슬롯을 소유권 근거로 쓰므로(ADR-0064)
+    파티션 실행 모델과 함께 조립하는 것이 전제다.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\Server\ChServerM.Concurrency\ChServerM.Concurrency.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Framing\ChServerM.Framing.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Hosting\ChServerM.Hosting.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.RealTime.Rooms\ChServerM.RealTime.Rooms.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Transport.Tcp\ChServerM.Transport.Tcp.csproj" />
+    <!-- 사용 규약 분석기(CHSM3xxx, ADR-0066) — 샘플이 첫 소비자다. -->
+    <ProjectReference Include="..\..\Server\ChServerM.Analyzers\ChServerM.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>

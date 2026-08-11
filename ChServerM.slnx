@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/Server/">
+    <Project Path="Server/ChServerM.Analyzers/ChServerM.Analyzers.csproj" />
     <Project Path="Server/ChServerM.Buffers/ChServerM.Buffers.csproj" />
     <Project Path="Server/ChServerM.Core/ChServerM.Core.csproj" />
     <Project Path="Server/ChServerM.Framing/ChServerM.Framing.csproj" />
@@ -37,8 +38,11 @@
   </Folder>
   <Folder Name="/Samples/">
     <Project Path="Samples/ChServerM.Samples.EchoServer/ChServerM.Samples.EchoServer.csproj" />
+    <Project Path="Samples/ChServerM.Samples.GameRoom/ChServerM.Samples.GameRoom.csproj" />
+    <Project Path="Samples/ChServerM.Samples.StatelessWeb/ChServerM.Samples.StatelessWeb.csproj" />
   </Folder>
   <Folder Name="/Tests/">
+    <Project Path="Tests/ChServerM.Analyzers.Tests/ChServerM.Analyzers.Tests.csproj" />
     <Project Path="Tests/ChServerM.Buffers.Tests/ChServerM.Buffers.Tests.csproj" />
     <Project Path="Tests/ChServerM.Compression.LZ4.Tests/ChServerM.Compression.LZ4.Tests.csproj" />
     <Project Path="Tests/ChServerM.DataTable.Tests/ChServerM.DataTable.Tests.csproj" />

@@ -55,6 +55,10 @@
     <ProjectReference Include="..\..\Server\ChServerM.SourceGen\ChServerM.SourceGen.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false" />
+    <!-- 사용 규약 분석기(CHSM3xxx, ADR-0066) — 샘플이 첫 소비자다. -->
+    <ProjectReference Include="..\..\Server\ChServerM.Analyzers\ChServerM.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>

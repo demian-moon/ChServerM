@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+// C# 생성 코드의 네임스페이스. 프로젝트 루트 네임스페이스와 맞춘다.
+option csharp_namespace = "ChServerM.Samples.StatelessWeb";
+
+package chserverm.samples.stateless_web;
+
+// 합계 요청. repeated + sint64(지그재그 varint)가 protobuf 인코딩의 대표 사례다.
+message SumRequest {
+  repeated sint64 values = 1;
+}
+
+// 합계 응답. term_count 는 서버가 실제로 읽은 항 수 — 왕복 검증에 쓴다.
+message SumReply {
+  sint64 sum = 1;
+  int32 term_count = 2;
+}

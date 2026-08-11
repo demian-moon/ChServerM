@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>ChServerM.Samples.StatelessWeb</RootNamespace>
+    <IsPackable>false</IsPackable>
+
+    <!--
+      AOT publish 게이트는 EchoServer 가 맡는다(그 쪽이 실제 링크·실행까지 실증한다).
+      이 샘플은 protoc 생성 코드가 트리밍 분석기 소음을 만들어 분석만 끈다 —
+      Serialization.Protobuf 어댑터 자체는 자기 프로젝트의 IsAotCompatible 로 검증된다.
+    -->
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- protoc 빌드 타임 코드 생성. 런타임에는 아무것도 남지 않는다. -->
+    <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="Protos\stateless_web.proto" GrpcServices="None" />
+  </ItemGroup>
+
+  <!--
+    stateless-web 참조 프로필의 최소 조합(ADR-0004):
+      HTTP/2 + 고정 헤더 프레이밍 + 병렬(스레드풀) 실행 + Protobuf
+    EchoServer(realtime-stateful)와 같은 핸들러 작성 방식이 이 조합에서도 동작하는 것이
+    조립 가능성의 합격 기준이다.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\Server\ChServerM.Framing\ChServerM.Framing.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Hosting\ChServerM.Hosting.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Serialization.Protobuf\ChServerM.Serialization.Protobuf.csproj" />
+    <ProjectReference Include="..\..\Server\ChServerM.Transport.Http\ChServerM.Transport.Http.csproj" />
+    <!-- 디스패치 소스 제너레이터 — 분석기로만 참조(런타임 의존 아님). -->
+    <ProjectReference Include="..\..\Server\ChServerM.SourceGen\ChServerM.SourceGen.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+    <!-- 사용 규약 분석기(CHSM3xxx, ADR-0066) — 샘플이 첫 소비자다. -->
+    <ProjectReference Include="..\..\Server\ChServerM.Analyzers\ChServerM.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>
