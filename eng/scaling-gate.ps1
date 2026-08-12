@@ -80,7 +80,14 @@ function Invoke-Pinned {
 
     # 파티션 수 = 코어 수인 지점만 판정에 쓰지만, BenchmarkDotNet 은 [Params] 를 값 단위로
     # 거를 수 없으므로 전체 스윕을 돌리고 대각선만 읽는다.
-    $benchArgs = @('run', '-c', 'Release', '--project', $benchProject, '--', '--filter', '*PartitionScaling*')
+    #
+    # --buildTimeout: 어피니티는 프로세스 트리 전체(빌드 포함)를 지정 코어에 묶는다.
+    # 1코어 지점(0x1)에서는 BenchmarkDotNet 이 격리 ArtifactsPath 에 의존 그래프를 통째로
+    # 클린 빌드(18개 프로젝트 + net9 FlatSharp 코드젠)하는데, 솔루션이 커지면서 이 빌드가
+    # BDN 기본 빌드 타임아웃 2분을 넘겨 측정이 0건으로 죽었다(2026-08-12 실측). 판정 대상은
+    # 런타임 확장성이지 빌드 시간이 아니므로 빌드에만 넉넉한 상한을 준다. 이 상한은
+    # 어피니티로 빌드가 1코어에 갇히는 이 스크립트에서만 필요하다(CI bench-gate 는 미핀).
+    $benchArgs = @('run', '-c', 'Release', '--project', $benchProject, '--', '--filter', '*PartitionScaling*', '--buildTimeout', '900')
 
     if ($isWindows) {
         # start 는 빈 창 제목이 필요하다. /wait 로 동기 실행, /b 로 새 창을 열지 않는다.
