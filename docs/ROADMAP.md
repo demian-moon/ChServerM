@@ -515,7 +515,7 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 - [x] 축 조합별 샘플 정리 (`Samples/`) — 3개: `EchoServer`(TCP+MemoryPack) · `StatelessWeb`(HTTP/2+Protobuf+병렬 실행 — **stateless-web 프로필의 첫 실행 가능 형태**, 시퀀스로 응답 짝짓기) · `GameRoom`(룸 브로드캐스트, Phase 18 후속 — 1회 인코딩·룸 격리·퇴장 3경로). 셋 다 인자 없이 실행하면 자체 검증 후 exit code 보고
 - [ ] 디버깅 지원 — `DebuggerDisplay`, `DebuggerTypeProxy`, 의미 있는 예외 메시지 (진행 중: `[DebuggerDisplay("{ToString(),nq}")]` 값 타입 17종 + 예외 메시지는 아래 항목으로 완결. **`DebuggerTypeProxy` 만 남았다** — 컬렉션형 타입의 실수요 확인 후)
 - [x] 에러 메시지 품질 검토 — Server/ 전수 감사(기준: 값+결과+해법) 후 지적 전량 수정. 평가는 "품질보다 일관성이 문제"였다. 수정: `DuplexPipeStream` 무메시지 5개소 · Consul 옵션 2파일(품질 저지대) · `BroadcastFrame` 이중 해제 · `TimerWheel` 오버플로(실제 값 3종) · 상태 기계 가드 7개소(1회용 계약과 재시작 경로) · 직렬화 제공자 중복 등록 · `Failed` 팩토리 허용값 · LZ4 방어 지점 · `ClusterRouteResolver` · Postgres/Redis 식별자. 감사가 제안한 "옵션 Validate 의 현재 값 포함을 CHSM 규칙으로 강제"는 분석기 후보 규칙으로 기록
-- [x] API 문서 사이트 — DocFX 2.78.5 로컬 dotnet tool 고정(ADR-0067), `docs/docfx/`. API 페이지 327개 생성 확인, 생성물은 미커밋(XML 주석이 정본). 빌드 경고 58건(cref 수준)은 릴리스 전 정리 대상. CI 편입·호스팅은 Phase 21
+- [x] API 문서 사이트 — DocFX 2.78.5 로컬 dotnet tool 고정(ADR-0067), `docs/docfx/`. API 페이지 336개 생성, 생성물은 미커밋(XML 주석이 정본). CI 편입·호스팅은 Phase 21. ~~빌드 경고 58건(cref 수준)은 릴리스 전 정리 대상~~ → **2026-08-12 전량 해소(0건)** — 정체는 cref 가 아니라 인프라 중복이었다: PublicApiAnalyzers 의 buildTransitive targets 가 `PublicAPI.*.txt` 를 자동 포함하는데 `Server/Directory.Build.props` 가 수동으로 또 포함(68건) + 메타 패키지가 docfx 제외 대상(Analyzers·SourceGen)을 참조(2건). 수동 포함 제거는 RS0016 음성 테스트로 게이트 생존 확인
 - [x] 아키텍처 가이드 — `docs/GUIDE-CHOOSING-AXES.md`. 무상태/상태 유지 첫 질문부터 축별 선택 기준·근거 ADR·참조 샘플. ARCHITECTURE.md 의 낡은 "미확정" 절도 정리(ADR-0001·0013 은 확정)
 - [x] 성능 튜닝 가이드 — `docs/GUIDE-PERFORMANCE.md`. BENCHMARKS.md 를 결정 순서로 재구성: 기준선·튜닝 노브(효과 순)·**기각된 최적화 8건**·측정 절차·미측정 목록. 모든 수치에 원문 절 표기
 - [x] 마이그레이션 가이드 — `docs/GUIDE-MIGRATION.md`. 레거시 대응표 28건·이전 순서(ID 확정부터)·핸들러 규약 차이(CHSM 진단과 연결)·회귀 방지 체크리스트
@@ -537,8 +537,7 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 
 - [x] Native AOT 샘플 전체 검증 — 2026-08-12. 샘플 4종 전부 csproj 에 `PublishAot` 선언(eng/build.ps1 의 AOT 게이트가 자동 발견 — 전역 속성 전달은 NETSDK1207 함정) 후 publish(경고=오류) + 실행 자체 검증 통과. StatelessWeb(Kestrel h2c + Protobuf)도 첫 시도 통과. EchoServer `--serve` 에 SIGTERM 정상 종료 추가(PosixSignalRegistration — 없으면 K8s 롤링 업데이트마다 드레인 없이 즉사). **원격 CI 로 양 OS × 4종 확증 완료**(실행 31551677209 — ubuntu 도 linux-x64 publish + 실행 검증 완주. AOT 단계 1개→4개로 잡 +2~3분)
 - [ ] 컨테이너 이미지 + 배포 예제 (K8s 매니페스트) (진행 중: `deploy/echo-server/` — Dockerfile(SDK 태그를 global.json 피처 밴드에 고정, Native AOT + runtime-deps + 비루트, 콘텐츠 ~51MB) + 루트 `.dockerignore` + K8s Deployment/Service 매니페스트. 이미지 빌드→기동→외부 TCP 클라이언트 200회 왕복→`docker stop`(SIGTERM) 드레인 exit 0 까지 실증, 매니페스트는 kubeconform -strict 통과. **남은 것: 실클러스터 apply·rollout 검증** — 로컬 K8s 클러스터 부재로 미실증)
-- [ ] 전 Phase 게이트 재확인
-- [ ] 최종 보안 검토
+- [ ] 전 Phase 게이트 재확인 (진행 중: 2026-08-12 1차 재점검 — **게이트 13개(Phase 0~12) 중 11개 현행 증거로 충족**(CI 3잡 초록 + AOT 4종 양 OS + RS0016 음성 테스트 + 상시 스위트 + BENCHMARKS 기준선 2026-08-08). 잔여 2건은 의도된 수동/장기 실행: ① Phase 10 정식 24h soak(`CHSM_SOAK_SECONDS=86400`, 하네스 완비) ② Phase 8/12 확장성 5지점 곡선 재실행(`eng/scaling-gate.ps1` — 측정 노이즈 없는 조용한 환경 필요, 컨테이너 상주 중인 개발 세션에서는 돌리지 않는다). 상세 표는 standup history 2026-08-12)
 - [ ] 최종 성능 기준선 공표
 - [ ] 문서 전체 검토 — 죽은 링크, 낡은 예제
 - [ ] 1.0 태그 + 릴리스
