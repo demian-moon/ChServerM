@@ -80,7 +80,11 @@ API 호환성 자동 검사(이전 릴리스 패키지 대비)는 Phase 21 에�
    `gh secret set NUGET_USER --repo demian-moon/ChServerM --body "<프로필명>"`
    (비밀 값은 아니지만 공개 워크플로 파일에 박지 않기 위한 조치)
 6. `v0.1.0` 태그 푸시 → 게이트 → pack → 증명 → 발행(태그에서만 — 리허설은
-   발행 직전에 멈춘다). 소비자 검증 명령을 릴리스 노트에 명기:
-   `gh attestation verify <nupkg> --repo demian-moon/ChServerM`
+   발행 직전에 멈춘다). ✅ 2026-08-12 첫 발행 완료(33개 + 심볼 30개)
+   ⚠ **출처 증명의 검증 대상은 워크플로 아티팩트(`packages-v{태그}`)다** —
+   nuget.org 는 업로드본에 저장소 서명을 덧붙여 다운로드본의 해시가 달라진다
+   (v0.1.0 실측: 업로드 9FEC… ↔ 다운로드 1876…). 검증 명령:
+   `gh attestation verify <아티팩트의 nupkg> --repo demian-moon/ChServerM`.
+   nuget.org 다운로드본 자체는 `dotnet nuget verify`(저장소 서명)로 확인한다
 7. 템플릿(Phase 20)을 ProjectReference → PackageReference 로 전환 · API 호환성
    CI(PackageValidation baseline = 이 첫 패키지) 활성화
