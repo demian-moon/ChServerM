@@ -5224,3 +5224,59 @@ SemVer 4항 그대로: `0.x` 에서는 공개 API 를 안정으로 간주하지 
 코드 API 를, `AnalyzerReleases.*.md`(RS2008)가 분석기를, 협상 동결 레이아웃 테스트가
 와이어를 지킨다. 릴리스 절차·표면별 점검 목록은 `docs/VERSIONING.md` 가 정본이다.
 API 호환성 자동 검사(이전 릴리스 대비)는 Phase 21 의 다음 항목에서 CI 로 승격한다.
+
+## ADR-0070: 메타 패키지 — **`ChServerM` 하나, 내용은 realtime-stateful 최소 조합**
+
+- **날짜**: 2026-08-12
+- **상태**: 채택
+- **영향 범위**: 패키징 (`Server/ChServerM`, Phase 21)
+
+### 배경
+
+축별 패키지 32개는 정확하지만, 처음 온 사용자에게 "무엇부터 설치하는가"라는 질문을
+32번 던진다. 시작 가이드(GETTING-STARTED)의 최소 조합만 해도 패키지 6개다.
+`dotnet add package ChServerM` 한 번으로 시작할 수 있는 진입점이 필요하다.
+
+단, 이 프레임워크는 "목표 워크로드 없음"(ADR-0004)이 정체성이다 — 메타 패키지가
+특정 조합을 "기본"으로 축성하는 순간 그 원칙과 긴장이 생기므로, 어디까지 담을지가
+결정의 본체다.
+
+### 결정
+
+**`ChServerM` 메타 패키지 하나만 둔다. 내용은 realtime-stateful 참조 프로필의 최소
+조합 + 개발 도구 2종 — 딱 시작 가이드·EchoServer 와 같은 집합이다.**
+
+| 포함 | 역할 |
+|---|---|
+| Hosting · Framing · Concurrency | 조립 계층 + 기본 프레이밍 + 파티션 실행 모델 |
+| Transport.Tcp · Transport.InMemory | 기본 전송 + 테스트용 루프백(두 전송이 조립 가능성의 증거) |
+| Serialization.MemoryPack | 기본 직렬화기(ADR-0013) |
+| SourceGen · Analyzers | 디스패치 생성기 + 사용 규약 진단(CHSM3xxx) |
+
+**벤더 어댑터(Redis·Postgres·Consul·Protobuf·FlatBuffers·LZ4·TLS 등)와 선택 축
+(RealTime·Rooms·Spatial·Matchmaking·DataTable·Cluster·Observability)은 넣지 않는다.**
+메타가 벤더 의존을 나르면 "어댑터를 지워도 Core 는 컴파일된다"는 격리 규약이 소비자
+쪽에서 무의미해진다. MemoryPack 은 예외가 아니라 어댑터 패키지가 나르는 전이 의존이다
+— pack 이 ProjectReference 의 전이 PackageReference 를 메타의 직접 의존성으로 올리는
+것을 실측으로 확인하고 `PrivateAssets="all"` 로 끊었다(벤더는 어댑터 뒤에만 있다).
+
+메타 목록 변경은 소비자 의존성 그래프 변경이므로 제품 변경이다 — 추가는 minor,
+제거는 major 로 취급한다(ADR-0069 준용).
+
+### 대안과 탈락 이유
+
+| 대안 | 탈락 이유 |
+|---|---|
+| 전부 담는 `ChServerM.All` | 벤더 어댑터가 같이 딸려 온다(StackExchange.Redis·Npgsql·Google.Protobuf …). 격리 규약 위반 + 설치 무게. "조립 프레임워크"가 "전부 켜진 프레임워크"로 오독된다 |
+| 프로필별 메타 2개(`ChServerM.Profile.RealtimeStateful` / `.StatelessWeb`) | stateless-web 은 외부 세션 저장소가 필수인데 그 선택(Redis vs Postgres)은 벤더 결정이라 메타가 대신할 수 없다 — 반쪽 메타는 이름만 약속하고 조립을 못 끝낸다. realtime 쪽 하나만 남기면 결국 본 결정과 같다 |
+| 메타 없이 32개 유지 | 첫 설치 경험이 "문서를 읽고 6개를 고르는 것"이 된다. 시작 가이드·템플릿(Phase 20)이 전부 이 조합을 쓰므로 진입점 하나의 실수요는 이미 확인됐다 |
+
+### 결과
+
+- 긍정: `dotnet add package ChServerM` 하나로 시작 가이드가 그대로 동작한다.
+  소비 검증(로컬 피드·격리 캐시): 메타 하나만 참조한 프로젝트에서 조립·기동·에코
+  왕복 + **전이 의존성으로 온 SourceGen 이 `[MessageHandler]` 등록 코드를 실제로
+  생성**(`MapGeneratedHandlers` 컴파일·왕복 성공)함을 확인했다. nuspec 의존성은
+  의도한 8개 정확히.
+- 부정: "기본 조합"이라는 인상은 남는다 — 설명문과 가이드가 "다른 축은 개별 패키지로
+  교체"를 계속 말해야 한다. 락스텝(ADR-0069)이라 메타도 매 릴리스 버전이 오른다.
