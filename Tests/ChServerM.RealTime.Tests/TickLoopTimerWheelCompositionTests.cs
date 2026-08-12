@@ -47,11 +47,17 @@ public sealed class TickLoopTimerWheelCompositionTests
         });
 
         using var job = new SignalingJob();
+
+        // ⚠ 측정 원점은 TrySchedule 호출 **전**이어야 한다. 마감은 TrySchedule 내부의
+        //   현재 시각 + 지연으로 잡히므로, 예약 뒤에 시계를 켜면 그 사이의 지연(콜드
+        //   러너의 첫 호출 JIT 등)만큼 발화가 일찍 측정된다 — 2026-08-12 ubuntu 에서
+        //   32ms 로 측정돼 [이른 발화]로 오판됐다(실행 31572094954). 휠은 이르게
+        //   발화하지 않았고, 시계가 늦게 켜졌을 뿐이다.
+        var stopwatch = Stopwatch.StartNew();
         Assert.Equal(
             TimerScheduleStatus.Accepted,
             wheel.TrySchedule(job, TimeSpan.FromMilliseconds(50), out _));
 
-        var stopwatch = Stopwatch.StartNew();
         loop.Start();
         try
         {
