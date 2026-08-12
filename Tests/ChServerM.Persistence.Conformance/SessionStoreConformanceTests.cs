@@ -290,33 +290,75 @@ public abstract class SessionStoreConformanceTests
         // 멈칫에 잡아먹혔다(2026-08-11, Postgres·Garnet 동시 실패). 이 테스트에서만
         // TTL 을 4배로 키워 여유를 1.6×ShortTimeToLive 로 늘린다 — 만료를 기다리는
         // 다른 테스트들의 대기 시간은 건드리지 않는다.
+        //
+        // ⚠⚠ 스케일만으로는 이 부류가 닫히지 않는다(2026-08-12, Redis 재발 — 릴리스
+        // 리허설 실행 31565501210). 같은 러너에서 단일 스토어 명령이 5초를 넘긴 기록이
+        // 있으므로(f3fd254) 어떤 고정 여유든 최악의 멈칫보다 작을 수 있다. 그래서
+        // 판정이 깨졌을 때 실측 경과가 여유를 넘겼으면 **판정 불능으로 건너뛴다** —
+        // 타이밍이 지켜진 실행의 단언은 그대로다(msquic 미지원과 같은 환경 판정).
         TimeSpan ttl = ShortTimeToLive * 4;
 
         SessionId id = NewId();
+        long firstWrite = System.Diagnostics.Stopwatch.GetTimestamp();
         SessionWriteResult v1 = await Store.TryWriteAsync(id, Bytes(1), SessionVersion.None, ttl);
 
         await AdvanceAsync(TimeSpan.FromMilliseconds(ttl.TotalMilliseconds * 0.6));
-        Assert.True((await Store.TryWriteAsync(id, Bytes(2), v1.Version, ttl)).Succeeded);
+
+        long secondWrite = System.Diagnostics.Stopwatch.GetTimestamp();
+        SessionWriteResult v2 = await Store.TryWriteAsync(id, Bytes(2), v1.Version, ttl);
+        SkipIfStallConsumedTheMargin(v2.Succeeded, firstWrite, ttl);
+        Assert.True(v2.Succeeded);
 
         // 첫 만료 시각을 지났지만 두 번째 쓰기가 만료를 다시 설정했다.
         await AdvanceAsync(TimeSpan.FromMilliseconds(ttl.TotalMilliseconds * 0.6));
-        Assert.True((await Store.TryReadAsync(id, new ArrayBufferWriter<byte>())).Found);
+        SessionReadResult read = await Store.TryReadAsync(id, new ArrayBufferWriter<byte>());
+        SkipIfStallConsumedTheMargin(read.Found, secondWrite, ttl);
+        Assert.True(read.Found);
+    }
+
+    /// <summary>
+    /// 만료 판정 테스트의 거짓 빨강 방어 — 판정이 깨졌고 실측 경과가 TTL 의 90% 를
+    /// 넘겼으면 "아직 살아 있어야 한다"는 단언이 성립 불능이므로 건너뛴다.
+    /// </summary>
+    /// <remarks>
+    /// 판정이 성공했으면 아무것도 하지 않는다 — 타이밍이 지켜진 실행의 엄격성은 그대로다.
+    /// 90% 인 이유: 만료 기준 시각은 서버가 호출을 처리한 순간(호출 시작~반환 사이)이라
+    /// 클라이언트 측 계측과 정확히 겹치지 않는다 — 경계에서의 오판을 피할 여유를 남긴다.
+    /// </remarks>
+    /// <param name="judged">단언하려는 판정 결과. 참이면 검사하지 않는다.</param>
+    /// <param name="anchorTimestamp">만료 기준이 잡힌 호출 직전의 <see cref="System.Diagnostics.Stopwatch.GetTimestamp"/>.</param>
+    /// <param name="timeToLive">그 호출이 설정한 TTL.</param>
+    private static void SkipIfStallConsumedTheMargin(bool judged, long anchorTimestamp, TimeSpan timeToLive)
+    {
+        if (judged)
+        {
+            return;
+        }
+
+        TimeSpan elapsed = System.Diagnostics.Stopwatch.GetElapsedTime(anchorTimestamp);
+        Skip.If(
+            elapsed >= timeToLive * 0.9,
+            $"러너 멈칫이 만료 여유를 소진했다 — 경과 {elapsed.TotalSeconds:F1}s ≥ TTL {timeToLive.TotalSeconds:F1}s 의 90%. 판정 불능.");
     }
 
     [SkippableFact]
     public async Task Renew_extends_expiry_without_changing_the_version()
     {
         // ★ 버전을 올리지 않는 것이 계약이다 — 하트비트가 남의 CAS 를 깨면 안 된다.
-        // TTL 4배 스케일의 이유는 Write_resets_the_expiry 의 주석 참조(여유 폭 확보).
+        // TTL 4배 스케일 + 멈칫 시 판정 불능 건너뜀의 이유는 Write_resets_the_expiry 주석 참조.
         TimeSpan ttl = ShortTimeToLive * 4;
 
         SessionId id = NewId();
+        long createdAt = System.Diagnostics.Stopwatch.GetTimestamp();
         SessionWriteResult created = await Store.TryWriteAsync(
             id, Bytes(1), SessionVersion.None, ttl);
 
         // 만료 전에 연장한다.
         await AdvanceAsync(TimeSpan.FromMilliseconds(ttl.TotalMilliseconds * 0.6));
-        Assert.True(await Store.TryRenewAsync(id, created.Version, ttl));
+        long renewedAt = System.Diagnostics.Stopwatch.GetTimestamp();
+        bool renewed = await Store.TryRenewAsync(id, created.Version, ttl);
+        SkipIfStallConsumedTheMargin(renewed, createdAt, ttl);
+        Assert.True(renewed);
 
         // 원래 만료 시각을 지나도 살아 있어야 한다.
         await AdvanceAsync(TimeSpan.FromMilliseconds(ttl.TotalMilliseconds * 0.6));
@@ -324,6 +366,7 @@ public abstract class SessionStoreConformanceTests
         ArrayBufferWriter<byte> destination = new();
         SessionReadResult read = await Store.TryReadAsync(id, destination);
 
+        SkipIfStallConsumedTheMargin(read.Found, renewedAt, ttl);
         Assert.True(read.Found);
         Assert.Equal(created.Version, read.Version);
         Assert.Equal(Bytes(1), destination.WrittenSpan.ToArray());
