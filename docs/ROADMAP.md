@@ -525,13 +525,13 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 - [x] ⚠ **SemVer 정책 문서화** — `docs/VERSIONING.md` + ADR-0069. **전 패키지 락스텝**(정본: `VersionPrefix` 0.1.0), breaking 은 계약 표면 5개(코드 API·와이어·동작·관측·분석기)별 판정표. Core 축 인터페이스 멤버 추가 = major(DIM 우회 금지), 옵션 기본값 변경 = major, 관측 이름·ID 결번 재사용 금지. 0.x 동안 파괴는 minor 승격 + 노트
 - [ ] API 호환성 검사 CI — 이전 버전 대비 breaking change 자동 검출 (비교 기준선 = 첫 릴리스 패키지가 선행돼야 한다. `EnablePackageValidation` 은 미리 켜 둠)
 - [ ] `PublicAPI.Shipped.txt` 확정 — 1.0 공개 표면 동결 (1.0 선언 시점의 작업 — VERSIONING.md 절차 3)
-- [ ] NuGet 패키징 — 축별 개별 패키지. 메타 패키지 제공 (진행 중: **축별 32개 전부 pack 성공** + 분석기 2종은 `analyzers/dotnet/cs` 경로 패키징(정적 평가 시점 산출 경로 함정·빈 snupkg NU5017 함정 해결) + **로컬 피드 소비 검증** — 패키지만으로 서버 조립·기동, 패키지 분석기에서 CHSM3001 발화 + **메타 패키지 `ChServerM` 구성 완료**(2026-08-12, ADR-0070 — realtime-stateful 최소 조합 8개 의존성, 33번째 패키지. 메타 하나만 참조한 프로젝트로 조립·기동·생성 코드 경로까지 소비 검증. 전이 PackageReference 가 메타의 직접 의존성으로 새는 것을 `PrivateAssets="all"` 로 차단). 남은 것: 라이선스 확정 후 발행)
+- [ ] NuGet 패키징 — 축별 개별 패키지. 메타 패키지 제공 (진행 중: **축별 32개 전부 pack 성공** + 분석기 2종은 `analyzers/dotnet/cs` 경로 패키징(정적 평가 시점 산출 경로 함정·빈 snupkg NU5017 함정 해결) + **로컬 피드 소비 검증** — 패키지만으로 서버 조립·기동, 패키지 분석기에서 CHSM3001 발화 + **메타 패키지 `ChServerM` 구성 완료**(2026-08-12, ADR-0070 — realtime-stateful 최소 조합 8개 의존성, 33번째 패키지. 메타 하나만 참조한 프로젝트로 조립·기동·생성 코드 경로까지 소비 검증. 전이 PackageReference 가 메타의 직접 의존성으로 새는 것을 `PrivateAssets="all"` 로 차단). 라이선스 확정(ADR-0071)으로 법적 선결 조건 해소 — 남은 것: 공개 피드 발행 = 릴리스 파이프라인(서명/출처 증명 결정과 함께))
 - [ ] SourceLink + 심볼 서버 — 사용자가 프레임워크 내부를 디버깅할 수 있게 (진행 중: SDK 내장 SourceLink + snupkg 30종 구성, `0.1.0+커밋SHA` 스탬프 실측. 남은 것: 심볼 서버 게시 = 발행 파이프라인)
 - [x] 결정적 빌드 검증 — `eng/verify-deterministic.ps1`: 같은 커밋 2회 완전 재빌드(CIB=true) SHA-256 비교. **실측: Server DLL 62개 전부 동일 해시.** nupkg 바이트 동일성(zip 메타데이터)은 발행 파이프라인 몫으로 분리
-- [ ] 패키지 서명 / 출처 증명(provenance) — **사용자 결정 대기**(인증서·저장소 인프라)
+- [ ] 패키지 서명 / 출처 증명(provenance) — **사용자 결정 대기**. 오픈소스 확정(ADR-0071)으로 선택지가 좁혀졌다: 무료 1단계 = GitHub artifact attestation(SLSA Build L2, 키 관리 없음)이 유력하나 **저장소 공개 전환이 전제**(현재 private — attestation 은 공개 저장소에서 무료). 인증서 구매(저자 서명)는 별도 결정. 결정되면 `release.yml`(pack+attestation) 골격은 자율 작업 가능
 - [x] 릴리스 노트 자동화 — `eng/release-notes.ps1`: Conventional Commits 섹션 분류, `type!` 파괴 승격, `chore(standup)` 제외. breaking 판정 자동화는 의도적으로 안 함 — 표면 5개 점검은 사람이 diff 로(VERSIONING.md)
 - [ ] 지원 정책 — 지원 버전, 보안 패치 기간 — **사용자 결정 대기**(사업 정책)
-- [ ] 라이선스 확정 + 서드파티 라이선스 감사 — **사용자 결정 대기**. ⚠ 발행의 선결 조건이라 패키징 메타데이터에 의도적으로 비워 둠
+- [x] 라이선스 확정 + 서드파티 라이선스 감사 — **2026-08-12 사용자 결정: Apache-2.0**(ADR-0071 — 특허 3조·상표 6조·기여 5조가 채택 근거, MIT·듀얼·BSL 탈락). `LICENSE`·`NOTICE` 신설(저작권 표기 "The ChServerM Authors" — 명의 확정 시 교체 가능), `PackageLicenseExpression` + 전 패키지 동봉(33개 실측, 누락 0). **감사: `THIRD-PARTY-NOTICES.md`** — 중앙 패키지 전 항목 + Server 전이 의존성까지 nuspec 실물 기준, 충돌 0(카피레프트 0건). 커밋 `653af67`, CI 초록
 
 ## Phase 22 — 1.0 출시
 
