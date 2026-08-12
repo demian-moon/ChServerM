@@ -35,7 +35,6 @@
 | [04-concurrency.md](04-concurrency.md) | 실행기, 스케줄러(4종), 타이밍 휠, 시그널, SparseSet | ✅ |
 | [05-client.md](05-client.md) | **레거시 클라이언트** — 소스 공유 모델, 핸드셰이크 전체, 시각 동기화 | ✅ |
 | [06-session-user.md](06-session-user.md) | 유저 모델, Inner/Wrapper, 옵저버, 전역 OID | ✅ |
-| [06-data-table.md](06-data-table.md) | 메타데이터, INI, 파일, CSV/Excel | 예정 |
 | [07-security.md](07-security.md) | 압축·암호화, 인증, 만료 KV | ✅ |
 | [08-persistence.md](08-persistence.md) | MongoDB 파사드, 재시도, 스키마 | ✅ |
 | [09-observability.md](09-observability.md) | 로깅(log4net), 로그 수집기, IQR 통계 | ✅ |
@@ -65,8 +64,8 @@
 | 567 | `BoxColliderM.cs` | ⏳ | 11 |
 | 198 | `RoslynCompilerM.cs` | 🔴 폐기 | 12 |
 | 173 | `MathM.cs` | ⏳ | 11 |
-| 8 | `MultiThreadM.cs` | ⚪ 빈 파일 | [12](12-discarded.md) |
-| 7 | `AbSrvTableM.cs` | ⚪ 빈 파일 | [12](12-discarded.md) |
+| 8 | `MultiThreadM.cs` | ⚪ 빈 파일 | [12](12-domain-util-discarded.md) |
+| 7 | `AbSrvTableM.cs` | ⚪ 빈 파일 | [12](12-domain-util-discarded.md) |
 | 1 | `AssemblyInfo.cs` | 🔴 폐기 | 12 |
 
 ### `PublicLib/` — 서버·클라이언트 공용
@@ -86,7 +85,7 @@
 | 66 | `SendPacketM.cs` | 🔴 폐기 | [02](02-packet-framing.md#sendpacketm) |
 | 25 | `CommonInterfaceM.cs` | 🔵 참고 | [01](01-network-transport.md#commoninterfacem) |
 | 28 | `SrvClaFuncM/SrvClaFuncM.cs` | 🔵 참고 | [01](01-network-transport.md#srvclafuncm) |
-| 5 | `AbTableBaseM.cs` | ⚪ 빈 파일 | [12](12-discarded.md) |
+| 5 | `AbTableBaseM.cs` | ⚪ 빈 파일 | [12](12-domain-util-discarded.md) |
 | 870 | `ConcurSeqTaskExecM.cs` | 🟡 개작 | [04](04-concurrency.md) |
 | 1073 | `FileM/InIFileM.cs` | ⏳ | 06 |
 | 740 | `FileM/MetaDataM.cs` | ⏳ | 06 |
@@ -123,9 +122,9 @@
 | 72 | `StringBuilderM.cs` | ⏳ | 11 |
 | 49 | `StackMemAllocM.cs` | ⏳ | 03 |
 | 36 | `AuthM/AuthM.cs` | 🟢 승계 | [07](07-security.md#authm--유일하게-올바른-보안-컴포넌트) |
-| 32 | `Pool/ObjectPoolM.cs` | 🟡 개작 | [03](03-buffer-memory.md#objectpoolmt) |
-| 29 | `Memory/UnsafeCopyBlock.cs` | ⚪ 빈 파일 | [12](12-discarded.md) |
-| 8 | `QuadTreeM.cs` | ⚪ 빈 파일 | [12](12-discarded.md) |
+| 32 | `Pool/ObjectPoolM.cs` | 🟡 개작 | [12](12-domain-util-discarded.md#objectpoolmt-유일한-실사용-풀) |
+| 29 | `Memory/UnsafeCopyBlock.cs` | ⚪ 빈 파일 | [12](12-domain-util-discarded.md) |
+| 8 | `QuadTreeM.cs` | ⚪ 빈 파일 | [12](12-domain-util-discarded.md) |
 | 424 | `UI/ProgressBarM.cs` | 🔴 폐기 | 12 |
 | ~700 | `JiraLibM/` (14 파일) | 🔴 폐기 | 12 |
 | ~900 | `etc/unity관련/` (7 파일) | 🔴 폐기 | 12 |

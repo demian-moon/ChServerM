@@ -93,7 +93,12 @@ Samples / Tests / Bench
 | `ChServerM.RealTime` | 실시간 프리미티브 — 고정 타임스텝 틱 루프(`TickLoop`, 절대 스케줄 + 유계 캐치업) · 계층적 타이밍 휠(`TimerWheel`, 레거시 `TimeEventSchedulerM` 설계 승계) · 시간 동기화(`MicrosecondClock`/`RemoteClock`/`TimeSyncExchange`) · RTT 추정(`RttEstimator`, IQR) · `IntervalGate` (ADR-0061~0063) | Core |
 | `ChServerM.RealTime.Rooms` | 룸/채널 — 멤버십 생명주기(`Room`/`RoomDirectory`, COW 배열) · **직렬화 1회 브로드캐스트**(`RoomBroadcaster` + 참조 계수 `BroadcastFrame`) · 커넥션 파티션 배타 슬롯에서 쓰는 기본 싱크(`PartitionedMemberSink` — Output 단일 라이터 규약을 지키는 유일한 합법 경로) · 더티 추적(`DirtySet<T>`) (ADR-0064) | Core |
 | `ChServerM.RealTime.Spatial` | 공간 — 모튼 코드(레거시 유일 생존 자산 승계) · AOI 균일 그리드(`InterestGrid`) · Enter/Leave 집합 차분(`InterestSet`) · 무할당 SAT 충돌(`Aabb`/`Obb`/`CollisionContact`) (ADR-0065). 좌표는 BCL `Vector2`, 각도는 라디안 하나 | Core |
-| (없음) | Core 에 이 축의 계약은 **없다** — 틱 루프는 계약이 아니라 구현체다. 두 번째 구현이 필요해질 때 인터페이스를 뽑는다(ADR-0061 결정 1). 세 어셈블리는 서로도 참조하지 않는다 — 룸만, 공간만, 틱만 따로 쓸 수 있다 | — |
+| `ChServerM.Matchmaking` | 매치메이킹 — 확장 창 대기열(`Matchmaker`, 상호 창 호환) · 파티 원자 티켓 + 앵커 우선 FFD 패킹 · 유계 큐. 단일 소유자 계약(매치메이킹은 전역 연산 — 9.1 의 답이 파티셔닝이 아니라 소유권인 사례). 레이팅 공식은 프레임워크 밖(ADR-0068) | Core |
+| (없음) | Core 에 이 축의 계약은 **없다** — 틱 루프는 계약이 아니라 구현체다. 두 번째 구현이 필요해질 때 인터페이스를 뽑는다(ADR-0061 결정 1). 네 어셈블리는 서로도 참조하지 않는다 — 룸만, 공간만, 틱만, 매치메이킹만 따로 쓸 수 있다 | — |
+
+이와 별개로 `Server/ChServerM`(메타 패키지, ADR-0070)이 있다 — **코드 없는 의존성
+전용 패키지**로, realtime-stateful 최소 조합 8개를 `dotnet add package ChServerM`
+하나로 가져오는 시작점이다. 어셈블리 그래프에는 존재하지 않는다(lib 없음).
 
 **이 축을 통째로 빼도 프레임워크가 성립한다**(ADR-0004의 명시 조건). Core 를 참조하되
 (`MonotonicTimestamp`·진단 계약 재사용 — 시간 표현이 두 벌이 되는 것을 막는다) Core 는

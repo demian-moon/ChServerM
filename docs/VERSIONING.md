@@ -58,8 +58,9 @@
 5. 릴리스 직전 수동 게이트 — `eng/scaling-gate.ps1`(확장성 곡선, 조용한 측정 머신) ·
    24h soak(`CHSM_SOAK_SECONDS=86400`).
 
-API 호환성 자동 검사(이전 릴리스 패키지 대비)는 Phase 21 에서 CI 로 승격 예정 —
-그 전까지는 이 절차의 1번이 수동 게이트다.
+API 호환성 자동 검사는 **2026-08-12 활성화됐다** — `PackageValidationBaselineVersion`
+(현재 0.1.0) + `eng/build.ps1` 의 pack 단계가 CI 마다 기준선 대비 호환성을 검사한다.
+절차 1번(표면 점검)은 여전히 사람이 한다 — 게이트는 검출 장치이지 판정의 대체가 아니다.
 
 ## 첫 발행 전 1회 작업 — 저장소 공개 전환 체크리스트
 
@@ -76,9 +77,10 @@ API 호환성 자동 검사(이전 릴리스 패키지 대비)는 Phase 21 에�
    nuget.org 로그인 → 프로필 → Trusted Publishing → 정책 추가:
    Repository Owner `demian-moon` · Repository `ChServerM` · Workflow File
    `release.yml`(파일명만) · Environment 비움. 정책 소유자는 패키지를 소유할 계정
+   ✅ 2026-08-12 완료 (⚠ 사용자명은 정책 생성자 — 필드 불일치는 401 로 드러난다, ADR-0073)
 5. **(사용자)** nuget.org 프로필 이름을 시크릿으로 등록:
    `gh secret set NUGET_USER --repo demian-moon/ChServerM --body "<프로필명>"`
-   (비밀 값은 아니지만 공개 워크플로 파일에 박지 않기 위한 조치)
+   (비밀 값은 아니지만 공개 워크플로 파일에 박지 않기 위한 조치) ✅ 2026-08-12 완료
 6. `v0.1.0` 태그 푸시 → 게이트 → pack → 증명 → 발행(태그에서만 — 리허설은
    발행 직전에 멈춘다). ✅ 2026-08-12 첫 발행 완료(33개 + 심볼 30개)
    ⚠ **출처 증명의 검증 대상은 워크플로 아티팩트(`packages-v{태그}`)다** —
@@ -88,3 +90,4 @@ API 호환성 자동 검사(이전 릴리스 패키지 대비)는 Phase 21 에�
    nuget.org 다운로드본 자체는 `dotnet nuget verify`(저장소 서명)로 확인한다
 7. 템플릿(Phase 20)을 ProjectReference → PackageReference 로 전환 · API 호환성
    CI(PackageValidation baseline = 이 첫 패키지) 활성화
+   ✅ 2026-08-12 완료 (`c2c7464` 템플릿 · `b69581c` 기준선 + pack 단계)

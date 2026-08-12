@@ -509,7 +509,7 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 
 ## Phase 20 — 개발자 경험
 
-- [x] `dotnet new` 템플릿 — `chserverm-server`, `chserverm-client` (`Templates/`. NuGet 발행 전이라 `ChServerMRoot` 파라미터 → ProjectReference 생성 방식, Phase 21 발행 후 PackageReference 로 전환한다. 설치→생성→빌드→서버·클라이언트 실왕복→제거까지 수동 종단 검증. **CI 자동 검증은 미구성** — Phase 21 패키징 때 함께)
+- [x] `dotnet new` 템플릿 — `chserverm-server`, `chserverm-client` (`Templates/`. ~~NuGet 발행 전이라 ProjectReference 방식~~ → **2026-08-12 발행 후 메타 패키지 참조로 전환 완료**(`c2c7464`) — nuget.org 복원만으로 설치→생성→빌드→실왕복→제거 종단 재검증. **CI 자동 검증은 미구성** — 수요 시)
 - [x] 시작 가이드 — `docs/GETTING-STARTED.md`. **실린 코드 조각 전부를 스크래치 프로젝트로 컴파일 + 실왕복 검증했다** — 그 과정에서 초안의 실제 결함(클라이언트 기본 임계값 < 최대 프레임)을 `CompositionGuard` 가 잡아 문서를 고쳤다
 - [x] ⚠ **진단 분석기** — `ChServerM.Analyzers` 신설(ADR-0066, 대역 CHSM3xxx). CHSM3001 async void · CHSM3002 async 경로 블로킹 · CHSM3003 Payload 수명 위반 — 전부 레거시에서 서버를 멈추거나 데이터를 오염시킨 패턴. 기본 Warning + 좁은 판정(오탐이 진단을 끄게 만든다), 규칙마다 "조용해야 한다" 테스트 동수(15개), 샘플 3개에 적용. 후보 규칙(유계 Wait 채널 TryWrite·풀 미반납·옵션 Validate 의 현재 값 누락)은 수요 확인 후
 - [x] 축 조합별 샘플 정리 (`Samples/`) — 3개: `EchoServer`(TCP+MemoryPack) · `StatelessWeb`(HTTP/2+Protobuf+병렬 실행 — **stateless-web 프로필의 첫 실행 가능 형태**, 시퀀스로 응답 짝짓기) · `GameRoom`(룸 브로드캐스트, Phase 18 후속 — 1회 인코딩·룸 격리·퇴장 3경로). 셋 다 인자 없이 실행하면 자체 검증 후 exit code 보고
