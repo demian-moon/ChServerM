@@ -6,9 +6,9 @@ ChServerM 은 완성된 서버가 아니라 **축을 골라 조립하는 프레�
 
 ## 0. 준비물
 
-- **.NET SDK 10.0.2xx** — 저장소의 `global.json` 이 버전을 고정한다. `dotnet --version` 이
-  `global.json` 과 다른 메이저를 보이면 빌드가 시작조차 안 되므로 여기서 먼저 확인한다.
-- 이 저장소 클론. (NuGet 패키지는 아직 발행 전이다 — Phase 21. 지금은 `ProjectReference` 로 쓴다.)
+- **.NET SDK 10.0** — 2절(패키지로 조립)은 10.x 아무 버전이면 된다.
+  1절(동봉 샘플)은 저장소 빌드라 `global.json` 이 고정한 10.0.2xx 를 따른다.
+- 저장소 클론은 **1절(동봉 샘플)에만** 필요하다 — 2절부터는 nuget.org 패키지로 조립한다.
 
 ## 1. 동봉 샘플 실행 (1분)
 
@@ -32,20 +32,15 @@ dotnet run --project Samples/ChServerM.Samples.EchoServer -c Release -- --serve 
 
 ```bash
 dotnet new console -n MyServer
+dotnet add MyServer package ChServerM
 ```
 
-`MyServer.csproj` 에 축 4개를 참조로 추가한다 (경로는 클론 위치에 맞게 조정):
+메타 패키지 `ChServerM` 하나가 이 가이드가 쓰는 축 전부(+ 인메모리 루프백 전송,
+MemoryPack 직렬화, 소스 제너레이터, 사용 규약 분석기 CHSM3xxx)를 가져온다.
+다른 축이 필요하면 `ChServerM.*` 개별 패키지를 추가·교체한다
+([축 선택 가이드](GUIDE-CHOOSING-AXES.md)).
 
-```xml
-<ItemGroup>
-  <ProjectReference Include="..\ChServerM\Server\ChServerM.Hosting\ChServerM.Hosting.csproj" />
-  <ProjectReference Include="..\ChServerM\Server\ChServerM.Framing\ChServerM.Framing.csproj" />
-  <ProjectReference Include="..\ChServerM\Server\ChServerM.Concurrency\ChServerM.Concurrency.csproj" />
-  <ProjectReference Include="..\ChServerM\Server\ChServerM.Transport.Tcp\ChServerM.Transport.Tcp.csproj" />
-</ItemGroup>
-```
-
-| 참조 | 축 | 이 예제에서의 선택 |
+| 이 예제가 쓰는 축 | 축 | 선택 |
 |---|---|---|
 | `Hosting` | 조립 표면 | `ServerBuilder` — 프레임워크의 정면 출입구 |
 | `Framing` | 프레이밍 | 고정 헤더 (length-prefix) |

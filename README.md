@@ -15,8 +15,8 @@ await using ChServerMServer server = new ServerBuilder()
     .Build();
 ```
 
-> **상태: 0.x 프리릴리스.** NuGet 미발행(발행 준비 완료 단계), 공개 API 는 아직
-> 동결 전이다(SemVer 0.x — [VERSIONING](docs/VERSIONING.md)).
+> **상태: 0.x 프리릴리스** — [nuget.org 에 발행됨](https://www.nuget.org/packages/ChServerM).
+> 공개 API 는 아직 동결 전이다(SemVer 0.x — [VERSIONING](docs/VERSIONING.md)).
 
 ## 특성 — 전부 실측으로 방어한다
 
@@ -51,8 +51,13 @@ await using ChServerMServer server = new ServerBuilder()
 - [축 선택 가이드](docs/GUIDE-CHOOSING-AXES.md) · [성능 튜닝](docs/GUIDE-PERFORMANCE.md) · [레거시 마이그레이션](docs/GUIDE-MIGRATION.md)
 - [아키텍처](docs/ARCHITECTURE.md) · [설계 결정(ADR)](docs/DECISIONS.md) · [배포 예제(Docker/K8s)](deploy/README.md)
 
-NuGet 발행 전이므로 지금은 저장소를 클론해 `ProjectReference` 로 쓴다.
-발행 후에는 `dotnet add package ChServerM` (메타 패키지) 하나로 시작한다.
+```bash
+dotnet add package ChServerM
+```
+
+메타 패키지 하나가 realtime-stateful 최소 조합(TCP·고정 헤더 프레이밍·파티션
+실행·MemoryPack·분석기)을 가져온다. 다른 축은 `ChServerM.*` 개별 패키지로
+추가·교체한다.
 
 ## 라이선스
 
