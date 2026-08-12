@@ -65,8 +65,15 @@
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <!-- 패키지 구조 검증(다중 타깃·의존 일관성). 릴리스 후 baseline 비교로 확장한다(Phase 21). -->
+    <!--
+      패키지 구조 검증 + API 호환성 게이트(Phase 21).
+      기준선 = 첫 릴리스 0.1.0(nuget.org). pack 할 때마다 기준선 대비 공개 표면
+      호환성을 검사한다 — 파괴적 변경은 pack 실패로 드러난다. 속성이 조용히
+      무시되지 않음은 음성 테스트로 확증했다(존재하지 않는 기준선 → NU1102 실패).
+      다음 릴리스에서 버전을 올릴 때 이 기준선도 함께 올린다(VERSIONING.md 절차).
+    -->
     <EnablePackageValidation>true</EnablePackageValidation>
+    <PackageValidationBaselineVersion>0.1.0</PackageValidationBaselineVersion>
   </PropertyGroup>
 
   <!-- LICENSE·NOTICE 를 모든 패키지에 동봉한다 — Apache-2.0 4조 (a)/(d). -->

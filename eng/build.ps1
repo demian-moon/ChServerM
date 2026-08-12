@@ -29,6 +29,9 @@ param(
     # 취약점 감사는 NuGet 취약점 DB 조회가 필요하다. 오프라인에서는 건너뛴다.
     [switch]$SkipAudit,
 
+    # pack(API 호환성 게이트)은 기준선 패키지 다운로드가 필요하다. 오프라인에서는 건너뛴다.
+    [switch]$SkipPack,
+
     # 커버리지 수집은 테스트를 느리게 만든다. CI 에서는 켜고 로컬 반복에서는 끈다.
     [switch]$Coverage
 )
@@ -170,6 +173,27 @@ if ($Coverage -and -not $SkipTests) {
     Write-Host '  ⚠ 어셈블리별 최대값이다. 여러 테스트 프로젝트의 합집합이 아니다 —' -ForegroundColor DarkGray
     Write-Host '    정확한 합집합은 ReportGenerator 도입 후에 구한다' -ForegroundColor DarkGray
     Write-Host '  임계값은 미설정 — Core 추상화가 확정된 뒤 세운다 (ROADMAP Phase 0)' -ForegroundColor DarkGray
+}
+
+# ──────────────────────────────────────────────────────────────
+# pack + API 호환성 게이트 (Phase 21)
+#
+# Server/Directory.Build.props 의 PackageValidationBaselineVersion(첫 릴리스
+# 0.1.0)이 pack 시점에 nuget.org 기준선 패키지와 공개 표면을 비교한다 —
+# PublicAPI 승인 파일이 "코드 diff 관점"을 지킨다면, 이 게이트는 "패키지
+# 소비자 관점"(타깃 프레임워크·어셈블리 구성·시그니처 호환)을 지킨다.
+# 파괴적 변경은 여기서 빌드 실패로 드러나고, 의도한 파괴면 기준선/억제를
+# 갱신하는 diff 가 리뷰에 노출된다 — PublicAPI 게이트와 같은 원리다.
+# ──────────────────────────────────────────────────────────────
+if ($SkipPack) {
+    Write-Step 'pack'
+    Write-Host 'SKIPPED — -SkipPack 지정됨 (기준선 다운로드 불가 환경)' -ForegroundColor Yellow
+}
+else {
+    Invoke-Step 'pack' {
+        dotnet pack $Solution --configuration $Configuration --no-build --nologo -v q `
+            --output (Join-Path $RepoRoot 'artifacts/packages')
+    }
 }
 
 # ──────────────────────────────────────────────────────────────
