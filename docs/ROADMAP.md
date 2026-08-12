@@ -523,7 +523,7 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 ## Phase 21 — API 안정성 & 릴리스 엔지니어링
 
 - [x] ⚠ **SemVer 정책 문서화** — `docs/VERSIONING.md` + ADR-0069. **전 패키지 락스텝**(정본: `VersionPrefix` 0.1.0), breaking 은 계약 표면 5개(코드 API·와이어·동작·관측·분석기)별 판정표. Core 축 인터페이스 멤버 추가 = major(DIM 우회 금지), 옵션 기본값 변경 = major, 관측 이름·ID 결번 재사용 금지. 0.x 동안 파괴는 minor 승격 + 노트
-- [ ] API 호환성 검사 CI — 이전 버전 대비 breaking change 자동 검출 (`EnablePackageValidation` 은 미리 켜 둠. **2026-08-12 기준선 생김** — v0.1.0 이 nuget.org 에 있으므로 `PackageValidationBaselineVersion=0.1.0` 활성화 가능, 다음 자율 작업 후보)
+- [x] API 호환성 검사 CI — **2026-08-12 활성화**(`b69581c`): `PackageValidationBaselineVersion=0.1.0`(nuget.org 기준선) + `eng/build.ps1` pack 단계(CI·로컬 동일 진입점, 오프라인은 `-SkipPack`). **양방향 검증** — 음성: 존재하지 않는 기준선 → NU1102 실패(속성이 조용히 무시되지 않음, ADR-0031 교훈 적용) · 양성: 33개 전부 0.1.0 대비 통과. 다음 릴리스에서 버전과 함께 기준선을 올린다(VERSIONING.md)
 - [ ] `PublicAPI.Shipped.txt` 확정 — 1.0 공개 표면 동결 (1.0 선언 시점의 작업 — VERSIONING.md 절차 3)
 - [ ] NuGet 패키징 — 축별 개별 패키지. 메타 패키지 제공 (진행 중: **축별 32개 전부 pack 성공** + 분석기 2종은 `analyzers/dotnet/cs` 경로 패키징(정적 평가 시점 산출 경로 함정·빈 snupkg NU5017 함정 해결) + **로컬 피드 소비 검증** — 패키지만으로 서버 조립·기동, 패키지 분석기에서 CHSM3001 발화 + **메타 패키지 `ChServerM` 구성 완료**(2026-08-12, ADR-0070 — realtime-stateful 최소 조합 8개 의존성, 33번째 패키지. 메타 하나만 참조한 프로젝트로 조립·기동·생성 코드 경로까지 소비 검증. 전이 PackageReference 가 메타의 직접 의존성으로 새는 것을 `PrivateAssets="all"` 로 차단). **⭐ 2026-08-12 v0.1.0 첫 발행 완료** — 저장소 공개 전환(레거시 자격증명 노출 사용자 승인) → `release.yml`(게이트→pack→증명→발행, ADR-0073) → nuget.org 33개 전부 색인 + 공개 피드 실소비 검증(메타 하나로 조립·기동·생성 코드 경로) 통과)
 - [x] SourceLink + 심볼 서버 — 사용자가 프레임워크 내부를 디버깅할 수 있게 (SDK 내장 SourceLink + snupkg 30종 구성, `0.1.0+커밋SHA` 스탬프 실측. **2026-08-12 심볼 게시 완료** — `dotnet nuget push` 가 snupkg 30개를 자동 동반 푸시, nuget.org 심볼 서버 게시)
@@ -539,7 +539,7 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 - [ ] 컨테이너 이미지 + 배포 예제 (K8s 매니페스트) (진행 중: `deploy/echo-server/` — Dockerfile(SDK 태그를 global.json 피처 밴드에 고정, Native AOT + runtime-deps + 비루트, 콘텐츠 ~51MB) + 루트 `.dockerignore` + K8s Deployment/Service 매니페스트. 이미지 빌드→기동→외부 TCP 클라이언트 200회 왕복→`docker stop`(SIGTERM) 드레인 exit 0 까지 실증, 매니페스트는 kubeconform -strict 통과. **남은 것: 실클러스터 apply·rollout 검증** — 로컬 K8s 클러스터 부재로 미실증)
 - [ ] 전 Phase 게이트 재확인 (진행 중: 2026-08-12 1차 재점검 — **게이트 13개(Phase 0~12) 중 11개 현행 증거로 충족**(CI 3잡 초록 + AOT 4종 양 OS + RS0016 음성 테스트 + 상시 스위트 + BENCHMARKS 기준선 2026-08-08). 잔여 2건은 의도된 수동/장기 실행: ① Phase 10 정식 24h soak(`CHSM_SOAK_SECONDS=86400`, 하네스 완비) ② Phase 8/12 확장성 5지점 곡선 재실행(`eng/scaling-gate.ps1` — 측정 노이즈 없는 조용한 환경 필요, 컨테이너 상주 중인 개발 세션에서는 돌리지 않는다). 상세 표는 standup history 2026-08-12)
 - [ ] 최종 성능 기준선 공표
-- [ ] 문서 전체 검토 — 죽은 링크, 낡은 예제
+- [x] 문서 전체 검토 — 죽은 링크, 낡은 예제 (2026-08-12 `3e5c3fe`: **링크 전수 검사 61개 md → 깨진 링크 0**(레거시 인덱스 7건 수정) · 낡은 서술 정정(VERSIONING·ROADMAP·시작 가이드·README 의 발행 전 문구) · ARCHITECTURE 최신화(Matchmaking·메타 패키지) · DocFX 경고 0(`c8d874f`) · 시작 가이드 조합은 템플릿 종단 검증이 재실증. 기록성 문서(history·ADR·BENCHMARKS)는 추가 전용 원칙대로 불변)
 - [ ] 1.0 태그 + 릴리스
 
 ---
