@@ -1,0 +1,21 @@
+# EchoServer 서비스 (Phase 22).
+#
+# ClusterIP 로 클러스터 안에서만 노출한다. 밖으로 열려면:
+#   - 로컬 확인:   kubectl port-forward svc/chserverm-echo 5000:5000
+#   - 프로덕션:    LoadBalancer 또는 L4 인그레스(프레임 프로토콜이므로 L7 HTTP 인그레스는 불가)
+apiVersion: v1
+kind: Service
+metadata:
+  name: chserverm-echo
+  labels:
+    app.kubernetes.io/name: chserverm-echo
+    app.kubernetes.io/part-of: chserverm
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: chserverm-echo
+  ports:
+    - name: tcp-echo
+      port: 5000
+      targetPort: tcp-echo
+      protocol: TCP

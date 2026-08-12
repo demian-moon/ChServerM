@@ -1,0 +1,26 @@
+# 컨테이너 빌드 컨텍스트 최소화 (Phase 22).
+# 이미지 빌드에 필요한 것은 소스 + 빌드 규약 파일뿐이다 — 빌드 산출물과
+# 참조 전용 트리를 컨텍스트에 실으면 전송만 느려지고, Windows 의 bin/obj 가
+# 리눅스 빌드에 흘러들면 RID 불일치로 조용히 어긋난다.
+
+# 빌드 산출물
+**/bin/
+**/obj/
+**/BenchmarkDotNet.Artifacts/
+
+# 저장소 메타데이터·문서·CI
+.git/
+.github/
+.claude/
+docs/
+*.md
+
+# 참조 전용 레거시 트리 — 빌드하지 않는다 (CLAUDE.md 5절)
+LegacyServer/
+LagacyClient/
+
+# 이미지 빌드에 불필요한 트리
+Tests/
+Bench/
+Templates/
+deploy/
