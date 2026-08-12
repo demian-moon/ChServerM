@@ -34,10 +34,14 @@
                       IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
   </ItemGroup>
 
-  <ItemGroup>
-    <AdditionalFiles Include="PublicAPI.Shipped.txt" Condition="Exists('PublicAPI.Shipped.txt')" />
-    <AdditionalFiles Include="PublicAPI.Unshipped.txt" Condition="Exists('PublicAPI.Unshipped.txt')" />
-  </ItemGroup>
+  <!--
+    PublicAPI.*.txt 를 여기서 AdditionalFiles 로 넣지 않는다 — 패키지의
+    buildTransitive targets 가 파일이 존재하면 자동 포함한다(5.6.0 실측).
+    수동 포함은 중복 항목이 되어 DocFX metadata 가 프로젝트마다
+    "Duplicate source file" 경고를 낸다(58건의 정체, 2026-08-12).
+    ⚠ 제거가 게이트를 죽이지 않았음은 음성 테스트로 검증했다 — 미승인
+    public 심볼을 임시로 추가하면 RS0016 이 여전히 발생한다.
+  -->
 
   <!--
     ══════════════════════════════════════════════════════════════

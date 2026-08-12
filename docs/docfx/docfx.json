@@ -8,7 +8,8 @@
           "files": [ "*/*.csproj" ],
           "exclude": [
             "ChServerM.SourceGen/**",
-            "ChServerM.Analyzers/**"
+            "ChServerM.Analyzers/**",
+            "ChServerM/**"
           ]
         }
       ],
