@@ -11,14 +11,5 @@
   "tags": {
     "language": "C#",
     "type": "project"
-  },
-  "symbols": {
-    "ChServerMRoot": {
-      "type": "parameter",
-      "datatype": "text",
-      "description": "ChServerM 저장소 루트 경로. NuGet 패키지 발행(Phase 21) 전까지는 ProjectReference 로 참조한다.",
-      "defaultValue": "..\\ChServerM",
-      "replaces": "CHSERVERM_ROOT"
-    }
   }
 }
