@@ -52,7 +52,28 @@
    `AnalyzerReleases.*.md`(RS2008) · 와이어 동결 테스트.
 2. 버전 결정 — `Directory.Build.props` 의 `VersionPrefix` 갱신(락스텝).
 3. `Unshipped → Shipped` 이동(코드 API·분석기 각각) — 이 diff 가 릴리스 노트의 뼈대다.
-4. 태그 + 릴리스 노트(Conventional Commits 기반 자동화는 Phase 21 후속 항목).
+4. 태그(`v{버전}`) 푸시 — `.github/workflows/release.yml` 이 게이트 재검증 →
+   pack(CIB) → 출처 증명 → (활성화 후) NuGet 발행까지 수행한다.
+   릴리스 노트는 `eng/release-notes.ps1` 로 생성한다.
+5. 릴리스 직전 수동 게이트 — `eng/scaling-gate.ps1`(확장성 곡선, 조용한 측정 머신) ·
+   24h soak(`CHSM_SOAK_SECONDS=86400`).
 
 API 호환성 자동 검사(이전 릴리스 패키지 대비)는 Phase 21 에서 CI 로 승격 예정 —
 그 전까지는 이 절차의 1번이 수동 게이트다.
+
+## 첫 발행 전 1회 작업 — 저장소 공개 전환 체크리스트
+
+발행(공개 피드)과 신고 채널·출처 증명은 저장소 공개를 전제한다. 전환 시점에
+한 번만 수행한다:
+
+1. **(사용자)** 저장소를 공개로 전환 — `README.md`·`LICENSE`·`NOTICE`·
+   `SECURITY.md`·`THIRD-PARTY-NOTICES.md` 가 전면에 노출된다(전부 준비됨)
+2. **(사용자)** Security 탭에서 **Private Vulnerability Reporting 활성화** —
+   `SECURITY.md` 가 안내하는 신고 채널이 이때 실제로 열린다
+3. 출처 증명은 자동 활성화된다 — `release.yml` 의 공개 저장소 조건 가드
+4. **(사용자)** nuget.org API 키 발급 → 저장소 시크릿 `NUGET_API_KEY` 등록
+5. `release.yml` 발행 스텝의 `if: false` 제거 (코드 리뷰 가능한 한 줄 diff)
+6. `v0.1.0` 태그 푸시 → 게이트 → pack → 증명 → 발행. 소비자 검증 명령을
+   릴리스 노트에 명기: `gh attestation verify <nupkg> --repo demian-moon/ChServerM`
+7. 템플릿(Phase 20)을 ProjectReference → PackageReference 로 전환 · API 호환성
+   CI(PackageValidation baseline = 이 첫 패키지) 활성화

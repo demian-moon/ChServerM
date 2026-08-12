@@ -1,0 +1,90 @@
+name: Release
+
+# 릴리스 파이프라인 (Phase 21) — 태그가 곧 릴리스다.
+#
+# 락스텝 버전(ADR-0069)이므로 태그 하나(v0.1.0)가 전 패키지를 함께 릴리스한다.
+# 절차의 정본은 docs/VERSIONING.md "릴리스 절차" — 이 워크플로는 그 절차의
+# 4번(태그 이후)을 자동화한다. 표면 점검·버전 결정·Shipped 이동은 사람이 한다.
+#
+# 현재 상태: 발행 스텝은 비활성이다(첫 발행 결정 대기 — 아래 주석).
+# 출처 증명은 저장소가 공개로 전환되면 조건 가드로 자동 활성화된다.
+
+on:
+  push:
+    tags: ['v*']
+  # 태그 없이 파이프라인 자체를 리허설할 수 있게 한다(pack·증명까지, 발행 없음).
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # 출처 증명 서명의 신원(OIDC)과 증명 저장 — actions/attest-build-provenance 요구 사항.
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    name: gate · pack · attest
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # dotnet-version 을 적지 않는다 — global.json 이 정본이다(ci.yml 과 같은 이유).
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-release-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-release-
+
+      # 릴리스도 CI 와 같은 게이트를 통과해야 한다. 태그는 초록 커밋에만 붙인다는
+      # 규율이 있어도, 파이프라인이 스스로 검증하지 않으면 규율은 언젠가 샌다.
+      - name: Gate (build · test · audit · aot)
+        shell: pwsh
+        run: ./eng/build.ps1 -Configuration Release -WarnAsError
+
+      # ContinuousIntegrationBuild=true — 결정적 빌드 경로 정규화(verify-deterministic 과 동일).
+      - name: Pack
+        run: dotnet pack ChServerM.slnx --configuration Release -p:ContinuousIntegrationBuild=true --output artifacts/packages
+
+      # 출처 증명(SLSA build provenance) — "이 nupkg 는 이 저장소의 이 커밋에서
+      # 이 워크플로가 빌드했다"를 Sigstore 로 서명해 남긴다. 키 관리 없음(OIDC 단명 인증서).
+      # 소비자 검증: gh attestation verify <nupkg> --repo <owner/repo>
+      #
+      # ⚠ 공개 저장소에서만 무료로 동작한다 — private 인 동안은 가드로 건너뛰고,
+      #   공개 전환(VERSIONING.md 체크리스트) 즉시 자동 활성화된다.
+      - name: Attest build provenance
+        if: ${{ !github.event.repository.private }}
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: artifacts/packages/*.nupkg
+
+      # 발행 전이라도 태그 시점의 산출물은 남긴다 — 검토·수동 발행·사고 조사의 근거.
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ github.ref_name }}
+          path: artifacts/packages/*
+          if-no-files-found: error
+          retention-days: 90
+
+      # ══════════════════════════════════════════════════════════
+      # 발행 스텝 — 의도적 비활성 (첫 발행 결정 대기)
+      #
+      # 활성화 절차(VERSIONING.md "공개 전환 체크리스트"):
+      #   1. NUGET_API_KEY 시크릿 등록 (nuget.org API 키, 패키지 push 권한만)
+      #   2. 아래 if: false 를 제거
+      # --skip-duplicate: 재실행 시 이미 올라간 패키지를 오류로 만들지 않는다.
+      # ══════════════════════════════════════════════════════════
+      - name: Publish to NuGet (비활성)
+        if: false
+        run: >
+          dotnet nuget push 'artifacts/packages/*.nupkg'
+          --api-key ${{ secrets.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
