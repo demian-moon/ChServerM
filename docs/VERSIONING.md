@@ -68,12 +68,19 @@ API 호환성 자동 검사(이전 릴리스 패키지 대비)는 Phase 21 에�
 
 1. **(사용자)** 저장소를 공개로 전환 — `README.md`·`LICENSE`·`NOTICE`·
    `SECURITY.md`·`THIRD-PARTY-NOTICES.md` 가 전면에 노출된다(전부 준비됨)
+   ✅ 2026-08-12 완료 (레거시 자격증명 노출 확인 후 사용자 승인)
 2. **(사용자)** Security 탭에서 **Private Vulnerability Reporting 활성화** —
-   `SECURITY.md` 가 안내하는 신고 채널이 이때 실제로 열린다
+   `SECURITY.md` 가 안내하는 신고 채널이 이때 실제로 열린다 ✅ 2026-08-12 완료
 3. 출처 증명은 자동 활성화된다 — `release.yml` 의 공개 저장소 조건 가드
-4. **(사용자)** nuget.org API 키 발급 → 저장소 시크릿 `NUGET_API_KEY` 등록
-5. `release.yml` 발행 스텝의 `if: false` 제거 (코드 리뷰 가능한 한 줄 diff)
-6. `v0.1.0` 태그 푸시 → 게이트 → pack → 증명 → 발행. 소비자 검증 명령을
-   릴리스 노트에 명기: `gh attestation verify <nupkg> --repo demian-moon/ChServerM`
+4. **(사용자)** 발행 인증은 **Trusted Publishing** — 장수명 API 키를 쓰지 않는다.
+   nuget.org 로그인 → 프로필 → Trusted Publishing → 정책 추가:
+   Repository Owner `demian-moon` · Repository `ChServerM` · Workflow File
+   `release.yml`(파일명만) · Environment 비움. 정책 소유자는 패키지를 소유할 계정
+5. **(사용자)** nuget.org 프로필 이름을 시크릿으로 등록:
+   `gh secret set NUGET_USER --repo demian-moon/ChServerM --body "<프로필명>"`
+   (비밀 값은 아니지만 공개 워크플로 파일에 박지 않기 위한 조치)
+6. `v0.1.0` 태그 푸시 → 게이트 → pack → 증명 → 발행(태그에서만 — 리허설은
+   발행 직전에 멈춘다). 소비자 검증 명령을 릴리스 노트에 명기:
+   `gh attestation verify <nupkg> --repo demian-moon/ChServerM`
 7. 템플릿(Phase 20)을 ProjectReference → PackageReference 로 전환 · API 호환성
    CI(PackageValidation baseline = 이 첫 패키지) 활성화

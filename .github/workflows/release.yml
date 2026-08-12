@@ -74,17 +74,31 @@ jobs:
           retention-days: 90
 
       # ══════════════════════════════════════════════════════════
-      # 발행 스텝 — 의도적 비활성 (첫 발행 결정 대기)
+      # 발행 — Trusted Publishing (장수명 API 키 없음)
       #
-      # 활성화 절차(VERSIONING.md "공개 전환 체크리스트"):
-      #   1. NUGET_API_KEY 시크릿 등록 (nuget.org API 키, 패키지 push 권한만)
-      #   2. 아래 if: false 를 제거
+      # nuget.org 의 신뢰 정책(소유자·저장소·워크플로 파일 일치)이 GitHub OIDC
+      # 토큰을 검증하고 1시간짜리 임시 키를 내준다 — 저장·회전할 시크릿이 없고,
+      # 출처 증명과 같은 워크플로 신원을 쓴다. 정책은 nuget.org 계정의
+      # Trusted Publishing 페이지에서 등록한다(VERSIONING.md 체크리스트).
+      #
+      # 임시 키는 1시간 유효 — login 을 push 직전에 둔다(게이트가 길어져도 안전).
+      # NUGET_USER 는 nuget.org 프로필 이름 — 비밀은 아니지만 공개 워크플로
+      # 파일에 박지 않으려고 시크릿으로 뺐다.
+      #
+      # 태그 푸시에서만 발행한다 — workflow_dispatch 리허설은 여기서 멈춘다.
       # --skip-duplicate: 재실행 시 이미 올라간 패키지를 오류로 만들지 않는다.
       # ══════════════════════════════════════════════════════════
-      - name: Publish to NuGet (비활성)
-        if: false
+      - name: NuGet login (OIDC → 임시 키)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Publish to NuGet
+        if: startsWith(github.ref, 'refs/tags/v')
         run: >
           dotnet nuget push 'artifacts/packages/*.nupkg'
-          --api-key ${{ secrets.NUGET_API_KEY }}
+          --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
