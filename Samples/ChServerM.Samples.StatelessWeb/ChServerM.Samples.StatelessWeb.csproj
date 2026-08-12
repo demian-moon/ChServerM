@@ -8,11 +8,18 @@
     <IsPackable>false</IsPackable>
 
     <!--
-      AOT publish 게이트는 EchoServer 가 맡는다(그 쪽이 실제 링크·실행까지 실증한다).
-      이 샘플은 protoc 생성 코드가 트리밍 분석기 소음을 만들어 분석만 끈다 —
+      protoc 생성 코드가 트리밍 분석기 소음을 만들어 분석만 끈다 —
       Serialization.Protobuf 어댑터 자체는 자기 프로젝트의 IsAotCompatible 로 검증된다.
     -->
     <IsAotCompatible>false</IsAotCompatible>
+
+    <!--
+      Phase 22: 샘플 전체가 Native AOT 검증 대상이다 — "게이트는 EchoServer 하나"에서
+      확대됐다. eng/build.ps1 의 AOT 단계가 이 선언을 발견해 publish + 실행(자체 검증
+      exit 0)까지 게이트한다. 분석(IsAotCompatible)은 꺼져 있어도 실제 링크·실행이
+      성공하는지는 publish 가 증명한다 — 정적 증명 대신 실행 증명(EchoServer 와 같은 원칙).
+    -->
+    <PublishAot>true</PublishAot>
   </PropertyGroup>
 
   <ItemGroup>

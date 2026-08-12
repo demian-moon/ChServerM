@@ -151,6 +151,18 @@ internal static class Program
             shutdown.Cancel();
         };
 
+        // 컨테이너·K8s 의 종료 신호는 SIGTERM 이다 — CancelKeyPress 는 SIGINT 만 받는다.
+        // 이것이 없으면 K8s 롤링 업데이트마다 드레인 없이 즉사해, 프레임워크의
+        // graceful shutdown(Unbind→드레인→Stop)이 배포 환경에서 한 번도 실행되지 않는다.
+        using System.Runtime.InteropServices.PosixSignalRegistration sigterm =
+            System.Runtime.InteropServices.PosixSignalRegistration.Create(
+                System.Runtime.InteropServices.PosixSignal.SIGTERM,
+                signalContext =>
+                {
+                    signalContext.Cancel = true;
+                    shutdown.Cancel();
+                });
+
         try
         {
             await Task.Delay(Timeout.InfiniteTimeSpan, shutdown.Token).ConfigureAwait(false);

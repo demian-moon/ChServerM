@@ -6,6 +6,14 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>ChServerM.Samples.Matchmaking</RootNamespace>
     <IsPackable>false</IsPackable>
+
+    <!--
+      Phase 22: 샘플 전체가 Native AOT 검증 대상이다. eng/build.ps1 의 AOT 단계가
+      이 선언을 보고 publish + 실행(자체 검증 exit 0)까지 게이트한다.
+      전역 속성으로 넘기면 참조 그래프의 netstandard2.0 분석기가 NETSDK1207 로
+      터지므로 반드시 프로젝트 자신이 선언한다(build.ps1 주석 참조).
+    -->
+    <PublishAot>true</PublishAot>
   </PropertyGroup>
 
   <!--

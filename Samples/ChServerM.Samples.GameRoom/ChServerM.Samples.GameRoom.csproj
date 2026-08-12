@@ -6,7 +6,14 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>ChServerM.Samples.GameRoom</RootNamespace>
     <IsPackable>false</IsPackable>
-    <!-- AOT publish 게이트는 EchoServer 가 맡는다. 이 프로젝트는 분석기(IsAotCompatible)만 상속한다. -->
+
+    <!--
+      Phase 22: 샘플 전체가 Native AOT 검증 대상이다 — "게이트는 EchoServer 하나"에서
+      확대됐다. eng/build.ps1 의 AOT 단계가 이 선언을 발견해 publish + 실행(자체 검증
+      exit 0)까지 게이트한다. 전역 속성 전달은 netstandard2.0 분석기에서 NETSDK1207 로
+      터지므로 프로젝트 자신이 선언한다(build.ps1 주석 참조).
+    -->
+    <PublishAot>true</PublishAot>
   </PropertyGroup>
 
   <!--
