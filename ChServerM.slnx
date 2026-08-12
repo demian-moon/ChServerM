@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/Server/">
+    <Project Path="Server/ChServerM/ChServerM.csproj" />
     <Project Path="Server/ChServerM.Analyzers/ChServerM.Analyzers.csproj" />
     <Project Path="Server/ChServerM.Buffers/ChServerM.Buffers.csproj" />
     <Project Path="Server/ChServerM.Core/ChServerM.Core.csproj" />

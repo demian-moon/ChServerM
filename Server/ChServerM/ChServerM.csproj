@@ -1,0 +1,67 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework / LangVersion / Nullable 등은 루트 Directory.Build.props 에서 온다. -->
+
+  <!--
+    ══════════════════════════════════════════════════════════════
+    ChServerM 메타 패키지 (Phase 21, ADR-0070)
+
+    코드가 없다. 의존성만 나르는 시작점 패키지다 — `dotnet add package ChServerM`
+    하나로 시작 가이드(GETTING-STARTED)와 realtime-stateful 참조 프로필(ADR-0004)의
+    최소 축 조합이 갖춰진다.
+
+    구성 원칙:
+      - 참조 프로필의 최소 조합 + 소스 제너레이터 + 사용 규약 분석기까지만.
+      - 벤더 어댑터(Redis·Postgres·Consul·Protobuf 등)와 선택 축(RealTime·
+        Matchmaking·DataTable)은 절대 넣지 않는다 — 메타 패키지가 벤더 의존을
+        나르는 순간 "어댑터를 삭제해도 Core 는 컴파일된다"는 하드 룰이
+        소비자 쪽에서 무의미해진다. 다른 조합은 개별 패키지로 바꿔 끼운다.
+
+    ⚠ 여기 목록을 바꾸는 것은 소비자의 의존성 그래프를 바꾸는 제품 변경이다.
+      추가는 minor, 제거는 major 로 취급한다(ADR-0069 의 코드 API 표면에 준함).
+    ══════════════════════════════════════════════════════════════
+  -->
+  <PropertyGroup>
+    <RootNamespace>ChServerM</RootNamespace>
+    <Description>ChServerM 시작점 메타 패키지 — realtime-stateful 참조 프로필의 최소 축 조합(TCP·고정 헤더 프레이밍·파티션 실행 모델·MemoryPack 직렬화·인메모리 루프백 전송)과 디스패치 소스 제너레이터·사용 규약 분석기를 한 번에 가져온다. 다른 축은 ChServerM.* 개별 패키지로 교체·추가한다.</Description>
+
+    <!-- 메타 패키지 — 실을 어셈블리가 없다. lib/ 없이 의존성만 담는다. -->
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+
+    <!-- lib/ 없는 의존성 전용 패키지는 의도다 — NU5128(TFM별 lib 부재) 억제. -->
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+
+    <!--
+      코드가 없으니 심볼도 없다. Server 공통 props 의 snupkg 설정을 끄지 않으면
+      빈 심볼 패키지가 NU5017 로 터진다 — 분석기 패키징과 같은 함정(e2d3d07).
+    -->
+    <IncludeSymbols>false</IncludeSymbols>
+  </PropertyGroup>
+
+  <!--
+    pack 이 ProjectReference 를 같은 버전(락스텝, ADR-0069)의 패키지 의존성으로
+    변환한다. 분석기 2종(SourceGen·Analyzers)도 일반 의존성으로 나른다 —
+    NuGet 은 의존 패키지의 analyzers/ 자산을 소비자까지 전파하므로,
+    메타 하나로 생성 코드 경로와 CHSM3xxx 진단이 함께 켜진다.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\ChServerM.Analyzers\ChServerM.Analyzers.csproj" />
+    <ProjectReference Include="..\ChServerM.Concurrency\ChServerM.Concurrency.csproj" />
+    <ProjectReference Include="..\ChServerM.Framing\ChServerM.Framing.csproj" />
+    <ProjectReference Include="..\ChServerM.Hosting\ChServerM.Hosting.csproj" />
+    <ProjectReference Include="..\ChServerM.Serialization.MemoryPack\ChServerM.Serialization.MemoryPack.csproj" />
+    <ProjectReference Include="..\ChServerM.SourceGen\ChServerM.SourceGen.csproj" />
+    <ProjectReference Include="..\ChServerM.Transport.InMemory\ChServerM.Transport.InMemory.csproj" />
+    <ProjectReference Include="..\ChServerM.Transport.Tcp\ChServerM.Transport.Tcp.csproj" />
+  </ItemGroup>
+
+  <!--
+    MemoryPack 어댑터의 ProjectReference 가 벤더 PackageReference 를 전이로 끌어와
+    pack 이 메타의 "직접 의존성"으로 올린다(nuspec 실측). 벤더 의존은 어댑터 패키지
+    (ChServerM.Serialization.MemoryPack)가 나르는 것이 격리 규약이므로 여기서 끊는다.
+  -->
+  <ItemGroup>
+    <PackageReference Include="MemoryPack" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>
