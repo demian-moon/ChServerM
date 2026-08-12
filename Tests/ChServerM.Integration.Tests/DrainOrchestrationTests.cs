@@ -53,14 +53,21 @@ public sealed class DrainOrchestrationTests
 
         DrainOptions options = new()
         {
-            ReadinessPropagationDelay = TimeSpan.FromMilliseconds(600),
+            // ⚠ 전파 창은 CI 러너 멈칫(수백 ms~수 초)보다 길어야 한다. 600ms 창 +
+            //   Task.Delay(200) 조합은 ubuntu 러너에서 대기가 창을 넘겨 깨어나
+            //   "듣고 있는 서버가 없다"로 실패했다(2026-08-12, 실행 31550966690).
+            //   이 테스트의 계약은 "창 안에서는 받는다"이지 창의 길이가 아니므로,
+            //   창을 늘리는 것은 검증 강도를 깎지 않는다 — 협상·idle 타임아웃 정비
+            //   (0da2dbe·136e66d)와 같은 원칙이다.
+            ReadinessPropagationDelay = TimeSpan.FromSeconds(4),
             ConnectionDrainTimeout = TimeSpan.FromSeconds(5),
         };
 
         ValueTask<DrainReport> draining = server.DrainAsync(options, CancellationToken.None);
 
         // 전파 대기가 도는 동안: 아직 수용한다. 로드밸런서가 아직 이쪽으로 보내고 있다.
-        await Task.Delay(200);
+        // 대기는 드레인 절차가 굴러가기 시작할 만큼만 — 길게 잘수록 전파 창 여유를 깎는다.
+        await Task.Delay(50);
 
         await using InMemoryClientTransport client = new(hub, null, new InMemoryTransportOptions());
         IConnection accepted = await client.ConnectAsync(endPoint, CancellationToken.None);
