@@ -535,7 +535,7 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 
 ## Phase 22 — 1.0 출시
 
-- [x] Native AOT 샘플 전체 검증 — 2026-08-12. 샘플 4종 전부 csproj 에 `PublishAot` 선언(eng/build.ps1 의 AOT 게이트가 자동 발견 — 전역 속성 전달은 NETSDK1207 함정) 후 publish(경고=오류) + 실행 자체 검증 통과. StatelessWeb(Kestrel h2c + Protobuf)도 첫 시도 통과. EchoServer `--serve` 에 SIGTERM 정상 종료 추가(PosixSignalRegistration — 없으면 K8s 롤링 업데이트마다 드레인 없이 즉사). 리눅스 쪽은 다음 원격 CI 실행이 확증한다(CI AOT 단계가 1개→4개로 늘어 잡 시간 증가)
+- [x] Native AOT 샘플 전체 검증 — 2026-08-12. 샘플 4종 전부 csproj 에 `PublishAot` 선언(eng/build.ps1 의 AOT 게이트가 자동 발견 — 전역 속성 전달은 NETSDK1207 함정) 후 publish(경고=오류) + 실행 자체 검증 통과. StatelessWeb(Kestrel h2c + Protobuf)도 첫 시도 통과. EchoServer `--serve` 에 SIGTERM 정상 종료 추가(PosixSignalRegistration — 없으면 K8s 롤링 업데이트마다 드레인 없이 즉사). **원격 CI 로 양 OS × 4종 확증 완료**(실행 31551677209 — ubuntu 도 linux-x64 publish + 실행 검증 완주. AOT 단계 1개→4개로 잡 +2~3분)
 - [ ] 컨테이너 이미지 + 배포 예제 (K8s 매니페스트) (진행 중: `deploy/echo-server/` — Dockerfile(SDK 태그를 global.json 피처 밴드에 고정, Native AOT + runtime-deps + 비루트, 콘텐츠 ~51MB) + 루트 `.dockerignore` + K8s Deployment/Service 매니페스트. 이미지 빌드→기동→외부 TCP 클라이언트 200회 왕복→`docker stop`(SIGTERM) 드레인 exit 0 까지 실증, 매니페스트는 kubeconform -strict 통과. **남은 것: 실클러스터 apply·rollout 검증** — 로컬 K8s 클러스터 부재로 미실증)
 - [ ] 전 Phase 게이트 재확인
 - [ ] 최종 보안 검토
