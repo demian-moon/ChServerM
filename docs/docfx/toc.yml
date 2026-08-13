@@ -1,2 +1,6 @@
+- name: 시작 가이드
+  href: guides/server.html
+- name: 클라이언트
+  href: guides/client.html
 - name: API 레퍼런스
   href: api/

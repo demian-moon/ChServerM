@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>ChServerM 조립 가이드</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* ── 팔레트: 쿨 페이퍼 + 코발트 액센트 + 앰버(기본 선택). 3-상태 테마. ── */
+  :root {
+    --ground: #F4F6F9;
+    --surface: #FFFFFF;
+    --surface-2: #EEF1F6;
+    --ink: #14171D;
+    --muted: #5B6472;
+    --faint: #8A93A2;
+    --line: #DBDFE7;
+    --line-strong: #C3C9D4;
+    --accent: #2E54D4;
+    --accent-soft: #E4EAFB;
+    --amber: #B4651A;
+    --amber-soft: #F7EAD6;
+    --good: #1E8E62;
+    --crit: #C13A3A;
+    --code-bg: #F1F3F8;
+    --shadow: 0 1px 2px rgba(20,23,29,.05), 0 6px 20px rgba(20,23,29,.05);
+    --spine: var(--line-strong);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0E1116;
+      --surface: #161A21;
+      --surface-2: #1C222B;
+      --ink: #E7EAF0;
+      --muted: #9BA4B3;
+      --faint: #6C7788;
+      --line: #262C36;
+      --line-strong: #333B48;
+      --accent: #6C8BFF;
+      --accent-soft: #1B2540;
+      --amber: #E2A24C;
+      --amber-soft: #33280F;
+      --good: #46B98A;
+      --crit: #E9736F;
+      --code-bg: #12161D;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 26px rgba(0,0,0,.35);
+      --spine: #39424F;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0E1116;
+    --surface: #161A21;
+    --surface-2: #1C222B;
+    --ink: #E7EAF0;
+    --muted: #9BA4B3;
+    --faint: #6C7788;
+    --line: #262C36;
+    --line-strong: #333B48;
+    --accent: #6C8BFF;
+    --accent-soft: #1B2540;
+    --amber: #E2A24C;
+    --amber-soft: #33280F;
+    --good: #46B98A;
+    --crit: #E9736F;
+    --code-bg: #12161D;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 26px rgba(0,0,0,.35);
+    --spine: #39424F;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Pretendard", "Pretendard Variable", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  .mono {
+    font-family: "Cascadia Code", "JetBrains Mono", ui-monospace, "SF Mono", "Consolas", "D2Coding", monospace;
+  }
+
+  .wrap { max-width: 940px; margin: 0 auto; padding: 0 22px; }
+  section { padding: 46px 0; border-top: 1px solid var(--line); }
+  section:first-of-type { border-top: none; }
+
+  .eyebrow {
+    font-family: "Cascadia Code", ui-monospace, "Consolas", monospace;
+    font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600; margin: 0 0 12px;
+  }
+  h1 { font-size: clamp(30px, 5.4vw, 46px); line-height: 1.08; letter-spacing: -.02em; margin: 0 0 18px; text-wrap: balance; font-weight: 800; }
+  h2 { font-size: clamp(21px, 3.4vw, 27px); line-height: 1.2; letter-spacing: -.01em; margin: 0 0 6px; text-wrap: balance; font-weight: 750; }
+  h3 { font-size: 16px; margin: 0 0 6px; font-weight: 700; }
+  p { margin: 0 0 14px; }
+  .lead { font-size: clamp(16px, 2.2vw, 19px); color: var(--muted); max-width: 62ch; }
+  .sub { color: var(--muted); max-width: 64ch; margin-bottom: 26px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code:not(pre code) {
+    font-family: "Cascadia Code", ui-monospace, "Consolas", monospace;
+    font-size: .88em; background: var(--code-bg); border: 1px solid var(--line);
+    padding: .08em .38em; border-radius: 5px; white-space: nowrap;
+  }
+  :focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+  /* ── Hero ── */
+  .hero { padding-top: 58px; padding-bottom: 40px; }
+  .hero .lead { margin-bottom: 20px; }
+  .thesis {
+    display: inline-flex; flex-wrap: wrap; gap: 10px 14px; align-items: baseline;
+    font-size: clamp(18px, 3vw, 24px); font-weight: 700; line-height: 1.35;
+  }
+  .thesis .strike { color: var(--faint); text-decoration: line-through; text-decoration-thickness: 2px; }
+  .thesis .keep { color: var(--accent); }
+  .metaline { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 8px 10px; }
+  .tag {
+    font-family: "Cascadia Code", ui-monospace, monospace; font-size: 12px;
+    padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line-strong);
+    color: var(--muted); background: var(--surface);
+  }
+  .tag b { color: var(--ink); font-weight: 700; }
+
+  /* ── 조립도 (핵심 다이어그램) ── */
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; font-size: 13px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .swatch { width: 14px; height: 14px; border-radius: 4px; flex: none; }
+  .sw-default { background: var(--amber); }
+  .sw-opt { background: var(--surface); border: 1.5px dashed var(--line-strong); }
+  .sw-pick { background: var(--accent); }
+
+  .stack { position: relative; margin-left: 8px; padding-left: 30px; }
+  .stack::before {
+    content: ""; position: absolute; left: 6px; top: 14px; bottom: 26px;
+    width: 2px; background: var(--spine); border-radius: 2px;
+  }
+  .node {
+    position: relative; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; box-shadow: var(--shadow);
+  }
+  .node::before {
+    content: ""; position: absolute; left: -30px; top: 22px; width: 22px; height: 2px; background: var(--spine);
+  }
+  .node::after {
+    content: ""; position: absolute; left: -33px; top: 18px; width: 9px; height: 9px;
+    border-radius: 50%; background: var(--surface); border: 2px solid var(--spine);
+  }
+  .node.cap { background: var(--ink); border-color: var(--ink); box-shadow: none; padding: 12px 16px; }
+  .node.cap .cap-t { color: var(--ground); font-weight: 700; }
+  .node.cap .cap-t .mono { color: var(--ground); }
+  .node.cap.start .cap-t small { color: var(--faint); }
+  .node.cap::after { background: var(--ink); border-color: var(--spine); }
+
+  .slot-top { display: flex; align-items: baseline; gap: 10px 12px; flex-wrap: wrap; margin-bottom: 4px; }
+  .slot-name { font-weight: 750; font-size: 15px; }
+  .slot-call { font-family: "Cascadia Code", ui-monospace, monospace; font-size: 12.5px; color: var(--accent); }
+  .slot-opt-tag {
+    font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700;
+    color: var(--amber); border: 1px solid var(--amber); border-radius: 5px; padding: 1px 6px;
+  }
+  .slot-q { color: var(--muted); font-size: 13.5px; margin-bottom: 11px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    font-family: "Cascadia Code", ui-monospace, monospace; font-size: 12.5px;
+    padding: 5px 11px; border-radius: 8px; border: 1px solid var(--line-strong);
+    background: var(--surface-2); color: var(--muted); white-space: nowrap;
+  }
+  .chip.def { background: var(--amber-soft); border-color: var(--amber); color: var(--amber); font-weight: 700; }
+  .chip.def::after { content: " · 기본"; font-weight: 600; }
+
+  /* ── 갈림길 (첫 결정) ── */
+  .fork { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .path {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    padding: 20px; box-shadow: var(--shadow); border-top: 3px solid var(--accent);
+  }
+  .path.b { border-top-color: var(--amber); }
+  .path h3 { font-family: "Cascadia Code", ui-monospace, monospace; font-size: 15px; margin-bottom: 4px; }
+  .path .who { color: var(--muted); font-size: 13.5px; margin-bottom: 14px; }
+  .path dl { display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; margin: 0; font-size: 13.5px; }
+  .path dt { color: var(--faint); font-weight: 600; }
+  .path dd { margin: 0; }
+  .fork-note { margin-top: 16px; font-size: 14px; color: var(--muted); background: var(--surface-2); border-radius: 10px; padding: 12px 15px; border: 1px solid var(--line); }
+
+  /* ── 5분 경로 (스텝) ── */
+  .steps { display: grid; gap: 14px; }
+  .step { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: start; }
+  .step-n {
+    font-family: "Cascadia Code", ui-monospace, monospace; font-weight: 700;
+    width: 34px; height: 34px; flex: none; display: grid; place-items: center;
+    border-radius: 9px; background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent);
+  }
+  .step-b { border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 14px 16px; }
+  .step-b h3 { margin-bottom: 3px; }
+  .step-b p { margin: 0; color: var(--muted); font-size: 14px; }
+
+  /* ── 코드 블록 ── */
+  pre {
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px 18px; overflow-x: auto; margin: 0; box-shadow: var(--shadow);
+  }
+  pre code { font-family: "Cascadia Code", ui-monospace, "Consolas", monospace; font-size: 13px; line-height: 1.75; color: var(--ink); }
+  .c-cm { color: var(--faint); }
+  .c-call { color: var(--accent); font-weight: 600; }
+  .c-def { color: var(--amber); }
+  .code-note { margin-top: 12px; font-size: 13.5px; color: var(--muted); }
+  .code-label { display: flex; align-items: center; gap: 9px; font-family: "Cascadia Code", ui-monospace, monospace; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin: 24px 0 9px; }
+  .code-label::before { content: ""; width: 9px; height: 9px; border-radius: 2px; background: var(--accent); flex: none; }
+  .code-label.client::before { background: var(--amber); }
+  .c-str { color: var(--good); }
+
+  /* ── 축별 선택 카드 ── */
+  .axis { margin-bottom: 30px; }
+  .axis:last-child { margin-bottom: 0; }
+  .axis-h { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+  .axis-h .n { font-family: "Cascadia Code", ui-monospace, monospace; font-size: 12px; color: var(--accent); font-weight: 700; }
+  .axis-h h3 { font-size: 18px; }
+  .axis > p.q { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 11px; padding: 14px 15px; position: relative;
+  }
+  .card.def { border-color: var(--amber); background: linear-gradient(0deg, var(--amber-soft), transparent 60%); }
+  .card .cn { font-family: "Cascadia Code", ui-monospace, monospace; font-size: 13px; font-weight: 700; margin-bottom: 5px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+  .card .badge { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; font-weight: 800; color: var(--amber); border: 1px solid var(--amber); border-radius: 5px; padding: 1px 5px; }
+  .card p { margin: 0; font-size: 13.5px; color: var(--muted); }
+  .cards.detailed { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  .card .adr { font-size: 10px; letter-spacing: .04em; color: var(--faint); border: 1px solid var(--line-strong); border-radius: 5px; padding: 1px 5px; font-weight: 600; }
+  .card p.pt, .card p.when { margin-top: 8px; font-size: 13px; color: var(--muted); }
+  .card p.pt { padding-top: 9px; border-top: 1px dashed var(--line); }
+  .card p b, .card p.pt b { color: var(--ink); font-weight: 700; }
+  .card .lbl { font-family: "Cascadia Code", ui-monospace, monospace; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; margin-right: 6px; }
+  .card p.pt .lbl { color: var(--accent); }
+  .card p.when { color: var(--faint); }
+  .card p.when .lbl { color: var(--muted); }
+  .subitems { display: grid; gap: 11px; margin-top: 6px; }
+  .subitems > div { font-size: 13px; color: var(--muted); }
+  .subitems .si { font-family: "Cascadia Code", ui-monospace, monospace; font-size: 12px; color: var(--ink); font-weight: 700; display: block; margin-bottom: 2px; }
+  .subitems b { color: var(--ink); font-weight: 700; }
+
+  /* ── 표 ── */
+  .tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 460px; background: var(--surface); }
+  th, td { text-align: left; padding: 12px 15px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  thead th { background: var(--surface-2); font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  tbody tr:last-child td { border-bottom: none; }
+  td .mono, th .mono { font-size: 12.5px; }
+
+  /* ── 막히면 (오류) ── */
+  .fixes { display: grid; gap: 10px; }
+  .fix { display: grid; grid-template-columns: 1fr; gap: 4px; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--crit); border-radius: 10px; padding: 13px 16px; }
+  .fix .sym { font-weight: 700; font-size: 14.5px; }
+  .fix .sol { font-size: 13.5px; color: var(--muted); }
+  .fix .sol b { color: var(--good); font-weight: 700; }
+
+  /* ── Footer ── */
+  footer { border-top: 1px solid var(--line); padding: 30px 0 50px; color: var(--muted); font-size: 13.5px; }
+  .flinks { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-bottom: 14px; }
+  .flinks a { font-family: "Cascadia Code", ui-monospace, monospace; font-size: 13px; }
+
+  /* ── 테마 토글 ── */
+  .toggle {
+    position: fixed; top: 14px; right: 14px; z-index: 10;
+    font-family: "Cascadia Code", ui-monospace, monospace; font-size: 12px;
+    background: var(--surface); color: var(--muted); border: 1px solid var(--line-strong);
+    border-radius: 999px; padding: 7px 13px; cursor: pointer; box-shadow: var(--shadow);
+  }
+  .toggle:hover { color: var(--ink); }
+
+  @media (max-width: 680px) {
+    .fork { grid-template-columns: 1fr; }
+    .stack { padding-left: 24px; }
+    .node::before { left: -24px; width: 16px; }
+    .node::after { left: -27px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<button class="toggle mono" id="themeToggle" aria-label="테마 전환">◐ 테마</button>
+
+<div class="wrap">
+
+  <section class="hero">
+    <p class="eyebrow">초보자용 시각 가이드 · GETTING-STARTED + CHOOSING-AXES</p>
+    <h1>ChServerM, 축을 골라 조립하는 서버</h1>
+    <p class="lead">완성된 서버가 아니라 <b>부품(축)을 끼워 맞춰 만드는 프레임워크</b>다.
+      전송·프레이밍·직렬화·실행 모델·세션을 각각 골라 <span class="mono">ServerBuilder</span> 에 꽂으면 서버가 된다.
+      이 페이지 하나로 <b>첫 서버를 띄우고</b>, <b>무엇을 언제 고를지</b> 결정할 수 있다.</p>
+    <div class="thesis">
+      <span class="strike">완성된 서버</span>
+      <span>→</span>
+      <span class="keep">축의 조합이 곧 서버다</span>
+    </div>
+    <div class="metaline">
+      <span class="tag"><b>.NET SDK 10</b> 준비물</span>
+      <span class="tag">메타 패키지 <b>ChServerM</b> 하나로 시작</span>
+      <span class="tag"><b>5분</b> 안에 에코 서버</span>
+    </div>
+  </section>
+
+  <!-- ─────────── 핵심 개념: 조립도 ─────────── -->
+  <section>
+    <p class="eyebrow">핵심 개념</p>
+    <h2>서버 하나 = 슬롯마다 부품 하나</h2>
+    <p class="sub">아래가 이 프레임워크의 전부다. 각 슬롯에서 부품을 하나씩 고르면 그게 서버가 된다.
+      부품을 바꾸는 비용은 대개 <span class="mono">.UseXxx()</span> 한 줄이다.</p>
+
+    <div class="legend" aria-hidden="true">
+      <span><i class="swatch sw-default"></i> 처음이라면 이걸 고른다(기본)</span>
+      <span><i class="swatch sw-pick"></i> 호출 지점</span>
+      <span><i class="swatch sw-opt"></i> 선택 슬롯(안 꽂아도 됨)</span>
+    </div>
+
+    <div class="stack">
+      <div class="node cap start">
+        <div class="cap-t"><span class="mono">new ServerBuilder()</span> &nbsp;<small>— 조립 시작</small></div>
+      </div>
+
+      <div class="node">
+        <div class="slot-top">
+          <span class="slot-name">전송 (Transport)</span>
+          <span class="slot-call mono">.UseTransport()</span>
+        </div>
+        <div class="slot-q">누가 접속해 오는가 — 바이트가 오가는 통로</div>
+        <div class="chips">
+          <span class="chip def mono">Transport.Tcp</span>
+          <span class="chip mono">Http/2</span>
+          <span class="chip mono">WebSocket</span>
+          <span class="chip mono">QUIC</span>
+          <span class="chip mono">InMemory</span>
+        </div>
+      </div>
+
+      <div class="node">
+        <div class="slot-top">
+          <span class="slot-name">프레이밍 (Framing)</span>
+          <span class="slot-call mono">.UseFraming()</span>
+        </div>
+        <div class="slot-q">바이트 스트림에서 메시지 경계를 어떻게 긋는가</div>
+        <div class="chips">
+          <span class="chip def mono">고정 헤더</span>
+          <span class="chip mono">MaxPayloadLength 만 정하면 됨</span>
+        </div>
+      </div>
+
+      <div class="node">
+        <div class="slot-top">
+          <span class="slot-name">직렬화 (Serialization)</span>
+          <span class="slot-call mono">MapGeneratedHandlers()</span>
+        </div>
+        <div class="slot-q">페이로드를 무엇으로 읽고 쓰는가</div>
+        <div class="chips">
+          <span class="chip def mono">MemoryPack</span>
+          <span class="chip mono">Protobuf</span>
+          <span class="chip mono">FlatBuffers</span>
+        </div>
+      </div>
+
+      <div class="node">
+        <div class="slot-top">
+          <span class="slot-name">실행 모델 (Execution)</span>
+          <span class="slot-call mono">.UseExecutionModel()</span>
+          <span class="slot-opt-tag">선택</span>
+        </div>
+        <div class="slot-q">같은 커넥션의 메시지 순서를 보장할 것인가</div>
+        <div class="chips">
+          <span class="chip def mono">Partitioned · 순서 보장</span>
+          <span class="chip mono">안 꽂으면 스레드풀 병렬</span>
+        </div>
+      </div>
+
+      <div class="node">
+        <div class="slot-top">
+          <span class="slot-name">세션 저장소 (Session)</span>
+          <span class="slot-call mono">Persistence.*</span>
+          <span class="slot-opt-tag">선택</span>
+        </div>
+        <div class="slot-q">커넥션 너머로 상태를 어디에 두는가</div>
+        <div class="chips">
+          <span class="chip def mono">InMemory</span>
+          <span class="chip mono">Redis</span>
+          <span class="chip mono">Postgres</span>
+        </div>
+      </div>
+
+      <div class="node cap">
+        <div class="cap-t"><span class="mono">.Build()</span> → 서버 완성 · 어긋난 조합은 이 시점에 거부된다</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────── 첫 결정 ─────────── -->
+  <section>
+    <p class="eyebrow">가장 먼저 정할 것</p>
+    <h2>커넥션에 “상태”가 있는가?</h2>
+    <p class="sub">이 한 가지가 나머지 선택의 절반을 결정한다. 둘 중 어느 쪽인지 먼저 고른다 —
+      <b>두 프로필 모두 같은 핸들러 코드로 돌아간다.</b></p>
+    <div class="fork">
+      <div class="path a">
+        <h3>realtime-stateful</h3>
+        <p class="who">게임·채팅처럼 서버가 먼저 말을 걸고, 연결이 계속 살아 있는 경우</p>
+        <dl>
+          <dt>커넥션</dt><dd>상시 연결 · 서버가 먼저 보냄(push)</dd>
+          <dt>실행</dt><dd><span class="mono">Partitioned</span> — 커넥션별 순차</dd>
+          <dt>순서</dt><dd>커넥션 단위로 보장됨</dd>
+          <dt>세션</dt><dd>인메모리 (커넥션 = 세션)</dd>
+          <dt>샘플</dt><dd class="mono">Samples/EchoServer</dd>
+        </dl>
+      </div>
+      <div class="path b">
+        <h3>stateless-web</h3>
+        <p class="who">요청-응답 API처럼 노드를 자유롭게 늘리고 줄이는 경우</p>
+        <dl>
+          <dt>커넥션</dt><dd>요청-응답 · 노드 교체 자유</dd>
+          <dt>실행</dt><dd><b>없음</b> — 스레드풀 병렬</dd>
+          <dt>순서</dt><dd>없음 (시퀀스로 응답 짝지음)</dd>
+          <dt>세션</dt><dd>외부화 (Redis/Postgres)</dd>
+          <dt>샘플</dt><dd class="mono">Samples/StatelessWeb</dd>
+        </dl>
+      </div>
+    </div>
+    <p class="fork-note">💡 중간 형태(일부 메시지만 순서 보장)도 같은 부품으로 조립된다. 한쪽만 도는 추상화는 추상화가 아니라는 게 이 프레임워크의 합격 기준이다.</p>
+  </section>
+
+  <!-- ─────────── 5분 경로 ─────────── -->
+  <section>
+    <p class="eyebrow">첫 실행 · 5분 경로</p>
+    <h2>샘플 실행 → 직접 조립 → 축 갈아끼우기</h2>
+    <p class="sub">순서대로 따라가면 된다. 1번은 저장소 클론이 필요하고, 2번부터는 nuget 패키지만으로 조립한다.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-n">1</div>
+        <div class="step-b">
+          <h3>동봉 샘플 실행 <span style="color:var(--faint);font-weight:400">· 1분</span></h3>
+          <p><span class="mono">dotnet run --project Samples/ChServerM.Samples.EchoServer -c Release</span> — 인자 없이 실행하면 같은 핸들러를 TCP·인메모리 양쪽에서 돌려 자체 검증하고 결과를 알려준다.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-n">2</div>
+        <div class="step-b">
+          <h3>최소 서버 직접 조립 <span style="color:var(--faint);font-weight:400">· 4분</span></h3>
+          <p><span class="mono">dotnet new console</span> 로 프로젝트를 만들고 <span class="mono">dotnet add package ChServerM</span> 하나면 이 가이드가 쓰는 축이 전부 들어온다. 아래 코드가 그 최소 서버다.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-n">3</div>
+        <div class="step-b">
+          <h3>축 갈아끼우기</h3>
+          <p>전송을 바꾸고, 순서 보장을 빼고, 타입 있는 메시지로 넘어간다 — 대부분 한 줄 교체다. 맨 아래 <b>갈아끼우기 표</b> 참고.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────── 최소 코드 ─────────── -->
+  <section>
+    <p class="eyebrow">최소 예제 · 서버 + 클라이언트</p>
+    <h2>받은 걸 그대로 돌려주는 에코 서버</h2>
+    <p class="sub"><b>서버와 클라이언트가 같은 프레이밍·디스패치를 쓴다</b> — 그게 이 프레임워크의 대칭이다.
+      조립도의 슬롯이 실제 코드에서 어떻게 채워지는지, 주석(<span class="c-cm mono">// …</span>)이 왜 그렇게 쓰는지 알려준다.</p>
+    <div class="code-label">서버 · Program.cs</div>
+<pre><code><span class="c-cm">// 프레이밍: 최대 페이로드는 기본값에 기대지 말고 워크로드에 맞게 명시한다.</span>
+<span class="c-def">const int</span> MaxPayload = 64 * 1024;
+FramingOptions framing = <span class="c-def">new</span>() { MaxPayloadLength = MaxPayload };
+FixedHeaderFrameEncoder encoder = <span class="c-def">new</span>(framing);
+
+<span class="c-cm">// 실행 모델: 같은 커넥션은 순차, 다른 커넥션끼리는 병렬.</span>
+<span class="c-def">await using</span> PartitionedExecutionModel executionModel = <span class="c-def">new</span>();
+
+<span class="c-def">await using</span> ChServerMServer server = <span class="c-def">new</span> ServerBuilder()
+    .<span class="c-call">UseTransport</span>(<span class="c-def">new</span> TcpServerTransport(endPoint, tcpOptions))  <span class="c-cm">// 전송</span>
+    .<span class="c-call">UseFraming</span>(<span class="c-def">new</span> FixedHeaderFrameDecoder(framing), encoder)      <span class="c-cm">// 프레이밍</span>
+    .<span class="c-call">UseExecutionModel</span>(executionModel)                            <span class="c-cm">// 순서 보장</span>
+    .<span class="c-call">ConfigureDispatcher</span>(d =&gt; d
+        <span class="c-cm">// 메시지 ID 1: 받은 페이로드를 그대로 돌려보낸다. (ID 0 은 예약 센티넬)</span>
+        .<span class="c-call">MapRaw</span>(<span class="c-def">new</span> MessageId(1), <span class="c-def">async</span> context =&gt;
+        {
+            <span class="c-def">await</span> FrameWriter.WriteFrameAsync(
+                context.Connection.Output, encoder,
+                context.Envelope.MessageId, context.Payload,
+                FrameFlags.None, context.Envelope.Sequence, context.CancellationToken);
+            <span class="c-def">return</span> DispatchStatus.Handled;
+        }))
+    .<span class="c-call">Build</span>();
+
+<span class="c-def">await</span> server.StartAsync();  <span class="c-cm">// 와이어 형식: [고정 헤더][페이로드]</span></code></pre>
+    <div class="code-label client">클라이언트 · 왕복 확인</div>
+<pre><code><span class="c-cm">// 클라이언트도 서버와 같은 프레이밍·인코더를 쓴다.</span>
+FramingOptions framing = <span class="c-def">new</span>() { MaxPayloadLength = 64 * 1024 };
+FixedHeaderFrameEncoder encoder = <span class="c-def">new</span>(framing);
+
+<span class="c-cm">// 응답을 받아 둘 곳 — 핸들러가 여기에 결과를 넣는다.</span>
+TaskCompletionSource&lt;byte[]&gt; echoed = <span class="c-def">new</span>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+<span class="c-def">await using</span> ChServerMClient client = <span class="c-def">new</span> ClientBuilder()
+    .<span class="c-call">UseTransport</span>(<span class="c-def">new</span> TcpClientTransport(tcpOptions))         <span class="c-cm">// 서버와 같은 버퍼 임계값</span>
+    .<span class="c-call">UseFraming</span>(<span class="c-def">new</span> FixedHeaderFrameDecoder(framing), encoder)
+    .<span class="c-call">ConfigureDispatcher</span>(d =&gt; d
+        .<span class="c-call">MapRaw</span>(<span class="c-def">new</span> MessageId(1), context =&gt;
+        {
+            <span class="c-cm">// Payload 는 핸들러가 반환하면 무효 — await 너머로 들고 가려면 복사한다.</span>
+            echoed.<span class="c-call">TrySetResult</span>(context.Payload.<span class="c-call">ToArray</span>());
+            <span class="c-def">return new</span> ValueTask&lt;DispatchStatus&gt;(DispatchStatus.Handled);
+        }))
+    .<span class="c-call">Build</span>();
+
+<span class="c-cm">// 접속 → 메시지 1개 전송 → 에코 수신.</span>
+ClientSession session = <span class="c-def">await</span> client.<span class="c-call">ConnectAsync</span>(<span class="c-def">new</span> IPEndPoint(IPAddress.Loopback, 5000));
+
+<span class="c-def">await</span> FrameWriter.<span class="c-call">WriteFrameAsync</span>(
+    session.Connection.Output, encoder, <span class="c-def">new</span> MessageId(1),
+    <span class="c-str">"안녕, ChServerM"</span>u8, FrameFlags.None, sequence: 0, session.Connection.ConnectionClosed);
+
+Console.<span class="c-call">WriteLine</span>($"에코: {Encoding.UTF8.<span class="c-call">GetString</span>(<span class="c-def">await</span> echoed.Task)}");  <span class="c-cm">// → 에코: 안녕, ChServerM</span>
+
+<span class="c-def">await</span> session.Connection.<span class="c-call">DisposeAsync</span>();</code></pre>
+    <p class="code-note"><span class="mono">에코: 안녕, ChServerM</span> 이 찍히면 왕복이 완성된 것이다.
+      서버·클라이언트가 <b>같은 <span class="mono">MessageId(1)</span> · 같은 프레이밍</b>으로 짝을 이룬다.
+      전체 <span class="mono">using</span> 목록과 설명은 <span class="mono">docs/GETTING-STARTED.md</span> 에 있다.</p>
+  </section>
+
+  <!-- ─────────── 축별 선택 카드 ─────────── -->
+  <section>
+    <p class="eyebrow">무엇을 언제 꽂는가</p>
+    <h2>축별 선택 가이드</h2>
+    <p class="sub">처음이라면 <span style="color:var(--amber);font-weight:700">기본</span> 표시를 고르면 된다.
+      바꿀 이유가 생겼을 때 아래 “고르는 경우”를 본다.</p>
+
+    <div class="axis">
+      <div class="axis-h"><span class="n mono">01</span><h3>전송 — 누가 접속해 오는가</h3></div>
+      <p class="q">전송이 무엇이든 프레이밍·직렬화·핸들러는 그대로다. 바꾸는 비용은 한 줄.</p>
+      <div class="cards">
+        <div class="card def"><div class="cn mono">Transport.Tcp <span class="badge">기본</span></div><p>자체 클라이언트를 가진 상시 연결. 지연 바닥이 가장 낮다.</p></div>
+        <div class="card"><div class="cn mono">Transport.Http/2</div><p>LB·프록시·인그레스 등 웹 인프라를 거쳐야 할 때. 고동시성에선 다중화가 TCP를 5.9배 역전.</p></div>
+        <div class="card"><div class="cn mono">Transport.WebSocket</div><p>브라우저 클라이언트. 메시지 경계는 프레이밍 축이 긋는다.</p></div>
+        <div class="card"><div class="cn mono">Transport.Quic</div><p>헤드오브라인 블로킹 회피, 0-RTT 재접속. TLS 필수(리눅스는 msquic).</p></div>
+        <div class="card"><div class="cn mono">Transport.InMemory</div><p>테스트·프로세스 내 조립 검증. 소켓 없이 전체 파이프라인이 돈다.</p></div>
+      </div>
+    </div>
+
+    <div class="axis">
+      <div class="axis-h"><span class="n mono">02</span><h3>직렬화 — 페이로드를 무엇으로</h3></div>
+      <div class="cards">
+        <div class="card def"><div class="cn mono">MemoryPack <span class="badge">기본</span></div><p>C# ↔ C#. zero-encoding, 소스 생성으로 가장 빠르다.</p></div>
+        <div class="card"><div class="cn mono">Protobuf</div><p>크로스 언어 상호운용, 스키마 진화(모르는 필드 보존).</p></div>
+        <div class="card"><div class="cn mono">FlatBuffers</div><p>역직렬화 없이 큰 메시지에서 일부 필드만 랜덤 접근.</p></div>
+      </div>
+    </div>
+
+    <div class="axis">
+      <div class="axis-h"><span class="n mono">03</span><h3>실행 모델 — 순서가 필요한가</h3></div>
+      <div class="cards">
+        <div class="card def"><div class="cn mono">Partitioned <span class="badge">순서 보장</span></div><p>커넥션 ID 해시로 파티션 고정 → 같은 커넥션은 순차, 다른 커넥션은 병렬. 파티션 안엔 락도 없다.</p></div>
+        <div class="card"><div class="cn mono">(안 꽂음)</div><p>스레드풀 병렬. 응답 순서가 섞이므로 클라이언트가 시퀀스로 짝짓는다.</p></div>
+      </div>
+      <p class="q" style="margin-top:12px">⚠ 룸 축(<span class="mono">RealTime.Rooms</span>)은 파티션 실행 모델을 전제한다 — 무상태 프로필과 룸은 조합하지 않는다.</p>
+    </div>
+
+    <div class="axis">
+      <div class="axis-h"><span class="n mono">04</span><h3>세션 저장소 — 상태를 어디에</h3></div>
+      <div class="cards">
+        <div class="card def"><div class="cn mono">InMemory <span class="badge">기본</span></div><p>단일 노드, 커넥션 = 세션 수명. 상태 유지 프로필의 기본.</p></div>
+        <div class="card"><div class="cn mono">Redis</div><p>다중 노드 무상태 프로필. Redis Cluster 지원.</p></div>
+        <div class="card"><div class="cn mono">Postgres</div><p>세션이 곧 영속 데이터(재시작 생존)이거나 이미 PostgreSQL 을 운영할 때.</p></div>
+      </div>
+    </div>
+
+    <div class="axis">
+      <div class="axis-h"><span class="n mono">05</span><h3>횡단 축 — 필요할 때만 꽂는다</h3></div>
+      <p class="q">코어 로직을 오염시키지 않고 데코레이터·미들웨어로 감싸는 관심사들. 안 꽂으면 없는 셈이다.</p>
+      <div class="cards detailed">
+        <div class="card">
+          <div class="cn mono">Compression.LZ4 <span class="adr">ADR-0019</span></div>
+          <p>페이로드를 LZ4 블록으로 압축·해제하는 코덱. 압축률보다 <b>속도(GB/s급)</b>를 택하는 알고리즘이라 압축 레벨은 FAST 고정 — HC 레벨은 실시간 경로엔 수십 배 느리다.</p>
+          <p class="pt"><span class="lbl">핵심</span> 와이어 형식이 <span class="mono">[원본 길이 4B][블록]</span> — 길이가 앞에 있어 <b>버퍼를 잡기 전에 해제 상한을 검사</b>한다(압축 폭탄 방어). 무상태라 전 커넥션이 공유하고 힙 할당 0.</p>
+          <p class="when"><span class="lbl">언제</span> 페이로드가 크고 반복적일 때</p>
+        </div>
+        <div class="card">
+          <div class="cn mono">Security.Tls <span class="adr">ADR-0017</span></div>
+          <p>커넥션 파이프를 감싸는 <b>전송 중립 TLS 데코레이터</b>. TCP·WebSocket 등 어느 전송에나 그대로 끼운다(QUIC은 프로토콜 자체가 TLS). 기본은 TLS 1.3 전용.</p>
+          <p class="pt"><span class="lbl">핵심</span> 클라이언트 인증서 검증 기본값이 <b>전체 체인 + 호스트명 검증</b>이다(accept-all 아님). 핸드셰이크 실패는 예외가 아니라 <b>상태</b> — 폭주를 공격 신호로 관측한다.</p>
+          <p class="when"><span class="lbl">언제</span> 공인망을 지날 때</p>
+        </div>
+        <div class="card">
+          <div class="cn mono">Security.AspNetIdentity <span class="adr">ADR-0018</span></div>
+          <p>인증·인가 축. 비밀번호는 ASP.NET Core의 <b>PBKDF2 v3(반복 60만)</b> 해셔에 위임하고 레거시 해시 형식과 호환된다. 실제 검사는 Hosting 미들웨어 2종이 한다.</p>
+          <p class="pt"><span class="lbl">핵심</span> 인증·인가 미들웨어는 <b>라우팅보다 앞</b>에 강제된다 — 순서가 뒤집히면 모르는 메시지 ID를 던지는 것만으로 인증을 우회한다. 위반 조립은 <span class="mono">Build()</span> 예외.</p>
+          <p class="when"><span class="lbl">언제</span> 사용자 신원이 필요할 때</p>
+        </div>
+        <div class="card">
+          <div class="cn mono">Observability <span class="adr">ADR-0020</span></div>
+          <p><span class="mono">System.Diagnostics.Metrics</span>(BCL 표준) 기반 메트릭 싱크. <span class="mono">dotnet-counters</span> 가 즉시 읽고, OpenTelemetry·Prometheus 는 이 Meter 를 <b>구독</b>하는 배선만 얹으면 된다. <span class="mono">Diagnostics.Http</span> 는 <span class="mono">/healthz·/readyz</span> 프로브를 연다.</p>
+          <p class="pt"><span class="lbl">핵심</span> 익스포터를 안 붙이면 거의 무비용(Enabled 검사만). <b>큐 깊이·드롭 수</b>를 노출한다 — 조용한 유실은 관측되지 않으면 없는 것과 같다.</p>
+          <p class="when"><span class="lbl">언제</span> 프로덕션이면 항상</p>
+        </div>
+        <div class="card">
+          <div class="cn mono">DataTable <span class="adr">ADR-0043</span></div>
+          <p>밸런스 표·요금표 같은 정적 CSV 를 <b>기동 시 한 번 읽고</b> 이후엔 조회만 하는 강타입 테이블. 스키마와 접근자를 <b>한 선언에서 소스 생성</b>한다(선언 오류는 CHSM2xxx 가 컴파일 타임에 잡음).</p>
+          <p class="pt"><span class="lbl">핵심</span> 값이 <b>파싱된 채</b> 서수로 조회된다 — 조회마다 <span class="mono">int.Parse</span> 없이 컬처에도 안 흔들린다. 데이터 오류는 전부 <b>로딩 시점에 전수 검증</b>돼 조회는 실패하지 않는 게 계약. 파일 변경 시 리로드 가능.</p>
+          <p class="when"><span class="lbl">언제</span> 밸런스·룰 표를 코드에서 안전하게</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="axis">
+      <div class="axis-h"><span class="n mono">06</span><h3>실시간 프리미티브 — 선택 축 (전부 빼도 성립)</h3></div>
+      <p class="q">셋은 서로를 참조하지 않는다 — 룸만, 공간만, 틱만 따로 쓸 수 있다. 전부 빼도 프레임워크는 성립한다.</p>
+      <div class="cards detailed">
+        <div class="card">
+          <div class="cn mono">RealTime</div>
+          <p>세 가지 시간 프리미티브를 담은 어셈블리:</p>
+          <div class="subitems">
+            <div><span class="si">틱 루프 · TickLoop</span> 전용 스레드 하나가 고정 간격으로 핸들러 호출. <b>절대 스케줄로 드리프트 보정</b>(n번째 마감 = 원점 + n×간격) — 상대 스케줄이면 오차가 누적돼 한 시간이면 초 단위로 밀린다. 밀린 틱은 상한까지 캐치업 후 건너뛰고 관측한다(죽음의 나선 방지).</div>
+            <div><span class="si">타이밍 휠 · TimerWheel</span> 만료 타이머 <b>수만 개를 삽입 O(1)·진행 O(1)</b> 로 관리하는 계층적 휠(Kafka·Netty 계열). 커넥션마다 타이머를 만드는 대신 휠 하나로 통합한다.</div>
+            <div><span class="si">시간 동기화 · RemoteClock</span> 드문 서버 시각 표본 사이를 로컬 단조 시계로 <b>외삽</b>. 출력은 <b>절대 뒤로 가지 않는다</b> — 시계 역행을 게임 로직에 노출하지 않는다.</div>
+          </div>
+          <p class="when"><span class="lbl">언제</span> 고정 주기 시뮬레이션 · 대량 타이머 · 클라이언트 시간 정렬</p>
+        </div>
+        <div class="card">
+          <div class="cn mono">RealTime.Rooms <span class="adr">ADR-0064</span></div>
+          <p>룸 멤버십 + <b>1회 인코딩 브로드캐스트</b>. 같은 페이로드를 N 명에게 보낼 때 직렬화·헤더 인코딩을 <b>딱 한 번</b>만 하고 참조 계수 프레임을 공유한다 — 멤버당 비용은 파이프로의 바이트 복사뿐이다.</p>
+          <p class="pt"><span class="lbl">핵심</span> 멤버당 <b>~400ns · 0 B</b>(정상 상태 브로드캐스트당 할당 0). 브로드캐스트 프레임 시퀀스는 0이라(헤더 공유) 커넥션별 일련번호가 필요한 메시지는 대상이 아니다. <b>파티션 실행 모델을 전제</b>한다 — 무상태 프로필과는 조합하지 않는다.</p>
+          <p class="when"><span class="lbl">언제</span> 채팅·게임 룸, 관전, 존 방송</p>
+        </div>
+        <div class="card">
+          <div class="cn mono">RealTime.Spatial <span class="adr">ADR-0065</span></div>
+          <p><b>관심 영역(AOI)</b> 균일 그리드. "내 주변 엔티티"를 전수 순회 O(전체) 대신 겹치는 셀만 본다 — 삽입·이동·제거 O(1), 셀 키는 <b>모튼(Z-order) 코드</b>. 여기에 집합 차분(입장/퇴장 판정)과 무할당 <b>SAT 충돌 판정</b>(OBB·AABB)이 더해진다.</p>
+          <p class="pt"><span class="lbl">핵심</span> 범위 밖 좌표는 가장자리 셀로 클램프하되 진짜 위치는 따로 보관한다(셀은 후보 축소 수단이지 정답이 아님). 존 하나 = 파티션이라 락도 <span class="mono">Concurrent*</span> 도 없고, 이동·질의의 정상 상태 할당이 0.</p>
+          <p class="when"><span class="lbl">언제</span> 대규모 공간, 시야·근접 판정, 브로드캐스트 대상 필터링</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────── 갈아끼우기 표 ─────────── -->
+  <section>
+    <p class="eyebrow">3단계 · 다음</p>
+    <h2>축 갈아끼우기 — 대부분 한 줄</h2>
+    <p class="sub">위 최소 서버에서 바꿀 수 있는 것들이 곧 프레임워크의 표면이다.</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>바꾸고 싶은 것</th><th>방법</th><th>참조 샘플</th></tr></thead>
+        <tbody>
+          <tr><td>전송 (TCP → HTTP/2·WebSocket·QUIC·인메모리)</td><td><span class="mono">UseTransport(...)</span> 한 줄</td><td class="mono">StatelessWeb</td></tr>
+          <tr><td>순서 보장 없이 병렬로 (무상태 웹)</td><td><span class="mono">UseExecutionModel</span> 을 빼기</td><td class="mono">StatelessWeb</td></tr>
+          <tr><td>타입 있는 메시지 + 직렬화</td><td><span class="mono">[MessageHandler]</span> 선언 + <span class="mono">MapGeneratedHandlers</span></td><td class="mono">EchoServer · StatelessWeb</td></tr>
+          <tr><td>룸 입장·브로드캐스트 (게임·채팅)</td><td><span class="mono">RealTime.Rooms</span> 선택 축</td><td class="mono">GameRoom</td></tr>
+          <tr><td>TLS</td><td><span class="mono">.UseTransportSecurity(...)</span></td><td class="mono">Security.Tls.Tests</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ─────────── 막히면 ─────────── -->
+  <section>
+    <p class="eyebrow">막히면</p>
+    <h2>초보자가 자주 만나는 벽</h2>
+    <p class="sub">대부분 <b>런타임 교착 대신 시작 시점에 실패</b>하도록 설계돼 있다 — 에러가 곧 안내다.</p>
+    <div class="fixes">
+      <div class="fix"><span class="sym"><span class="mono">Build()</span> 가 조립을 거부하는 예외</span><span class="sol">최대 프레임 &gt; 전송 버퍼 한계. <b>예외 메시지의 두 수치를 맞춘다</b> — 이 조합은 런타임이면 조용한 교착이었다.</span></div>
+      <div class="fix"><span class="sym">핸들러 등록이 거부됨</span><span class="sol"><span class="mono">MessageId(0)</span> 은 ‘설정되지 않음’ 센티넬. <b>1 이상을 쓴다</b> (앱 대역 1~40000).</span></div>
+      <div class="fix"><span class="sym">빌드 오류 <span class="mono">CHSM1xxx / CHSM2xxx</span></span><span class="sol">소스 제너레이터가 선언 오류를 컴파일 타임에 잡은 것. <b>DIAGNOSTICS.md 의 표에서 ID를 찾는다.</b></span></div>
+      <div class="fix"><span class="sym">페이로드가 깨져 읽힘</span><span class="sol"><span class="mono">Payload</span> 를 <span class="mono">await</span> 너머로 들고 갔다. <b>핸들러 반환 전에 역직렬화하거나 복사한다</b> (<span class="mono">.ToArray()</span>).</span></div>
+      <div class="fix"><span class="sym">SDK 버전 불일치로 빌드 실패</span><span class="sol"><span class="mono">global.json</span> 고정과 로컬 SDK 드리프트. <b>요구하는 10.0.2xx 를 설치한다.</b></span></div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="flinks">
+      <a href="client.html">클라이언트 가이드 ↗</a>
+      <a href="https://demian-moon.github.io/ChServerM/">API 레퍼런스 ↗</a>
+      <a href="https://www.nuget.org/packages/ChServerM">nuget.org ↗</a>
+      <span class="mono" style="color:var(--faint)">docs/GETTING-STARTED.md</span>
+      <span class="mono" style="color:var(--faint)">docs/GUIDE-CHOOSING-AXES.md</span>
+    </div>
+    <p style="margin:0">이 페이지는 GETTING-STARTED 와 축 선택 가이드를 초보자용으로 요약한 것이다.
+      정본과 각 결정의 근거(ADR)는 저장소 <span class="mono">docs/</span> 에 있다.</p>
+  </footer>
+
+</div>
+
+<script>
+  (function () {
+    var btn = document.getElementById('themeToggle');
+    var root = document.documentElement;
+    btn.addEventListener('click', function () {
+      var cur = root.getAttribute('data-theme');
+      if (!cur) {
+        // 현재 시스템 상태를 읽어 반대로 첫 전환
+        cur = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      root.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+    });
+  })();
+</script>
+</body>
+</html>

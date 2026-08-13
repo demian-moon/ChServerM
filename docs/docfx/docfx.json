@@ -25,7 +25,9 @@
       { "files": [ "api/**.yml", "api/index.md" ] },
       { "files": [ "toc.yml", "index.md" ] }
     ],
-    "resource": [],
+    "resource": [
+      { "files": [ "guides/**" ] }
+    ],
     "output": "_site",
     "template": [ "default", "modern" ],
     "globalMetadata": {
