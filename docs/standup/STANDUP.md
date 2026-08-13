@@ -1,6 +1,6 @@
 # ChServerM — 현재 상태
 
-**최종 갱신**: 2026-08-13 (공개 API 문서 발행 반영)
+**최종 갱신**: 2026-08-13 (시각 가이드 문서 사이트 통합 반영)
 **현재 단계**: **v0.1.0 발행 완료 · Phase 22 (1.0 출시 준비)** — 최종 보안 검토 통과 · 확장성 게이트 재검증 통과 · **🟢 CI 초록**
 
 ## 완료된 것
@@ -14,7 +14,8 @@
   ⭐ **최종 보안 검토 통과**(Phase 10~22 283파일/~29k 삽입, 신규 취약점 0건) ·
   ⭐ **확장성 게이트 재검증 통과**(16코어 14.90×/효율 93.1%, 08-07 기준선 유지) ·
   **부분 soak 11h48m 통과**(2026-08-13, 슬롯 0 드레인 + 메모리 평탄, exit 0) ·
-  ⭐ **공개 API 문서 발행**(DocFX → GitHub Pages, https://demian-moon.github.io/ChServerM/)
+  ⭐ **공개 API 문서 발행**(DocFX → GitHub Pages, https://demian-moon.github.io/ChServerM/) ·
+  ⭐ **초보자용 시각 가이드 2종**(서버·클라이언트, 문서 사이트 `/guides/` 통합·라이브)
 
 ## 진행 중
 
@@ -50,9 +51,10 @@
 
 ## 참조
 
-- 상세 이력: `docs/standup/history/` (08-12 7세션 · 08-13 soak+문서발행)
+- 상세 이력: `docs/standup/history/` (08-12 7세션 · 08-13 soak+문서발행+시각가이드)
 - 계획: `docs/ROADMAP.md` · 결정: `docs/DECISIONS.md` (ADR-0073 까지) · 측정: `docs/BENCHMARKS.md` (2026-08-12 확장성 재검증)
 - 발행: https://www.nuget.org/profiles/whoomch ·
   릴리스: https://github.com/demian-moon/ChServerM/releases/tag/v0.1.0 ·
-  **API 문서**: https://demian-moon.github.io/ChServerM/
+  **API 문서**: https://demian-moon.github.io/ChServerM/ ·
+  **시각 가이드**: `/guides/server.html` · `/guides/client.html`
 - 버전·릴리스: `docs/VERSIONING.md` · 보안: `SECURITY.md` · 배포: `deploy/README.md`
