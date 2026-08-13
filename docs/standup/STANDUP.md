@@ -1,6 +1,6 @@
 # ChServerM — 현재 상태
 
-**최종 갱신**: 2026-08-13 (soak 부분 통과 반영)
+**최종 갱신**: 2026-08-13 (공개 API 문서 발행 반영)
 **현재 단계**: **v0.1.0 발행 완료 · Phase 22 (1.0 출시 준비)** — 최종 보안 검토 통과 · 확장성 게이트 재검증 통과 · **🟢 CI 초록**
 
 ## 완료된 것
@@ -13,7 +13,8 @@
 - **Phase 22 진행** — AOT 4종 · 컨테이너/K8s · 문서 전체 검토(링크 0건) ·
   ⭐ **최종 보안 검토 통과**(Phase 10~22 283파일/~29k 삽입, 신규 취약점 0건) ·
   ⭐ **확장성 게이트 재검증 통과**(16코어 14.90×/효율 93.1%, 08-07 기준선 유지) ·
-  **부분 soak 11h48m 통과**(2026-08-13, 슬롯 0 드레인 + 메모리 평탄, exit 0)
+  **부분 soak 11h48m 통과**(2026-08-13, 슬롯 0 드레인 + 메모리 평탄, exit 0) ·
+  ⭐ **공개 API 문서 발행**(DocFX → GitHub Pages, https://demian-moon.github.io/ChServerM/)
 
 ## 진행 중
 
@@ -44,12 +45,14 @@
   **Docker Desktop 미실행 확인(2026-08-12)** · K8s 비활성
 - **⚠ 작업 규약 메모** — 한글 파일 기계 치환은 Edit 도구로(PS 5.1 인코딩이 UTF-8 을 파괴한
   사고 이력) · PS 5.1 커밋 메시지는 `-F` 파일로(따옴표 인자 경계 파손) ·
-  **게이트 도구는 exit 0 ≠ 통과, 산출물(배수 표·측정 JSON)로 확인**
+  **게이트 도구는 exit 0 ≠ 통과, 산출물(배수 표·측정 JSON)로 확인** ·
+  **`.gitignore` 는 CP949 인코딩 — Edit 로 건드리지 말 것**(생성물 폴더 내 authored 파일은 `git add -f`)
 
 ## 참조
 
-- 상세 이력: `docs/standup/history/` (08-12 는 7세션)
+- 상세 이력: `docs/standup/history/` (08-12 7세션 · 08-13 soak+문서발행)
 - 계획: `docs/ROADMAP.md` · 결정: `docs/DECISIONS.md` (ADR-0073 까지) · 측정: `docs/BENCHMARKS.md` (2026-08-12 확장성 재검증)
 - 발행: https://www.nuget.org/profiles/whoomch ·
-  릴리스: https://github.com/demian-moon/ChServerM/releases/tag/v0.1.0
+  릴리스: https://github.com/demian-moon/ChServerM/releases/tag/v0.1.0 ·
+  **API 문서**: https://demian-moon.github.io/ChServerM/
 - 버전·릴리스: `docs/VERSIONING.md` · 보안: `SECURITY.md` · 배포: `deploy/README.md`
