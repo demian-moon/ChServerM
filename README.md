@@ -17,6 +17,7 @@ await using ChServerMServer server = new ServerBuilder()
 
 > **상태: 0.x 프리릴리스** — [nuget.org 에 발행됨](https://www.nuget.org/packages/ChServerM).
 > 공개 API 는 아직 동결 전이다(SemVer 0.x — [VERSIONING](docs/VERSIONING.md)).
+> **API 레퍼런스**: <https://demian-moon.github.io/ChServerM/> — 소스 XML 주석에서 생성.
 
 ## 특성 — 전부 실측으로 방어한다
 

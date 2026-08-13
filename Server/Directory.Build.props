@@ -60,7 +60,8 @@
     <Copyright>Copyright 2026 The ChServerM Authors</Copyright>
     <RepositoryUrl>https://github.com/demian-moon/ChServerM</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageProjectUrl>https://github.com/demian-moon/ChServerM</PackageProjectUrl>
+    <!-- Project website = 공개 API 문서(DocFX → GitHub Pages). 소스 저장소는 RepositoryUrl 이 따로 가리킨다. -->
+    <PackageProjectUrl>https://demian-moon.github.io/ChServerM/</PackageProjectUrl>
     <!-- SDK 내장 SourceLink 가 RepositoryUrl·커밋을 심는다. 심볼은 snupkg 로 분리 발행. -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <IncludeSymbols>true</IncludeSymbols>
