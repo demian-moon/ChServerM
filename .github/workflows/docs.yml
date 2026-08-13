@@ -1,0 +1,82 @@
+name: Docs
+
+# API 참조(DocFX)를 GitHub Pages 로 발행한다.
+# 문서는 소스의 XML 주석에서 생성되므로, 코드(Server/**)나 DocFX 설정(docs/docfx/**)이
+# 바뀔 때만 재발행한다 — 무관한 커밋(standup 문서 등)에 몇 분짜리 빌드를 낭비하지 않는다.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Server/**'
+      - 'docs/docfx/**'
+      - '.github/workflows/docs.yml'
+      - 'global.json'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+  workflow_dispatch:
+
+# Pages 발행에 필요한 최소 권한. contents 는 checkout 용 read 만.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 진행 중인 배포는 취소하지 않는다(반쯤 올라간 사이트를 남기지 않기 위해).
+# 대신 같은 그룹의 새 실행이 뒤에서 기다린다 — Pages 배포의 표준 패턴.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: DocFX 빌드
+    runs-on: ubuntu-latest
+    # FlatSharp.Compiler 는 net9 도구라, metadata 빌드가 FlatBuffers 어셈블리를 로드할 때
+    # net9 런타임을 찾는다. 러너에 없을 경우를 대비해 상위 메이저로 롤포워드한다
+    # (eng/scaling-gate.ps1 이 같은 이유로 쓰는 장치).
+    env:
+      DOTNET_ROLL_FORWARD: LatestMajor
+    steps:
+      - uses: actions/checkout@v5
+
+      # dotnet-version 을 적지 않는다. global.json 을 읽게 해 로컬·CI 가 같은 SDK 를 쓴다.
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-docs-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-docs-
+
+      # DocFX metadata 는 MSBuild 로 프로젝트를 로드하므로 복원이 선행돼야 한다.
+      - name: Restore
+        run: dotnet restore ChServerM.slnx
+
+      # 로컬 도구(.config/dotnet-tools.json 의 docfx 2.78.5).
+      - name: Restore tools
+        run: dotnet tool restore
+
+      # metadata(XML 주석 → api/*.yml) + 사이트 빌드. 산출물은 docs/docfx/_site.
+      - name: Build API docs
+        run: dotnet docfx docs/docfx/docfx.json
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/docfx/_site
+
+  deploy:
+    name: Pages 배포
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
