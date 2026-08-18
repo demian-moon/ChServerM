@@ -538,6 +538,19 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
 - [x] Native AOT 샘플 전체 검증 — 2026-08-12. 샘플 4종 전부 csproj 에 `PublishAot` 선언(eng/build.ps1 의 AOT 게이트가 자동 발견 — 전역 속성 전달은 NETSDK1207 함정) 후 publish(경고=오류) + 실행 자체 검증 통과. StatelessWeb(Kestrel h2c + Protobuf)도 첫 시도 통과. EchoServer `--serve` 에 SIGTERM 정상 종료 추가(PosixSignalRegistration — 없으면 K8s 롤링 업데이트마다 드레인 없이 즉사). **원격 CI 로 양 OS × 4종 확증 완료**(실행 31551677209 — ubuntu 도 linux-x64 publish + 실행 검증 완주. AOT 단계 1개→4개로 잡 +2~3분)
 - [ ] 컨테이너 이미지 + 배포 예제 (K8s 매니페스트) (진행 중: `deploy/echo-server/` — Dockerfile(SDK 태그를 global.json 피처 밴드에 고정, Native AOT + runtime-deps + 비루트, 콘텐츠 ~51MB) + 루트 `.dockerignore` + K8s Deployment/Service 매니페스트. 이미지 빌드→기동→외부 TCP 클라이언트 200회 왕복→`docker stop`(SIGTERM) 드레인 exit 0 까지 실증, 매니페스트는 kubeconform -strict 통과. **남은 것: 실클러스터 apply·rollout 검증** — 로컬 K8s 클러스터 부재로 미실증)
 - [ ] 전 Phase 게이트 재확인 (진행 중: 2026-08-12 1차 재점검 — **게이트 13개(Phase 0~12) 중 11개 현행 증거로 충족**(CI 3잡 초록 + AOT 4종 양 OS + RS0016 음성 테스트 + 상시 스위트 + BENCHMARKS 기준선 2026-08-08). **② 확장성 5지점 곡선 2026-08-12 완료** — Docker 미실행·ENV-B 정합 확인 후 `eng/scaling-gate.ps1` 전체 곡선 통과(1·2·4·8·16코어 전부 하한 이상, 16코어 14.90×/효율 93.1%, 08-07 기준선 14.67× 유지·소폭 상회). 게이트 도구 함정 1건 수정·푸시(`f7c508b` — 어피니티가 빌드까지 1코어에 묶어 BDN 클린 빌드가 기본 2분 타임아웃에 죽던 거짓 통과, `--buildTimeout 900` 으로 해소). **① 부분 soak 2026-08-13 통과** — 11h48m 연속 churn(`CHSM_SOAK_SECONDS≈42.5k`, InMemory, 세션 독립 프로세스)에서 커넥션 슬롯 0 드레인 + 메모리 임계 내 평탄, `dotnet test` exit 0(1/1). **잔여 = 정식 24h 판**(`=86400`) — 부분 통과로 크게 de-risk 됐으나 게이트 형식 요건은 완전 24h(수치는 통과 시 억제돼 미포착 — 정식 판은 상세 로거로). 상세 표는 standup history 2026-08-12·13)
+- [x] **전수 감사 + P0/P1·설계 결정 반영** (2026-08-18~19) — 전 어셈블리(~35k LOC) 8영역
+  병렬 정밀 감사(`docs/audit/2026-08-18/`, 발견 ~60건). **P0 4건**(TickLoop 틱 유실 ·
+  TimerWheel 풀 ABA · Consul BuildView 루프 정지 · DispatchStatus 기본값=성공)과
+  **P1 10건**(TLS 핸드셰이크 타임아웃, 서킷 브레이커 취소 오염, 스냅샷 OOM 방어 등)
+  전부 수정 + 회귀 테스트. 설계 결정 4건 확정·구현(노드 0 예약 ADR-0074 ·
+  FrameCodecCapabilities ADR-0075 · Room.Disband 스냅샷 반환 · 미방출 메트릭 제거).
+  파괴적 변경이라 **0.2.0 승격** + ApiCompat 억제 파일. 게이트 6단계 전부 통과
+  (`e22b4cc`·`9e8451c`)
+- [ ] 감사 D 목록(1.0 전 권장) 반영 — `docs/audit/2026-08-18/00-summary.md` D 절.
+  ID 타입 ISpanFormattable 일괄, 전송 축 비대칭(HTTP/WS/QUIC AdmissionControl·메트릭,
+  QUIC 인증서 회전, WS Origin), SslStreamCertificateContext, StopAsync 무토큰 드레인 계약,
+  TickLoop 기본 스핀 창, 매치메이커 앵커 재개, GC runtimeconfig 자동 게이트,
+  결정적 빌드 검증 연결, Bench GC 오타 잔재, 기준선 ENV 표기 정정 등
 - [ ] 최종 성능 기준선 공표
 - [x] 문서 전체 검토 — 죽은 링크, 낡은 예제 (2026-08-12 `3e5c3fe`: **링크 전수 검사 61개 md → 깨진 링크 0**(레거시 인덱스 7건 수정) · 낡은 서술 정정(VERSIONING·ROADMAP·시작 가이드·README 의 발행 전 문구) · ARCHITECTURE 최신화(Matchmaking·메타 패키지) · DocFX 경고 0(`c8d874f`) · 시작 가이드 조합은 템플릿 종단 검증이 재실증. 기록성 문서(history·ADR·BENCHMARKS)는 추가 전용 원칙대로 불변)
 - [ ] 1.0 태그 + 릴리스
