@@ -155,20 +155,33 @@ public sealed class HealthHttpEndpoint : IAsyncDisposable
             {
                 context = await _listener.GetContextAsync().ConfigureAwait(false);
             }
-            catch (HttpListenerException)
+            catch (HttpListenerException) when (_stopping.IsCancellationRequested || !_listener.IsListening)
             {
                 // 리스너가 멈췄다(종료). 정상 경로다.
                 return;
+            }
+            catch (HttpListenerException)
+            {
+                // ⚠ 종료가 아니다 — 클라이언트 abort·커널 큐 오류 같은 일시적 원인이다.
+                //   여기서 return 하면 서버 본체는 살아 있는데 헬스 엔드포인트만 조용히 죽고,
+                //   k8s 는 liveness 실패로 정상 프로세스를 재시작시킨다(감사 2026-08-18 O-1).
+                //   요청별 격리(9.2)를 accept 단계에도 적용한다.
+                continue;
             }
             catch (ObjectDisposedException)
             {
                 // 종료 중에 리스너가 닫혔다.
                 return;
             }
-            catch (InvalidOperationException)
+            catch (InvalidOperationException) when (_stopping.IsCancellationRequested || !_listener.IsListening)
             {
                 // 리스너가 시작되지 않은 상태로 튕겼다(종료 경합). 멈춘다.
                 return;
+            }
+            catch (InvalidOperationException)
+            {
+                // 여전히 수신 중인데 튕겼다 — 일시 상태로 보고 재시도한다(위 HttpListenerException 과 같은 근거).
+                continue;
             }
 
             await HandleAsync(context).ConfigureAwait(false);

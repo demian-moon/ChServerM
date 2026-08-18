@@ -565,6 +565,11 @@ public sealed class FramedConnectionHandler : IConnectionHandler
 
         return status switch
         {
+            // 센티넬 관측 = 조립 버그다(미들웨어가 결과를 설정하지 않고 흘렀다). 성공으로
+            // 위장시키지 않고 닫는다 — None 이 0 이 된 이유 그 자체(감사 2026-08-18 C-1).
+            DispatchStatus.None =>
+                new ConnectionCloseInfo(CloseReason.ApplicationError, ErrorCode.HandlerFaulted),
+
             DispatchStatus.HandlerNotFound when _closeOnHandlerNotFound =>
                 new ConnectionCloseInfo(CloseReason.ProtocolError, ErrorCode.HandlerNotFound),
 

@@ -116,25 +116,38 @@ public readonly struct JobId : IEquatable<JobId>
     public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"job:{_owner}/{_local}");
 }
 
-/// <summary>클러스터 노드를 가리키는 강타입 식별자.</summary>
-/// <remarks><see cref="ObjectId.MaxNodeId"/> 이하여야 <see cref="ObjectId"/>에 담을 수 있다.</remarks>
+/// <summary>클러스터 노드를 가리키는 강타입 식별자. <b>번호 0은 센티넬로 예약된다.</b></summary>
+/// <remarks>
+/// <para><see cref="ObjectId.MaxNodeId"/> 이하여야 <see cref="ObjectId"/>에 담을 수 있다.</para>
+/// <para>
+/// <b>번호 0을 유효한 노드로 쓰지 않는다.</b> <see cref="None"/>(=0)과 "0번 노드"가 같은
+/// 값이면 노드 번호 미기입 실수가 유효한 구성으로 통과한다 — 형제 ID 타입들과 같은
+/// "미설정은 가장 제한적" 규약이다(감사 2026-08-18 C-6, 결정: 노드 번호는 1부터).
+/// 생성자가 0을 거부하므로 0인 인스턴스는 <see langword="default"/>(=<see cref="None"/>)뿐이다.
+/// </para>
+/// </remarks>
 [DebuggerDisplay("{ToString(),nq}")]
 public readonly struct NodeId : IEquatable<NodeId>
 {
     private readonly ushort _value;
 
-    /// <summary>수치로 노드 식별자를 만든다.</summary>
+    /// <summary>수치로 노드 식별자를 만든다. 유효 범위는 1~<see cref="ObjectId.MaxNodeId"/>다.</summary>
     /// <exception cref="ArgumentOutOfRangeException">
-    /// <paramref name="value"/>가 <see cref="ObjectId.MaxNodeId"/>를 넘을 때.
+    /// <paramref name="value"/>가 0(<see cref="None"/> 센티넬로 예약)이거나
+    /// <see cref="ObjectId.MaxNodeId"/>를 넘을 때.
     /// </exception>
     public NodeId(ushort value)
     {
+        ArgumentOutOfRangeException.ThrowIfZero(value);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(value, ObjectId.MaxNodeId);
         _value = value;
     }
 
-    /// <summary>설정되지 않은 값.</summary>
+    /// <summary>설정되지 않은 값. 관측되면 노드 번호 미기입이다 — 유효한 노드가 아니다.</summary>
     public static NodeId None => default;
+
+    /// <summary>설정되지 않은 값인지 여부.</summary>
+    public bool IsNone => _value == 0;
 
     /// <summary>원본 수치.</summary>
     public ushort Value => _value;

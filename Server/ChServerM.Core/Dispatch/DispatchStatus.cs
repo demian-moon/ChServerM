@@ -16,25 +16,35 @@ namespace ChServerM.Dispatch;
 /// </remarks>
 public enum DispatchStatus : byte
 {
+    /// <summary>결과가 설정되지 않았다. <b>관측되면 조립 버그다</b> — 정상 경로에서 나올 수 없다.</summary>
+    /// <remarks>
+    /// 0(기본값)이 <see cref="Handled"/> 였을 때는 <c>default(DispatchStatus)</c>·초기화 누락
+    /// 경로가 전부 "정상 처리됨"으로 위장됐다 — 이 코드베이스가 반복 거부해 온 "조용한
+    /// 기본값이 실패 지점과 겹치는" 패턴(CLAUDE.md 8.1)이다. 다른 결과 enum 들
+    /// (<c>SecureChannelStatus.None</c>, <c>CloseReason.None</c> 등)과 같은 규약으로
+    /// 0 을 센티넬로 예약한다(감사 2026-08-18 C-1).
+    /// </remarks>
+    None = 0,
+
     /// <summary>핸들러가 정상적으로 처리했다.</summary>
-    Handled = 0,
+    Handled = 1,
 
     /// <summary>이 메시지 식별자에 등록된 핸들러가 없다.</summary>
     /// <remarks>
     /// 커넥션을 닫을지는 정책이다. 엄격한 프로토콜이면 닫고,
     /// 버전 호환이 필요하면 무시하고 계속한다.
     /// </remarks>
-    HandlerNotFound = 1,
+    HandlerNotFound = 2,
 
     /// <summary>현재 커넥션 상태에서 허용되지 않는 메시지다.</summary>
     /// <remarks>인증 전에 게임 메시지를 보내는 경우 등. 레거시의 상태 화이트리스트가 잡던 것.</remarks>
-    RejectedByState = 2,
+    RejectedByState = 3,
 
     /// <summary>미들웨어가 거부했다(인증·권한·속도 제한).</summary>
-    RejectedByPolicy = 3,
+    RejectedByPolicy = 4,
 
     /// <summary>페이로드를 역직렬화할 수 없었다.</summary>
-    DeserializationFailed = 4,
+    DeserializationFailed = 5,
 
     /// <summary>큐 포화로 받지 못했다. <b>거부가 붕괴보다 낫다</b>(CLAUDE.md 9.6).</summary>
     /// <remarks>
@@ -55,13 +65,13 @@ public enum DispatchStatus : byte
     /// 지금 억지 생산자를 만들면 위의 자연 백프레셔와 충돌한다.
     /// </para>
     /// </remarks>
-    RejectedByBackpressure = 5,
+    RejectedByBackpressure = 6,
 
     /// <summary>핸들러가 예외를 던졌다.</summary>
-    Faulted = 6,
+    Faulted = 7,
 
     /// <summary>처리 중 취소됐다(커넥션 종료·서버 종료).</summary>
-    Canceled = 7,
+    Canceled = 8,
 
     /// <summary>자격 검증에 실패했다. <b>커넥션은 무조건 닫힌다</b> — 옵션이 아니다.</summary>
     /// <remarks>
@@ -72,7 +82,7 @@ public enum DispatchStatus : byte
     /// <see cref="RejectedByState"/>(T-19)와 같은 급이다. 관측에서도 인증(6000)과
     /// 인가(6001)가 구분된다(T-07).
     /// </remarks>
-    RejectedByAuthentication = 8,
+    RejectedByAuthentication = 9,
 
     /// <summary>속도 제한에 걸렸다. <b>커넥션은 닫지 않는다</b>(기본) — 일시적 제한이다.</summary>
     /// <remarks>
@@ -82,7 +92,7 @@ public enum DispatchStatus : byte
     /// (<c>FramedConnectionOptions</c> 의 정책 거부 무-종료 근거와 같다). 그래서 이 상태는
     /// 옵션 무관하게 커넥션을 닫지 않고 그 프레임만 버린다 — 클라이언트는 스스로 늦춘다.
     /// </remarks>
-    RejectedByRateLimit = 9,
+    RejectedByRateLimit = 10,
 
     /// <summary>부하가 높아 비필수로 분류된 메시지를 버렸다. <b>커넥션은 닫지 않는다</b> — 일시적 압박이다.</summary>
     /// <remarks>
@@ -99,5 +109,5 @@ public enum DispatchStatus : byte
     /// 조치가 갈린다(속도 제한 증가 = 학대자, 열화 증가 = 증설 신호).
     /// </para>
     /// </remarks>
-    RejectedByLoadShedding = 10,
+    RejectedByLoadShedding = 11,
 }

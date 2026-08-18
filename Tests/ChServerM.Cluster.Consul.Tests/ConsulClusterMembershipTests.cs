@@ -120,6 +120,53 @@ public sealed class ConsulClusterMembershipTests : IClassFixture<ConsulFixture>,
     }
 
     [SkippableFact]
+    public async Task OutOfRangeNodeId_isExcluded_notFatal()
+    {
+        SkipIfUnavailable();
+
+        // 회귀(감사 2026-08-18 S-1 트리거 1): 1024~65535 는 ushort.TryParse 를 통과하지만
+        // NodeId 생성자(10비트 상한)가 던진다. 걸러지지 않으면 그 예외가 기동을 막거나
+        // 멤버십 루프를 무로그 영구 정지시킨다 — 비정상 등록은 제외가 맞다.
+        await RegisterAsync("svc-good", 1, 9001);
+        await RegisterAsync("svc-too-big", 5000, 9002);
+
+        await using ConsulClusterMembership membership = await ConsulClusterMembership.CreateAsync(
+            Options(), NullServerLogger.Instance, cancellationToken: TestTimeout());
+
+        Assert.Equal(1, membership.Current.Count);
+        Assert.True(membership.Current.Contains(new NodeId(1)));
+    }
+
+    [SkippableFact]
+    public async Task DuplicateNodeNumber_excludesConflicts_andLoopStaysAlive()
+    {
+        SkipIfUnavailable();
+
+        // 회귀(감사 2026-08-18 S-1 트리거 2): 같은 번호를 든 등록 둘은 어느 쪽이 진짜인지
+        // 알 수 없다 — 둘 다 제외하고 경고한다. 종전에는 ClusterView 생성자의 예외가
+        // 멤버십 루프를 죽여 이후의 모든 변화 감지가 멎었다. 루프 생존까지 함께 고정한다.
+        await RegisterAsync("svc-1", 1, 9001);
+        await RegisterAsync("svc-dup-a", 7, 9007);
+        await RegisterAsync("svc-dup-b", 7, 9008);
+
+        await using ConsulClusterMembership membership = await ConsulClusterMembership.CreateAsync(
+            Options(), NullServerLogger.Instance, cancellationToken: TestTimeout());
+
+        Assert.Equal(1, membership.Current.Count);
+        Assert.True(membership.Current.Contains(new NodeId(1)));
+        Assert.False(membership.Current.Contains(new NodeId(7)));
+
+        // 충돌 데이터가 카탈로그에 남아 있는 상태에서도 루프는 살아서 다음 변화를 본다.
+        int seen = membership.Current.Generation;
+        ValueTask<ClusterView> waiting = membership.WaitForChangeAsync(seen, TestTimeout());
+
+        await RegisterAsync("svc-2", 2, 9002);
+
+        ClusterView changed = await waiting;
+        Assert.True(changed.Contains(new NodeId(2)), "충돌 등록 이후의 정상 변화가 관측되지 않았다 — 루프가 죽었다.");
+    }
+
+    [SkippableFact]
     public async Task SelfIsKnownFromConfiguration_evenWhenNotAMember()
     {
         SkipIfUnavailable();

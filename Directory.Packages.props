@@ -31,6 +31,14 @@
     <PackageVersion Include="Testcontainers" Version="4.13.0" />
 
     <!--
+      ⚠ 취약점 대응 전이 고정 — SSH.NET 은 Testcontainers 의 전이 의존이다(직접 사용 없음).
+      2025.1.0 에 High 권고(GHSA-q939-rpr3-3284)가 공표되어 audit 게이트가 잡았다(2026-08-18).
+      CentralPackageTransitivePinningEnabled 가 이 선언으로 전이 그래프를 패치판으로 올린다.
+      Testcontainers 가 자체적으로 패치판 이상을 요구하게 되면 이 줄은 제거한다.
+    -->
+    <PackageVersion Include="SSH.NET" Version="2026.0.0" />
+
+    <!--
       xUnit 2.x 에는 동적 건너뛰기(Assert.Skip)가 없다 — v3 기능이다.
       적합성 스위트는 **백킹 저장소가 없으면 건너뛴다** 는 의미가 필요하므로 이것을 쓴다:
       Docker 가 없는 개발 머신과 CI 의 windows-latest(리눅스 컨테이너 불가)에서

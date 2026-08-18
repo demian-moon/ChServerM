@@ -60,6 +60,10 @@ public sealed class VarintFrameEncoder : IFrameEncoder
     /// </remarks>
     public int MaxHeaderSize => VarintCodec.MaxUInt32Bytes + 3;
 
+    /// <inheritdoc />
+    /// <remarks>길이·메시지 ID 뿐이다 — 플래그·일련번호·버전 필드가 없다(WriteHeader 가 거부하는 근거).</remarks>
+    public FrameCodecCapabilities Capabilities => FrameCodecCapabilities.None;
+
     /// <summary>허용하는 최대 페이로드 크기.</summary>
     public int MaxPayloadLength => _maxPayloadLength;
 

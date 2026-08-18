@@ -72,4 +72,15 @@ public sealed class SessionIdTests
         Assert.Throws<ArgumentOutOfRangeException>(
             () => new NodeId((ushort)(ObjectId.MaxNodeId + 1)));
     }
+
+    [Fact]
+    public void NodeId_Zero_IsReservedForNone()
+    {
+        // 감사 2026-08-18 C-6, 결정: 번호 0은 None 센티넬로 예약한다. 0이 유효한 노드면
+        // "미설정"과 "0번 노드"가 구분되지 않아 번호 미기입이 유효 구성으로 통과한다.
+        Assert.Throws<ArgumentOutOfRangeException>(() => new NodeId(0));
+        Assert.True(NodeId.None.IsNone);
+        Assert.False(new NodeId(1).IsNone);
+        Assert.Equal(0, NodeId.None.Value);
+    }
 }

@@ -148,15 +148,17 @@ public sealed class TickLoop : IAsyncDisposable
         int previous = Interlocked.Exchange(ref _state, StateDisposed);
         _stopRequested = true;
 
-        if (previous == StateRunning)
-        {
-            await _stopped.Task.ConfigureAwait(false);
-        }
-        else
+        if (previous == StateCreated)
         {
             // 시작한 적이 없으면 기다릴 스레드도 없다.
             _stopped.TrySetResult();
+            return;
         }
+
+        // Running 이면 루프 스레드의 종료를, 이미 Disposed 면 먼저 들어온 Dispose 와 같은
+        // 신호를 기다린다. 두 번째 Dispose 가 TrySetResult 를 부르면 마지막 틱이 아직
+        // 실행 중인데 첫 번째 대기자가 조기 반환된다(감사 2026-08-18 R-2).
+        await _stopped.Task.ConfigureAwait(false);
     }
 
     private void RunLoop()
@@ -179,7 +181,11 @@ public sealed class TickLoop : IAsyncDisposable
                 RunOneTick(tickIndex, deadlineRaw);
                 tickIndex++;
 
-                long behindTicks = (_timeProvider.GetTimestamp() - (originRaw + (tickIndex * _intervalRaw))) / _intervalRaw + 1;
+                // 음수 delta(정시·이른 도착)는 밀림 0이다. 정수 나눗셈의 0방향 절단 때문에
+                // 음수에도 +1을 하면 정시 루프가 "1틱 밀림"으로 계산되어, MaxCatchUpTicks=0
+                // 구성에서 매 반복 틱 하나를 건너뛴다(실효 주파수 절반). 감사 2026-08-18 R-1.
+                long behindDeltaRaw = _timeProvider.GetTimestamp() - (originRaw + (tickIndex * _intervalRaw));
+                long behindTicks = behindDeltaRaw >= 0 ? (behindDeltaRaw / _intervalRaw) + 1 : 0;
                 if (behindTicks > _options.MaxCatchUpTicks)
                 {
                     // 캐치업 상한 초과분은 실행하지 않고 순번만 넘긴다. 다음 틱의 ScheduledAt 이

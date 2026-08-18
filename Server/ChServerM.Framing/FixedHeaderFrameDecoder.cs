@@ -68,6 +68,11 @@ public sealed class FixedHeaderFrameDecoder : IFrameDecoder
     /// <inheritdoc />
     public int MaxPayloadLength => _maxPayloadLength;
 
+    /// <inheritdoc />
+    /// <remarks>고정 헤더는 버전·플래그·일련번호 필드를 전부 갖는다.</remarks>
+    public FrameCodecCapabilities Capabilities =>
+        FrameCodecCapabilities.Flags | FrameCodecCapabilities.Sequence | FrameCodecCapabilities.ProtocolVersion;
+
     /// <summary>받아들이는 프로토콜 버전.</summary>
     public ushort AcceptedVersion => _acceptedVersion;
 

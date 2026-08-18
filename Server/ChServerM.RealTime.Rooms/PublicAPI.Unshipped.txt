@@ -32,7 +32,7 @@ ChServerM.RealTime.Rooms.PartitionedMemberSinkOptions.SendQueueDepth.get -> int
 ChServerM.RealTime.Rooms.PartitionedMemberSinkOptions.SendQueueDepth.set -> void
 ChServerM.RealTime.Rooms.PartitionedMemberSinkOptions.Validate() -> void
 ChServerM.RealTime.Rooms.Room
-ChServerM.RealTime.Rooms.Room.Disband() -> int
+ChServerM.RealTime.Rooms.Room.Disband() -> ChServerM.RealTime.Rooms.IRoomMemberSink![]!
 ChServerM.RealTime.Rooms.Room.Id.get -> ChServerM.RealTime.Rooms.RoomId
 ChServerM.RealTime.Rooms.Room.IsDisbanded.get -> bool
 ChServerM.RealTime.Rooms.Room.MaxMembers.get -> int
@@ -64,6 +64,7 @@ ChServerM.RealTime.Rooms.RoomDirectory
 ChServerM.RealTime.Rooms.RoomDirectory.RoomCount.get -> int
 ChServerM.RealTime.Rooms.RoomDirectory.RoomDirectory(ChServerM.RealTime.Rooms.RoomDirectoryOptions? options = null) -> void
 ChServerM.RealTime.Rooms.RoomDirectory.TryDisband(ChServerM.RealTime.Rooms.RoomId id) -> bool
+ChServerM.RealTime.Rooms.RoomDirectory.TryDisband(ChServerM.RealTime.Rooms.RoomId id, out ChServerM.RealTime.Rooms.IRoomMemberSink![]! members) -> bool
 ChServerM.RealTime.Rooms.RoomDirectory.TryGet(ChServerM.RealTime.Rooms.RoomId id, out ChServerM.RealTime.Rooms.Room? room) -> bool
 ChServerM.RealTime.Rooms.RoomDirectory.TryGetOrCreate(ChServerM.RealTime.Rooms.RoomId id, out ChServerM.RealTime.Rooms.Room? room) -> ChServerM.RealTime.Rooms.RoomOpenStatus
 ChServerM.RealTime.Rooms.RoomDirectoryOptions

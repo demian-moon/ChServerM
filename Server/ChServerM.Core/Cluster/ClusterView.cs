@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using ChServerM.Identity;
 
@@ -47,10 +48,19 @@ public sealed class ClusterNode
     /// <param name="id">노드 번호. <b><see cref="ObjectId"/> 발급에 쓰는 바로 그 값</b>이다.</param>
     /// <param name="name">사람이 읽는 이름. 비어 있을 수 없다.</param>
     /// <param name="endPoint">노드 간 통신용 주소.</param>
-    /// <exception cref="ArgumentException"><paramref name="name"/> 이 비었다.</exception>
+    /// <exception cref="ArgumentException"><paramref name="name"/> 이 비었거나 <paramref name="id"/> 가 미설정(<see cref="NodeId.None"/>)이다.</exception>
     /// <exception cref="ArgumentNullException"><paramref name="endPoint"/> 가 <see langword="null"/> 이다.</exception>
     public ClusterNode(NodeId id, string name, EndPoint endPoint)
     {
+        // NodeId 생성자가 0을 거부하지만 default(NodeId)는 여전히 만들어진다 —
+        // 클러스터 정체성 자리에서 미설정을 걸러야 번호 미기입이 유효 구성으로 통과하지 않는다.
+        if (id.IsNone)
+        {
+            throw new ArgumentException(
+                "노드 번호가 설정되지 않았다(None). 클러스터 노드 번호는 1부터다 — 구성에서 번호를 기입한다.",
+                nameof(id));
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(endPoint);
 
@@ -148,7 +158,11 @@ public sealed class ClusterView
             }
         }
 
-        Nodes = sorted;
+        // ⚠ 배열을 그대로 노출하면 IReadOnlyList 다운캐스트 한 번에 쓸 수 있게 된다 —
+        //   이 타입의 전체 동시성 스토리(불변 스냅샷)가 주석이 아니라 타입으로 강제돼야
+        //   한다(CLAUDE.md 9.7, 감사 2026-08-18 C-3). 뷰 생성은 구성 변경 시에만 일어나는
+        //   저빈도 경로라 래퍼 1회 할당은 무해하다.
+        Nodes = Array.AsReadOnly(sorted);
         Generation = generation;
     }
 
@@ -163,9 +177,10 @@ public sealed class ClusterView
 
     /// <summary>번호로 노드를 찾는다.</summary>
     /// <param name="id">노드 번호.</param>
-    /// <param name="node">찾은 노드.</param>
+    /// <param name="node">찾은 노드. 반환값이 <see langword="true"/> 면 <see langword="null"/> 이 아니다.</param>
     /// <returns>찾았으면 <see langword="true"/>.</returns>
-    public bool TryGetNode(NodeId id, out ClusterNode? node) => _byId.TryGetValue(id, out node);
+    public bool TryGetNode(NodeId id, [NotNullWhen(true)] out ClusterNode? node) =>
+        _byId.TryGetValue(id, out node);
 
     /// <summary>그 노드가 지금 구성원인가.</summary>
     /// <param name="id">노드 번호.</param>

@@ -20,6 +20,8 @@ ChServerM.Security.Tls.FileCertificateSource.Reload() -> void
 ChServerM.Security.Tls.IServerCertificateSource
 ChServerM.Security.Tls.IServerCertificateSource.GetCertificate() -> System.Security.Cryptography.X509Certificates.X509Certificate2!
 ChServerM.Security.Tls.TlsSecurityOptions
+ChServerM.Security.Tls.TlsSecurityOptions.HandshakeTimeout.get -> System.TimeSpan
+ChServerM.Security.Tls.TlsSecurityOptions.HandshakeTimeout.set -> void
 ChServerM.Security.Tls.TlsSecurityOptions.ServerCertificateSource.get -> ChServerM.Security.Tls.IServerCertificateSource?
 ChServerM.Security.Tls.TlsSecurityOptions.ServerCertificateSource.set -> void
 ChServerM.Security.Tls.TlsSecurityOptions.EnabledProtocols.get -> System.Security.Authentication.SslProtocols

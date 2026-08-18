@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 
 namespace ChServerM.Serialization;
 
@@ -28,7 +29,7 @@ public interface IMessageSerializer<TMessage>
 
     /// <summary>바이트에서 메시지를 읽는다.</summary>
     /// <param name="payload">프레임 페이로드.</param>
-    /// <param name="message">성공하면 읽어낸 메시지.</param>
+    /// <param name="message">성공하면 읽어낸 메시지. 실패하면 기본값이며 참조형이면 <see langword="null"/> 일 수 있다.</param>
     /// <returns>읽어냈으면 <see langword="true"/>.</returns>
     /// <remarks>
     /// <para>
@@ -40,5 +41,7 @@ public interface IMessageSerializer<TMessage>
     /// 만들려면 <b>이 안에서</b> 복사해야 한다.
     /// </para>
     /// </remarks>
-    bool TryDeserialize(in ReadOnlySequence<byte> payload, out TMessage message);
+    // [MaybeNullWhen(false)] — 참조형 TMessage 에서 실패 시 non-null 을 거짓 보장하지 않는다
+    // (BCL Dictionary.TryGetValue 와 같은 이유, 감사 2026-08-18 C-2).
+    bool TryDeserialize(in ReadOnlySequence<byte> payload, [MaybeNullWhen(false)] out TMessage message);
 }

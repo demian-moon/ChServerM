@@ -52,6 +52,9 @@
    `AnalyzerReleases.*.md`(RS2008) · 와이어 동결 테스트.
 2. 버전 결정 — `Directory.Build.props` 의 `VersionPrefix` 갱신(락스텝).
 3. `Unshipped → Shipped` 이동(코드 API·분석기 각각) — 이 diff 가 릴리스 노트의 뼈대다.
+   **(1.0 이후에만.)** 0.x 동안은 이동하지 않고 전량 `Unshipped` 에 둔다 — 이동은 1.0 선언과
+   동시에 1회 수행한다(위 "한 줄 요약"). 0.x 의 호환성 검출은 PackageValidation
+   기준선(현재 0.1.0)이 담당한다.
 4. 태그(`v{버전}`) 푸시 — `.github/workflows/release.yml` 이 게이트 재검증 →
    pack(CIB) → 출처 증명 → (활성화 후) NuGet 발행까지 수행한다.
    릴리스 노트는 `eng/release-notes.ps1` 로 생성한다.

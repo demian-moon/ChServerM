@@ -51,10 +51,13 @@ public sealed class RoomTests
         room.TryJoin(Sink(1));
         room.TryJoin(Sink(2));
 
-        Assert.Equal(2, room.Disband());
+        // 해산은 그 시점의 멤버 스냅샷을 돌려준다 — 사전 통지와 해산 사이 창에 끼어든
+        // 멤버까지 앱이 수습할 수 있게(감사 2026-08-18 R-6).
+        IRoomMemberSink[] disbanded = room.Disband();
+        Assert.Equal(2, disbanded.Length);
         Assert.True(room.IsDisbanded);
         Assert.Equal(0, room.MemberCount);
-        Assert.Equal(0, room.Disband()); // 두 번째 해산은 무해
+        Assert.Empty(room.Disband()); // 두 번째 해산은 무해
         Assert.Equal(RoomJoinStatus.Disbanded, room.TryJoin(Sink(3)));
     }
 

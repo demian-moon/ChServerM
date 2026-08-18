@@ -222,12 +222,33 @@ public sealed class ClientBuilder
 
         CompositionGuard.EnsureFrameFitsInTransportBuffer(transport, decoder, encoder);
 
+        if (_payloadCodec is not null)
+        {
+            CompositionGuard.EnsureCodecSupportsCompression(encoder, decoder);
+        }
+
+        if (_versionNegotiation is not null)
+        {
+            CompositionGuard.EnsureCodecSupportsVersionNegotiation(encoder, decoder);
+        }
+
         FramedConnectionHandler handler = new(
             decoder, _dispatcher.Build(), _connectionOptions, _timeProvider, _logger,
             payloadCodec: _payloadCodec);
 
+        // ⚠ 옵션 계약("조립 시점 전용. Build() 가 값을 복사한다")을 지킨다 — 서버 측
+        //   VersionNegotiatingConnectionHandler 는 생성자에서 복사하는데 클라이언트가 참조를
+        //   보관하면 Build 후 옵션 변이가 검증 없이 접속마다 반영된다(감사 2026-08-18 H-2).
+        VersionNegotiationOptions? negotiationSnapshot = _versionNegotiation is null
+            ? null
+            : new VersionNegotiationOptions
+            {
+                SupportedVersions = _versionNegotiation.SupportedVersions,
+                HandshakeTimeout = _versionNegotiation.HandshakeTimeout,
+            };
+
         return new ChServerMClient(
-            transport, handler, encoder, _transportSecurity, _versionNegotiation, _contentFingerprint, _timeProvider);
+            transport, handler, encoder, _transportSecurity, negotiationSnapshot, _contentFingerprint, _timeProvider);
     }
 }
 

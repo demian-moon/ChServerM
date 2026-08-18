@@ -1,11 +1,111 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading;
 using Xunit;
 
 namespace ChServerM.RealTime.Tests;
 
 public sealed class TimerWheelTests
 {
+    /// <summary>경합 테스트용 잡. 임의 스레드에서 불려도 안전하게 센다.</summary>
+    private sealed class AtomicJob : ITimerJob
+    {
+        public int Expired;
+        public int Canceled;
+
+        public void OnTimerExpired() => Interlocked.Increment(ref Expired);
+
+        public void OnTimerCanceled() => Interlocked.Increment(ref Canceled);
+    }
+
+    [Fact]
+    public void 동시_예약_취소_경합에서도_각_타이머는_정확히_한_번_종결된다()
+    {
+        // 회귀(감사 2026-08-18 X-1): 노드 풀 Treiber 스택 pop 의 ABA 로 활성 노드가 풀에
+        // 재진입하면 이중 발화·유실이 생긴다. 경합은 단발로 재현되지 않으므로
+        // 반복 실행 테스트(9.9)로 불변식("발화+취소 = 정확히 1")을 고정한다.
+        var wheel = new TimerWheel(new TimerWheelOptions
+        {
+            TickDuration = TimeSpan.FromMilliseconds(1),
+            SlotsPerLevel = 32,
+            LevelCount = 3,
+        });
+
+        const int workerCount = 4;
+        const int perWorker = 3000;
+        var jobs = new AtomicJob[workerCount * perWorker];
+        int rejectedSchedules = 0;
+        bool stop = false;
+
+        var driver = new Thread(() =>
+        {
+            while (!Volatile.Read(ref stop))
+            {
+                wheel.Advance();
+                Thread.Sleep(0);
+            }
+
+            wheel.Advance();
+        })
+        { IsBackground = true };
+        driver.Start();
+
+        var workers = new Thread[workerCount];
+        for (int w = 0; w < workerCount; w++)
+        {
+            int workerIndex = w;
+            workers[w] = new Thread(() =>
+            {
+                var random = new Random((workerIndex * 7919) + 17);
+                for (int i = 0; i < perWorker; i++)
+                {
+                    var job = new AtomicJob();
+                    jobs[(workerIndex * perWorker) + i] = job;
+                    TimerScheduleStatus status = wheel.TrySchedule(
+                        job, TimeSpan.FromMilliseconds(random.Next(0, 8)), out TimerHandle handle);
+                    if (status != TimerScheduleStatus.Accepted)
+                    {
+                        Interlocked.Increment(ref rejectedSchedules);
+                        continue;
+                    }
+
+                    if ((i & 1) == 0)
+                    {
+                        handle.TryCancel(); // 절반은 즉시 취소 — 발화·재사용과 경합시킨다.
+                    }
+                }
+            })
+            { IsBackground = true };
+            workers[w].Start();
+        }
+
+        foreach (Thread worker in workers)
+        {
+            worker.Join();
+        }
+
+        // 남은 타이머가 전부 소진될 때까지 드라이버를 계속 돌린다.
+        var drain = Stopwatch.StartNew();
+        while (wheel.Statistics.PendingTimers > 0 && drain.ElapsedMilliseconds < 10_000)
+        {
+            Thread.Sleep(5);
+        }
+
+        Volatile.Write(ref stop, true);
+        driver.Join();
+
+        Assert.Equal(0, rejectedSchedules);
+        TimerWheelStatistics stats = wheel.Statistics;
+        Assert.Equal(0, stats.PendingTimers);
+        Assert.Equal(stats.ScheduledTimers, stats.FiredTimers + stats.CanceledTimers);
+        foreach (AtomicJob job in jobs)
+        {
+            int outcomes = Volatile.Read(ref job.Expired) + Volatile.Read(ref job.Canceled);
+            Assert.Equal(1, outcomes);
+        }
+    }
+
     /// <summary>콜백 호출을 기록하는 잡. 만료·취소가 각각 몇 번 불렸는지 센다.</summary>
     private sealed class RecordingJob : ITimerJob
     {

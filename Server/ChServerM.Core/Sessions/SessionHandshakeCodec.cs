@@ -154,7 +154,7 @@ public static class SessionHandshakeCodec
     /// <param name="payload">받은 페이로드.</param>
     /// <param name="status">결과.</param>
     /// <param name="rotatedToken">토큰을 받을 버퍼(<see cref="TokenLength"/> 바이트 이상).</param>
-    /// <returns>형식이 맞으면 <see langword="true"/>.</returns>
+    /// <returns>형식이 맞고 상태가 정의된 값이면 <see langword="true"/>.</returns>
     public static bool TryReadResumeResponse(
         ReadOnlySpan<byte> payload, out SessionResumeStatus status, Span<byte> rotatedToken)
     {
@@ -165,7 +165,17 @@ public static class SessionHandshakeCodec
             return false;
         }
 
-        status = (SessionResumeStatus)payload[StatusOffset];
+        // ⚠ 정의되지 않은 상태 바이트를 성공으로 통과시키지 않는다 — "부트스트랩에 관대한
+        //   수신은 없다"(VersionHandshakeCodec 와 같은 원칙). 0(Unspecified)도 거부한다:
+        //   Unspecified 는 "빈 버퍼를 성공으로 오독하지 않기 위한" 송신 금지 센티넬이다
+        //   (감사 2026-08-18 C-5).
+        byte rawStatus = payload[StatusOffset];
+        if (rawStatus is not ((byte)SessionResumeStatus.Resumed or (byte)SessionResumeStatus.Rejected))
+        {
+            return false;
+        }
+
+        status = (SessionResumeStatus)rawStatus;
         payload.Slice(TokenOffsetInResponse, TokenLength).CopyTo(rotatedToken[..TokenLength]);
         return true;
     }

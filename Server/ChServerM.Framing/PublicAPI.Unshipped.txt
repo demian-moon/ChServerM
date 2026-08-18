@@ -1,11 +1,13 @@
 #nullable enable
 ChServerM.Framing.FixedHeaderFrameDecoder
 ChServerM.Framing.FixedHeaderFrameDecoder.AcceptedVersion.get -> ushort
+ChServerM.Framing.FixedHeaderFrameDecoder.Capabilities.get -> ChServerM.Framing.FrameCodecCapabilities
 ChServerM.Framing.FixedHeaderFrameDecoder.Decode(in System.Buffers.ReadOnlySequence<byte> buffer) -> ChServerM.Framing.FrameDecodeResult
 ChServerM.Framing.FixedHeaderFrameDecoder.FixedHeaderFrameDecoder(ChServerM.Framing.FramingOptions! options) -> void
 ChServerM.Framing.FixedHeaderFrameDecoder.FixedHeaderFrameDecoder(int maxPayloadLength = 1048576, ushort acceptedVersion = 1) -> void
 ChServerM.Framing.FixedHeaderFrameDecoder.MaxPayloadLength.get -> int
 ChServerM.Framing.FixedHeaderFrameEncoder
+ChServerM.Framing.FixedHeaderFrameEncoder.Capabilities.get -> ChServerM.Framing.FrameCodecCapabilities
 ChServerM.Framing.FixedHeaderFrameEncoder.FixedHeaderFrameEncoder(ChServerM.Framing.FramingOptions! options) -> void
 ChServerM.Framing.FixedHeaderFrameEncoder.FixedHeaderFrameEncoder(int maxPayloadLength = 1048576, ushort protocolVersion = 1) -> void
 ChServerM.Framing.FixedHeaderFrameEncoder.MaxHeaderSize.get -> int
@@ -31,10 +33,12 @@ ChServerM.Framing.FramingOptions.ProtocolVersion.get -> ushort
 ChServerM.Framing.FramingOptions.ProtocolVersion.set -> void
 ChServerM.Framing.FramingOptions.Validate() -> void
 ChServerM.Framing.VarintFrameDecoder
+ChServerM.Framing.VarintFrameDecoder.Capabilities.get -> ChServerM.Framing.FrameCodecCapabilities
 ChServerM.Framing.VarintFrameDecoder.Decode(in System.Buffers.ReadOnlySequence<byte> buffer) -> ChServerM.Framing.FrameDecodeResult
 ChServerM.Framing.VarintFrameDecoder.MaxPayloadLength.get -> int
 ChServerM.Framing.VarintFrameDecoder.VarintFrameDecoder(int maxPayloadLength = 1048576) -> void
 ChServerM.Framing.VarintFrameEncoder
+ChServerM.Framing.VarintFrameEncoder.Capabilities.get -> ChServerM.Framing.FrameCodecCapabilities
 ChServerM.Framing.VarintFrameEncoder.MaxHeaderSize.get -> int
 ChServerM.Framing.VarintFrameEncoder.MaxPayloadLength.get -> int
 ChServerM.Framing.VarintFrameEncoder.VarintFrameEncoder(int maxPayloadLength = 1048576) -> void

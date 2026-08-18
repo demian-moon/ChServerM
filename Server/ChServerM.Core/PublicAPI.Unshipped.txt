@@ -81,14 +81,15 @@ ChServerM.Diagnostics.NullServerLogger.IsEnabled(ChServerM.Diagnostics.LogLevel 
 ChServerM.Diagnostics.NullServerLogger.Log<TState>(ChServerM.Diagnostics.LogLevel level, ChServerM.Diagnostics.EventId eventId, TState state, System.Exception? exception, System.Func<TState, System.Exception?, string!>! formatter) -> void
 ChServerM.Diagnostics.TagNames
 ChServerM.Dispatch.DispatchStatus
-ChServerM.Dispatch.DispatchStatus.Canceled = 7 -> ChServerM.Dispatch.DispatchStatus
-ChServerM.Dispatch.DispatchStatus.DeserializationFailed = 4 -> ChServerM.Dispatch.DispatchStatus
-ChServerM.Dispatch.DispatchStatus.Faulted = 6 -> ChServerM.Dispatch.DispatchStatus
-ChServerM.Dispatch.DispatchStatus.Handled = 0 -> ChServerM.Dispatch.DispatchStatus
-ChServerM.Dispatch.DispatchStatus.HandlerNotFound = 1 -> ChServerM.Dispatch.DispatchStatus
-ChServerM.Dispatch.DispatchStatus.RejectedByBackpressure = 5 -> ChServerM.Dispatch.DispatchStatus
-ChServerM.Dispatch.DispatchStatus.RejectedByPolicy = 3 -> ChServerM.Dispatch.DispatchStatus
-ChServerM.Dispatch.DispatchStatus.RejectedByState = 2 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.DispatchStatus.Canceled = 8 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.DispatchStatus.DeserializationFailed = 5 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.DispatchStatus.Faulted = 7 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.DispatchStatus.Handled = 1 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.DispatchStatus.HandlerNotFound = 2 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.DispatchStatus.None = 0 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.DispatchStatus.RejectedByBackpressure = 6 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.DispatchStatus.RejectedByPolicy = 4 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.DispatchStatus.RejectedByState = 3 -> ChServerM.Dispatch.DispatchStatus
 ChServerM.Dispatch.IMessageDispatcher
 ChServerM.Dispatch.IMessageDispatcher.DispatchAsync(ChServerM.Dispatch.MessageContext! context) -> System.Threading.Tasks.ValueTask<ChServerM.Dispatch.DispatchStatus>
 ChServerM.Dispatch.IMessageHandler<TMessage>
@@ -161,10 +162,17 @@ ChServerM.Framing.FrameFlags.Encrypted = 2 -> ChServerM.Framing.FrameFlags
 ChServerM.Framing.FrameFlags.EndOfMessage = 8 -> ChServerM.Framing.FrameFlags
 ChServerM.Framing.FrameFlags.Fragmented = 4 -> ChServerM.Framing.FrameFlags
 ChServerM.Framing.FrameFlags.None = 0 -> ChServerM.Framing.FrameFlags
+ChServerM.Framing.FrameCodecCapabilities
+ChServerM.Framing.FrameCodecCapabilities.Flags = 1 -> ChServerM.Framing.FrameCodecCapabilities
+ChServerM.Framing.FrameCodecCapabilities.None = 0 -> ChServerM.Framing.FrameCodecCapabilities
+ChServerM.Framing.FrameCodecCapabilities.ProtocolVersion = 4 -> ChServerM.Framing.FrameCodecCapabilities
+ChServerM.Framing.FrameCodecCapabilities.Sequence = 2 -> ChServerM.Framing.FrameCodecCapabilities
 ChServerM.Framing.IFrameDecoder
+ChServerM.Framing.IFrameDecoder.Capabilities.get -> ChServerM.Framing.FrameCodecCapabilities
 ChServerM.Framing.IFrameDecoder.Decode(in System.Buffers.ReadOnlySequence<byte> buffer) -> ChServerM.Framing.FrameDecodeResult
 ChServerM.Framing.IFrameDecoder.MaxPayloadLength.get -> int
 ChServerM.Framing.IFrameEncoder
+ChServerM.Framing.IFrameEncoder.Capabilities.get -> ChServerM.Framing.FrameCodecCapabilities
 ChServerM.Framing.IFrameEncoder.MaxHeaderSize.get -> int
 ChServerM.Framing.IFrameEncoder.WriteHeader(System.Buffers.IBufferWriter<byte>! writer, in ChServerM.Framing.MessageEnvelope envelope, int payloadLength) -> void
 ChServerM.Framing.MessageEnvelope
@@ -204,6 +212,7 @@ ChServerM.Identity.MessageId.MessageId(ushort value) -> void
 ChServerM.Identity.MessageId.Value.get -> ushort
 ChServerM.Identity.NodeId
 ChServerM.Identity.NodeId.Equals(ChServerM.Identity.NodeId other) -> bool
+ChServerM.Identity.NodeId.IsNone.get -> bool
 ChServerM.Identity.NodeId.NodeId() -> void
 ChServerM.Identity.NodeId.NodeId(ushort value) -> void
 ChServerM.Identity.NodeId.Value.get -> ushort
@@ -275,7 +284,6 @@ const ChServerM.Diagnostics.ActivityNames.Dispatch = "chserverm.dispatch" -> str
 const ChServerM.Diagnostics.DiagnosticNames.ActivitySourceName = "ChServerM" -> string!
 const ChServerM.Diagnostics.DiagnosticNames.MeterName = "ChServerM" -> string!
 const ChServerM.Diagnostics.DiagnosticNames.Prefix = "chserverm" -> string!
-const ChServerM.Diagnostics.MetricNames.BackpressureDuration = "chserverm.backpressure.duration" -> string!
 const ChServerM.Diagnostics.MetricNames.BytesReceived = "chserverm.bytes.received" -> string!
 const ChServerM.Diagnostics.MetricNames.BytesSent = "chserverm.bytes.sent" -> string!
 const ChServerM.Diagnostics.MetricNames.ConnectionsAccepted = "chserverm.connections.accepted" -> string!
@@ -427,8 +435,8 @@ ChServerM.Diagnostics.NullMetricsSink
 ChServerM.Diagnostics.NullMetricsSink.AdjustGauge(string! name, long delta, System.ReadOnlySpan<ChServerM.Diagnostics.MetricTag> tags) -> void
 ChServerM.Diagnostics.NullMetricsSink.Count(string! name, long delta, System.ReadOnlySpan<ChServerM.Diagnostics.MetricTag> tags) -> void
 ChServerM.Diagnostics.NullMetricsSink.Record(string! name, double value, System.ReadOnlySpan<ChServerM.Diagnostics.MetricTag> tags) -> void
-ChServerM.Dispatch.DispatchStatus.RejectedByAuthentication = 8 -> ChServerM.Dispatch.DispatchStatus
-ChServerM.Dispatch.DispatchStatus.RejectedByRateLimit = 9 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.DispatchStatus.RejectedByAuthentication = 9 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.DispatchStatus.RejectedByRateLimit = 10 -> ChServerM.Dispatch.DispatchStatus
 ChServerM.Resilience.AdmissionDecision
 ChServerM.Resilience.AdmissionDecision.AdmissionDecision() -> void
 ChServerM.Resilience.AdmissionDecision.Equals(ChServerM.Resilience.AdmissionDecision other) -> bool
@@ -584,7 +592,7 @@ const ChServerM.Diagnostics.MetricNames.PoolBuffersLeaked = "chserverm.pool.buff
 const ChServerM.Diagnostics.MetricNames.PoolBuffersRented = "chserverm.pool.buffers.rented" -> string!
 const ChServerM.Diagnostics.MetricNames.PoolBuffersReturned = "chserverm.pool.buffers.returned" -> string!
 ChServerM.Diagnostics.ErrorCode.LoadShed = 5003 -> ChServerM.Diagnostics.ErrorCode
-ChServerM.Dispatch.DispatchStatus.RejectedByLoadShedding = 10 -> ChServerM.Dispatch.DispatchStatus
+ChServerM.Dispatch.DispatchStatus.RejectedByLoadShedding = 11 -> ChServerM.Dispatch.DispatchStatus
 ChServerM.Resilience.ILoadLevelSource
 ChServerM.Resilience.ILoadLevelSource.Current.get -> ChServerM.Resilience.LoadLevel
 ChServerM.Resilience.LoadLevel
@@ -649,6 +657,7 @@ ChServerM.Resilience.ICircuitBreaker
 ChServerM.Resilience.ICircuitBreaker.Name.get -> string!
 ChServerM.Resilience.ICircuitBreaker.RecordFailure(System.Exception? exception = null) -> void
 ChServerM.Resilience.ICircuitBreaker.RecordSuccess() -> void
+ChServerM.Resilience.ICircuitBreaker.ReleaseProbe() -> void
 ChServerM.Resilience.ICircuitBreaker.State.get -> ChServerM.Resilience.CircuitState
 ChServerM.Resilience.ICircuitBreaker.TryEnter() -> bool
 static ChServerM.Resilience.CircuitOpenException.ForCircuit(string! circuitName) -> ChServerM.Resilience.CircuitOpenException!

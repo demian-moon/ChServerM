@@ -60,4 +60,45 @@ internal static class CompositionGuard
                 "프레이밍의 MaxPayloadLength 를 낮추거나, 조각화를 쓴다.");
         }
     }
+
+    /// <summary>압축 코덱이 조립됐다면 프레이밍이 플래그 필드를 실을 수 있는지 확인한다.</summary>
+    /// <exception cref="InvalidOperationException">플래그를 싣지 못하는 프레이밍과 압축이 함께 조립됐다.</exception>
+    /// <remarks>
+    /// 이 검사가 없으면 증상이 양쪽에서 다르게 조용하다 — 송신은 인코더의 런타임 예외
+    /// (첫 압축 프레임에서야), 수신은 플래그가 없어 해제가 <b>영영 발동하지 않는 무동작</b>이다.
+    /// 감사 2026-08-18 H-8 의 결정(capabilities 표면 추가)이 이 검사를 가능하게 했다.
+    /// </remarks>
+    public static void EnsureCodecSupportsCompression(IFrameEncoder encoder, IFrameDecoder decoder)
+    {
+        if ((encoder.Capabilities & FrameCodecCapabilities.Flags) == 0
+            || (decoder.Capabilities & FrameCodecCapabilities.Flags) == 0)
+        {
+            throw new InvalidOperationException(
+                "압축 코덱(UsePayloadCodec)이 조립됐지만 프레이밍이 플래그 필드를 싣지 못한다 " +
+                $"(인코더 {encoder.Capabilities}, 디코더 {decoder.Capabilities}). " +
+                "압축 여부는 프레임 플래그로 전달되므로 이 조합은 성립하지 않는다 — " +
+                "고정 헤더 프레이밍을 쓰거나 압축을 뺀다.");
+        }
+    }
+
+    /// <summary>버전 협상이 조립됐다면 프레이밍이 버전 필드를 실을 수 있는지 확인한다.</summary>
+    /// <exception cref="InvalidOperationException">버전 필드가 없는 프레이밍과 협상이 함께 조립됐다.</exception>
+    /// <remarks>
+    /// 협상 핸드셰이크 자체는 프레이밍 축을 타지 않아 동작하지만, 결과가 실릴 버전 필드가
+    /// 없으면 협상은 아무것도 바꾸지 못한다 — 성립하지 않는 조립이다. 이 검사는
+    /// <c>VersionNegotiationOptions</c> 문서가 "Core 계약에 표면이 없어 불가능"이라고
+    /// 보류했던 바로 그 검증이다(감사 2026-08-18 H-8).
+    /// </remarks>
+    public static void EnsureCodecSupportsVersionNegotiation(IFrameEncoder encoder, IFrameDecoder decoder)
+    {
+        if ((encoder.Capabilities & FrameCodecCapabilities.ProtocolVersion) == 0
+            || (decoder.Capabilities & FrameCodecCapabilities.ProtocolVersion) == 0)
+        {
+            throw new InvalidOperationException(
+                "버전 협상(UseVersionNegotiation)이 조립됐지만 프레이밍에 버전 필드가 없다 " +
+                $"(인코더 {encoder.Capabilities}, 디코더 {decoder.Capabilities}). " +
+                "협상 결과가 와이어 어디에도 반영되지 않는 조립이다 — " +
+                "고정 헤더 프레이밍을 쓰거나 협상을 뺀다.");
+        }
+    }
 }

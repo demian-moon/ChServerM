@@ -24,7 +24,8 @@ public sealed class MemoryPackMessageSerializerProviderTests
 
         ArrayBufferWriter<byte> writer = new();
         serializer.Serialize(writer, new ColdMessage { Value = 42 });
-        Assert.True(serializer.TryDeserialize(new ReadOnlySequence<byte>(writer.WrittenMemory), out ColdMessage decoded));
+        Assert.True(serializer.TryDeserialize(new ReadOnlySequence<byte>(writer.WrittenMemory), out ColdMessage? decoded));
+        Assert.NotNull(decoded);
         Assert.Equal(42, decoded.Value);
     }
 

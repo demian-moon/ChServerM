@@ -130,6 +130,47 @@ public sealed class CompositionGuardTests
     }
 
     [Fact]
+    public async Task Build_Throws_WhenCompressionIsAssembledWithFlaglessFraming()
+    {
+        // 감사 2026-08-18 H-8: 이 조합의 종전 증상은 송신 측 런타임 예외(첫 압축 프레임에서야)
+        // + 수신 측 조용한 무동작(플래그가 없어 해제가 영영 발동하지 않음)이었다.
+        // FrameCodecCapabilities 선언으로 조립 시점에 거부한다.
+        const int MaxPayload = 4096;
+        await using InMemoryServerTransport server =
+            new(new InMemoryTransportHub(), new InMemoryEndPoint("guard-codec-flags"));
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+            () => new ServerBuilder()
+                .UseTransport(server)
+                .UseFraming(new VarintFrameDecoder(MaxPayload), new VarintFrameEncoder(MaxPayload))
+                .UsePayloadCodec(new ChServerM.Compression.LZ4.Lz4PayloadCodec())
+                .ConfigureDispatcher(dispatcher => dispatcher.MapRaw(new MessageId(1), NoOp))
+                .Build());
+
+        Assert.Contains("플래그", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Build_Throws_WhenNegotiationIsAssembledWithVersionlessFraming()
+    {
+        // 협상 핸드셰이크 자체는 프레이밍 축을 타지 않아 "동작"하지만, 결과가 실릴 버전
+        // 필드가 없으면 아무것도 바뀌지 않는 조립이다 — 시작 시점에 거부한다(H-8).
+        const int MaxPayload = 4096;
+        await using InMemoryServerTransport server =
+            new(new InMemoryTransportHub(), new InMemoryEndPoint("guard-codec-version"));
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+            () => new ServerBuilder()
+                .UseTransport(server)
+                .UseFraming(new VarintFrameDecoder(MaxPayload), new VarintFrameEncoder(MaxPayload))
+                .UseVersionNegotiation(new VersionNegotiationOptions())
+                .ConfigureDispatcher(dispatcher => dispatcher.MapRaw(new MessageId(1), NoOp))
+                .Build());
+
+        Assert.Contains("버전", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ClientBuilder_AppliesTheSameGuard()
     {
         // 클라이언트에서도 같은 교착이 난다. 한쪽만 막으면 절반만 안전하다.

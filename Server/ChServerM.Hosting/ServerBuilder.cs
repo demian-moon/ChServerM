@@ -120,7 +120,9 @@ public sealed class ServerBuilder
     /// <para>양쪽이 <b>같은 코덱 구현</b>을 조립해야 한다 — 알고리즘은 와이어에 실리지
     /// 않는 조립 수준 합의다(프레이밍 축 선택과 같은 성격). 불일치 = 해제 실패 = 종료.</para>
     /// <para>varint 프레이밍과는 조립할 수 없다 — 그 와이어에는 플래그 필드가 없어
-    /// 인코더가 <see cref="Framing.FrameFlags.Compressed"/> 를 거부한다.</para>
+    /// 인코더가 <see cref="Framing.FrameFlags.Compressed"/> 를 거부한다. 이 조합은
+    /// <c>Build()</c> 가 <see cref="Framing.FrameCodecCapabilities.Flags"/> 선언으로
+    /// 시작 시점에 거부한다(감사 2026-08-18 H-8).</para>
     /// </remarks>
     public ServerBuilder UsePayloadCodec(IPayloadCodec codec)
     {
@@ -397,6 +399,16 @@ public sealed class ServerBuilder
 
         // 축 하나하나가 유효해도 조합이 성립하지 않을 수 있다.
         CompositionGuard.EnsureFrameFitsInTransportBuffer(transport, decoder, encoder);
+
+        if (_payloadCodec is not null)
+        {
+            CompositionGuard.EnsureCodecSupportsCompression(encoder, decoder);
+        }
+
+        if (_versionNegotiation is not null)
+        {
+            CompositionGuard.EnsureCodecSupportsVersionNegotiation(encoder, decoder);
+        }
 
         // 세션 축이 있으면 재개 예약 메시지를 배선한다. 앱이 ID 40007 을 알 필요가 없다.
         // 라우팅 등록이므로 미들웨어 조립보다 먼저 해도 순서에 영향이 없다.

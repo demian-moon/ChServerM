@@ -27,6 +27,14 @@ public interface IFrameDecoder
     /// </remarks>
     int MaxPayloadLength { get; }
 
+    /// <summary>이 디코더가 와이어에서 읽어낼 수 있는 논리 필드.</summary>
+    /// <remarks>
+    /// 조립 검사가 이 선언으로 죽은 조합을 시작 시점에 거부한다 — 예를 들어 압축 코덱과
+    /// 플래그 없는 프레이밍을 조립하면 수신 측이 압축 플래그를 영영 볼 수 없어 해제가
+    /// 조용히 발동하지 않는다(<see cref="FrameCodecCapabilities"/>).
+    /// </remarks>
+    FrameCodecCapabilities Capabilities { get; }
+
     /// <summary>버퍼 앞쪽에서 프레임 하나를 읽어낸다.</summary>
     /// <param name="buffer"><c>PipeReader</c>가 넘겨준 읽기 버퍼.</param>
     /// <returns>

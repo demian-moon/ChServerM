@@ -82,8 +82,10 @@ public static class MetricNames
     /// <summary>큐 포화로 거부한 작업 수. <b>이 값이 0이 아니면 용량이 부족한 것이다.</b></summary>
     public const string PartitionWorkRejected = DiagnosticNames.Prefix + ".partition.work.rejected";
 
-    /// <summary>백프레셔로 대기한 시간(초).</summary>
-    public const string BackpressureDuration = DiagnosticNames.Prefix + ".backpressure.duration";
+    // "chserverm.backpressure.duration" 상수는 0.2.0 에서 제거했다 — 선언만 있고 어느 코드도
+    // 방출하지 않는 메트릭을 계약 표면(제거 = major)으로 실을 수 없다(감사 2026-08-18 O-2,
+    // 결정: 제거). 백프레셔 대기 측정이 실제로 구현되는 날 상수와 함께 재도입한다.
+    // 주 디스패치 경로는 자연 백프레셔(in-flight 1)라 현재 측정 지점 자체가 없다.
 
     /// <summary>버퍼 풀에서 대여한 누적 횟수.</summary>
     /// <remarks>

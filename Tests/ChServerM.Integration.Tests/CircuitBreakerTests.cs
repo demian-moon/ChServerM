@@ -139,6 +139,54 @@ public sealed class CircuitBreakerTests
     }
 
     [Fact]
+    public void HalfOpen_neutral_release_frees_the_slot_but_does_not_close()
+    {
+        // 회귀(감사 2026-08-18 H-1): 취소를 RecordSuccess 로 보고하면 실제 성공 없이
+        // 취소만으로 회로가 닫혔다. 중립 반납은 자리만 돌려주고 판정에 관여하지 않는다.
+        ManualTime time = new();
+        CircuitBreaker breaker = Create(time, threshold: 1, halfOpenSuccesses: 2, probes: 1);
+
+        breaker.TryEnter();
+        breaker.RecordFailure();
+        time.Advance(TimeSpan.FromSeconds(11));
+
+        for (int i = 0; i < 4; i++)
+        {
+            Assert.True(breaker.TryEnter(), $"{i}번째 시험 자리를 잡지 못했다 — 중립 반납이 누락됐다.");
+            breaker.ReleaseProbe();
+            Assert.Equal(CircuitState.HalfOpen, breaker.State); // 취소가 아무리 쌓여도 닫히지 않는다
+        }
+
+        // 진짜 성공이 임계만큼 쌓여야 닫힌다.
+        Assert.True(breaker.TryEnter());
+        breaker.RecordSuccess();
+        Assert.True(breaker.TryEnter());
+        breaker.RecordSuccess();
+        Assert.Equal(CircuitState.Closed, breaker.State);
+    }
+
+    [Fact]
+    public void Closed_neutral_release_does_not_reset_the_consecutive_counter()
+    {
+        // 회귀(감사 2026-08-18 H-1): 실패 사이에 끼어든 취소가 연속 실패를 리셋하면,
+        // 호출자 타임아웃이 취소(OCE)로 나타나는 배포에서 회로가 영영 열리지 않는다.
+        ManualTime time = new();
+        CircuitBreaker breaker = Create(time, threshold: 3);
+
+        breaker.TryEnter();
+        breaker.RecordFailure();
+        breaker.TryEnter();
+        breaker.RecordFailure();
+        breaker.TryEnter();
+        breaker.ReleaseProbe(); // 취소 — 판정에 관여하지 않아야 한다
+
+        breaker.TryEnter();
+        breaker.RecordFailure();
+
+        Assert.Equal(CircuitState.Open, breaker.State);
+    }
+
+    [Fact]
     public void HalfOpen_reopens_on_a_single_failure()
     {
         // 시험은 "회복했는가" 를 묻는 것이므로 한 번의 실패가 곧 "아직 아니다" 다.

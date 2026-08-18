@@ -249,8 +249,9 @@ public sealed class CircuitBreakingSessionStore : ISessionStore
         }
         else
         {
-            // 대상의 건강과 무관한 예외 — 성공도 실패도 아니지만 시험 자리는 반납해야 한다.
-            _breaker.RecordSuccess();
+            // 대상의 건강과 무관한 예외(취소 포함) — 성공도 실패도 아니다. 자리만 반납한다.
+            // RecordSuccess 로 보고하면 반열림에서 취소 2건만으로 회로가 닫힐 수 있다(H-1).
+            _breaker.ReleaseProbe();
         }
 
         return false;

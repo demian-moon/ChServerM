@@ -200,6 +200,69 @@ public sealed class TickLoopTests
         await loop.DisposeAsync();
     }
 
+    [Fact]
+    public async Task 정시_루프는_캐치업_0에서도_틱을_건너뛰지_않는다()
+    {
+        // 회귀(감사 2026-08-18 R-1): 음수 밀림이 정수 절단 +1 로 1이 되어
+        // MaxCatchUpTicks=0 구성에서 정시 루프가 매 반복 틱 하나를 건너뛰었다(실효 주파수 절반).
+        var handler = new CountingHandler();
+        var loop = new TickLoop(handler, new TickLoopOptions
+        {
+            TickInterval = TimeSpan.FromMilliseconds(20),
+            MaxCatchUpTicks = 0,
+        });
+
+        loop.Start();
+        await WaitUntilAsync(() => loop.Statistics.TotalTicks >= 5);
+        await loop.DisposeAsync();
+
+        // CI 스케줄링 지연으로 진짜 밀림이 몇 번 생길 수는 있다. 그러나 버그에서는
+        // 연속 실행(번호 차이 1)이 단 하나도 없고, 건너뜀 수가 실행 수와 같은 규모가 된다.
+        var deltas = new List<long>();
+        for (int i = 1; i < handler.TickNumbers.Count; i++)
+        {
+            deltas.Add(handler.TickNumbers[i] - handler.TickNumbers[i - 1]);
+        }
+
+        Assert.Contains(1L, deltas);
+        Assert.True(
+            loop.Statistics.SkippedTicks < loop.Statistics.TotalTicks,
+            "정시 루프에서 건너뜀이 실행 수만큼 발생했다 — 밀림 계산이 잘못됐다.");
+    }
+
+    [Fact]
+    public async Task 동시_폐기도_실행_중인_틱의_완주를_기다린다()
+    {
+        // 회귀(감사 2026-08-18 R-2): 두 번째 DisposeAsync 가 "시작한 적 없음" 분기로 빠져
+        // _stopped 를 조기 완료시키면, 첫 번째 대기자가 마지막 틱 실행 중에 반환된다.
+        using var entered = new ManualResetEventSlim(false);
+        using var release = new ManualResetEventSlim(false);
+        bool tickCompleted = false;
+        var handler = new CountingHandler(_ =>
+        {
+            entered.Set();
+            release.Wait(TimeSpan.FromSeconds(5));
+            Volatile.Write(ref tickCompleted, true);
+        });
+        var loop = new TickLoop(handler, new TickLoopOptions
+        {
+            TickInterval = TimeSpan.FromMilliseconds(10),
+        });
+
+        loop.Start();
+        Assert.True(entered.Wait(TimeSpan.FromSeconds(5)), "틱이 시작되지 않았다.");
+
+        Task first = loop.DisposeAsync().AsTask();
+        Task second = loop.DisposeAsync().AsTask();
+        await Task.Delay(100);
+        Assert.False(first.IsCompleted, "틱이 실행 중인데 첫 번째 폐기가 끝났다.");
+        Assert.False(second.IsCompleted, "틱이 실행 중인데 두 번째 폐기가 끝났다.");
+
+        release.Set();
+        await Task.WhenAll(first, second);
+        Assert.True(Volatile.Read(ref tickCompleted), "폐기가 틱 완주 전에 반환됐다.");
+    }
+
     [Theory]
     [InlineData(0)]     // 간격 0
     [InlineData(-10)]   // 음수

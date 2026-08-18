@@ -21,9 +21,10 @@ namespace ChServerM.Hosting;
 /// <b>프레이밍 축과의 조합.</b> 협상 결과가 와이어에 반영되려면 프레이밍에 버전 필드가
 /// 있어야 한다 — 고정 헤더 프레이밍이 그렇다. varint 프레이밍은 버전 필드가 없으므로
 /// 협상과 조립하면 결과가 어디에도 반영되지 않는다(협상 자체는 동작한다 — 핸드셰이크는
-/// 프레이밍 축을 타지 않기 때문이다). 조립 시점 검증은 Core 프레이밍 계약에 버전
-/// 표면이 없어 현재 불가능하다 — 두 번째 프로토콜 버전이 실존할 때 계약 확장과 함께
-/// 판단한다.
+/// 프레이밍 축을 타지 않기 때문이다). 이 조합은 <c>Build()</c> 의
+/// <c>CompositionGuard.EnsureCodecSupportsVersionNegotiation</c> 이 시작 시점에 거부한다
+/// (<see cref="Framing.FrameCodecCapabilities.ProtocolVersion"/> — 감사 2026-08-18 H-8 에서
+/// "표면이 없어 불가능"하던 검증이 capabilities 추가로 가능해졌다).
 /// </para>
 /// <para><b>스레드 규약.</b> 조립 시점 전용. <c>Build()</c> 가 값을 복사한다.</para>
 /// </remarks>

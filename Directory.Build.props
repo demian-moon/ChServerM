@@ -14,7 +14,11 @@
       전 패키지 락스텝 버전의 정본(ADR-0069) — ChServerM.* 전부가 이 하나로 함께 릴리스된다.
       0.x 동안 파괴적 변경은 minor 승격 + 릴리스 노트. 판정표는 docs/VERSIONING.md.
     -->
-    <VersionPrefix>0.1.0</VersionPrefix>
+    <!-- 0.2.0: 2026-08-18 전수 감사 반영 — 의도된 파괴적 변경(0.x 는 minor 승격, ADR-0069):
+         DispatchStatus 재번호(None=0), ICircuitBreaker.ReleaseProbe, IFrame*.Capabilities,
+         NodeId 0 예약, Room.Disband 반환형, MetricNames.BackpressureDuration 제거.
+         근거: docs/audit/2026-08-18/. ApiCompat 억제 파일이 각 변경을 명시한다. -->
+    <VersionPrefix>0.2.0</VersionPrefix>
 
     <!-- 프레임워크 코드는 의존성이 명시적이어야 한다. 암묵적 using은 쓰지 않는다. -->
     <ImplicitUsings>disable</ImplicitUsings>

@@ -42,6 +42,7 @@ public sealed class TlsTransportSecurity : ITransportSecurity
     private readonly string? _targetHost;
     private readonly SslProtocols _enabledProtocols;
     private readonly RemoteCertificateValidationCallback? _remoteCertificateValidation;
+    private readonly TimeSpan _handshakeTimeout;
 
     /// <summary>옵션을 검증·고정해 어댑터를 만든다.</summary>
     /// <param name="options">TLS 설정. 생성 이후의 옵션 변경은 반영되지 않는다.</param>
@@ -57,6 +58,7 @@ public sealed class TlsTransportSecurity : ITransportSecurity
         _targetHost = options.TargetHost;
         _enabledProtocols = options.EnabledProtocols;
         _remoteCertificateValidation = options.RemoteCertificateValidation;
+        _handshakeTimeout = options.HandshakeTimeout;
     }
 
     /// <inheritdoc />
@@ -74,6 +76,13 @@ public sealed class TlsTransportSecurity : ITransportSecurity
         }
 
         SslStream ssl = new(new DuplexPipeStream(transport), leaveInnerStreamOpen: false);
+
+        // ⚠ 핸드셰이크 상한 — ClientHello 를 보내지 않는 클라이언트가 커넥션 슬롯을 무기한
+        //   점유하지 못하게 한다(slowloris, T-16). 커넥션 종료 토큰과 합류시킨다 —
+        //   ITransportSecurity 계약이 예고한 바로 그 합류 지점이다(감사 2026-08-18 T-1).
+        using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(_handshakeTimeout);
+
         try
         {
             SslServerAuthenticationOptions authOptions = new()
@@ -83,15 +92,21 @@ public sealed class TlsTransportSecurity : ITransportSecurity
                 // 클라이언트 인증서는 쓰지 않는다 — 클라이언트 인증은 IAuthenticator(토큰)의 몫이다.
                 ClientCertificateRequired = false,
             };
-            await ssl.AuthenticateAsServerAsync(authOptions, cancellationToken).ConfigureAwait(false);
+            await ssl.AuthenticateAsServerAsync(authOptions, timeout.Token).ConfigureAwait(false);
 #pragma warning disable CA2000 // 소유권 이전 — 채널은 결과에 실려 호출자(호스팅)에게 넘어가고, 호출자가 Dispose 한다(ISecureChannel 수명 계약). 분석기는 구조체 경유 이전을 추적하지 못한다.
             return SecureChannelResult.Established(new TlsSecureChannel(ssl));
 #pragma warning restore CA2000
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             await ssl.DisposeAsync().ConfigureAwait(false);
             return SecureChannelResult.Failed(SecureChannelStatus.Canceled);
+        }
+        catch (OperationCanceledException)
+        {
+            // 상한 초과는 취소가 아니라 실패다 — 취소로 위장하면 공격 시나리오가 관측에서 사라진다.
+            await ssl.DisposeAsync().ConfigureAwait(false);
+            return SecureChannelResult.Failed(SecureChannelStatus.HandshakeFailed);
         }
         catch (Exception exception) when (exception is AuthenticationException or IOException)
         {
@@ -113,6 +128,11 @@ public sealed class TlsTransportSecurity : ITransportSecurity
         }
 
         SslStream ssl = new(new DuplexPipeStream(transport), leaveInnerStreamOpen: false);
+
+        // 서버 쪽과 같은 상한 — 응답하지 않는 서버에 접속 시도가 무기한 매달리지 않는다.
+        using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(_handshakeTimeout);
+
         try
         {
             SslClientAuthenticationOptions authOptions = new()
@@ -121,15 +141,20 @@ public sealed class TlsTransportSecurity : ITransportSecurity
                 EnabledSslProtocols = _enabledProtocols,
                 RemoteCertificateValidationCallback = _remoteCertificateValidation,
             };
-            await ssl.AuthenticateAsClientAsync(authOptions, cancellationToken).ConfigureAwait(false);
+            await ssl.AuthenticateAsClientAsync(authOptions, timeout.Token).ConfigureAwait(false);
 #pragma warning disable CA2000 // 소유권 이전 — 채널은 결과에 실려 호출자(호스팅)에게 넘어가고, 호출자가 Dispose 한다(ISecureChannel 수명 계약). 분석기는 구조체 경유 이전을 추적하지 못한다.
             return SecureChannelResult.Established(new TlsSecureChannel(ssl));
 #pragma warning restore CA2000
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             await ssl.DisposeAsync().ConfigureAwait(false);
             return SecureChannelResult.Failed(SecureChannelStatus.Canceled);
+        }
+        catch (OperationCanceledException)
+        {
+            await ssl.DisposeAsync().ConfigureAwait(false);
+            return SecureChannelResult.Failed(SecureChannelStatus.HandshakeFailed);
         }
         catch (Exception exception) when (exception is AuthenticationException or IOException)
         {

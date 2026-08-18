@@ -210,6 +210,17 @@ public static class StaticTableSnapshot
             throw Fail("스냅샷 머리말이 잘렸다.");
         }
 
+        // ⚠ 선언된 개수를 믿고 자료구조를 잡지 않는다 — 문자열 길이(TryReadString)와 같은
+        //   원칙이다. 표 하나의 최소 크기는 머리말 16바이트(이름·키 길이 접두 4+4,
+        //   열 수 4, 행 수 4)이므로, 남은 바이트로 담을 수 없는 tableCount 는 손상이다.
+        //   여기서 거르지 않으면 손상된 값 하나가 수 GB 선할당 → OOM 이 된다(감사 2026-08-18 R-5).
+        if (tableCount > reader.Remaining / 16)
+        {
+            throw Fail(string.Create(
+                CultureInfo.InvariantCulture,
+                $"스냅샷이 선언한 표 수({tableCount})가 남은 바이트({reader.Remaining})로 성립하지 않는다."));
+        }
+
         List<StaticTableError> errors = [];
         Dictionary<string, StaticTable> tables = new(tableCount, StringComparer.Ordinal);
 
@@ -297,6 +308,30 @@ public static class StaticTableSnapshot
         if (Mismatch(schema, keyColumn, wireNames, wireTypes, wireRequired) is { } problem)
         {
             throw Fail($"표 '{name}' 의 스키마가 어긋난다: {problem}");
+        }
+
+        // ⚠ 선언된 행 수를 믿고 배열을 잡지 않는다 — 이 형식은 서버→클라이언트 전송용이라
+        //   받는 쪽은 신뢰 경계 밖 바이트를 다룬다. 행 하나의 최소 바이트(문자열 4, 정수·실수 8,
+        //   불리언 1)로 담을 수 없는 rowCount 는 손상이다. 여기서 거르지 않으면
+        //   rowCount ≈ int.MaxValue 하나가 수 GB 선할당 → OOM 이 된다(감사 2026-08-18 R-5).
+        int minRowBytes = 0;
+        foreach (StaticTableColumn column in schema.Columns)
+        {
+            minRowBytes += column.Type switch
+            {
+                StaticTableColumnType.String => 4,
+                StaticTableColumnType.Int32 or StaticTableColumnType.Int64 => 8,
+                StaticTableColumnType.Double => 8,
+                StaticTableColumnType.Boolean => 1,
+                _ => 0,
+            };
+        }
+
+        if (rowCount > 0 && (minRowBytes == 0 || rowCount > reader.Remaining / minRowBytes))
+        {
+            throw Fail(string.Create(
+                CultureInfo.InvariantCulture,
+                $"표 '{name}' 이 선언한 행 수({rowCount})가 남은 바이트({reader.Remaining})로 성립하지 않는다."));
         }
 
         return Materialize(ref reader, schema, rowCount, errors);
@@ -511,6 +546,9 @@ public static class StaticTableSnapshot
         private int _position;
 
         public readonly bool IsAtEnd => _position == _source.Length;
+
+        /// <summary>아직 읽지 않은 바이트 수. 선언된 개수의 그럴듯함 검증에 쓴다.</summary>
+        public readonly int Remaining => _source.Length - _position;
 
         public bool TryReadBytes(int count, out ReadOnlySpan<byte> value)
         {

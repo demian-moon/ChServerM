@@ -40,9 +40,18 @@ namespace ChServerM.Resilience;
 ///
 /// <para>
 /// <b>사용 규약 — <see cref="TryEnter"/> 가 <see langword="true"/> 를 반환했으면
-/// 반드시 결과를 보고한다.</b> 성공·실패 중 하나를 <c>finally</c> 에서 보장한다.
+/// 반드시 결과를 보고한다.</b> <see cref="RecordSuccess"/>·<see cref="RecordFailure"/>·
+/// <see cref="ReleaseProbe"/> 중 하나를 <c>finally</c> 에서 보장한다.
 /// 보고를 빠뜨리면 반열림 상태의 시험 자리가 영구히 점유되어 <b>회로가 영원히 닫히지
 /// 않는다</b>(CLAUDE.md 9.2 의 "락-프리 상태는 finally 로 복원한다" 와 같은 부류다).
+/// </para>
+///
+/// <para>
+/// <b>⚠ 취소는 성공이 아니다.</b> 결과를 판정할 수 없는 호출(취소, 대상의 건강과 무관한
+/// 예외)을 <see cref="RecordSuccess"/> 로 보고하면 판정이 오염된다 — 반열림에서 실제 성공
+/// 없이 취소만으로 회로가 닫히고, 닫힘에서 연속 실패 카운터가 리셋되어 호출자 측
+/// 타임아웃이 취소로 나타나는 배포에서는 <b>회로가 영영 열리지 않는다</b>. 그런 호출은
+/// <see cref="ReleaseProbe"/> 로 자리만 반납한다(감사 2026-08-18 H-1).
 /// </para>
 /// </remarks>
 public interface ICircuitBreaker
@@ -58,8 +67,9 @@ public interface ICircuitBreaker
     /// 통과시키면 <see langword="true"/>. 차단이면 <see langword="false"/>.
     /// </returns>
     /// <remarks>
-    /// <see langword="true"/> 를 받았으면 <b>반드시</b> <see cref="RecordSuccess"/> 또는
-    /// <see cref="RecordFailure"/> 로 결과를 보고한다(타입 문서의 사용 규약).
+    /// <see langword="true"/> 를 받았으면 <b>반드시</b> <see cref="RecordSuccess"/>·
+    /// <see cref="RecordFailure"/>·<see cref="ReleaseProbe"/> 중 하나로 결과를
+    /// 보고한다(타입 문서의 사용 규약).
     /// </remarks>
     bool TryEnter();
 
@@ -69,4 +79,12 @@ public interface ICircuitBreaker
     /// <summary>호출이 실패했음을 보고한다.</summary>
     /// <param name="exception">실패 원인. 진단·로그용이며 판정에는 쓰지 않는다.</param>
     void RecordFailure(Exception? exception = null);
+
+    /// <summary>결과를 판정할 수 없는 호출의 자리만 반납한다 — 성공도 실패도 세지 않는다.</summary>
+    /// <remarks>
+    /// 취소(<see cref="OperationCanceledException"/>)와 대상의 건강과 무관한 예외가 여기에
+    /// 해당한다. 반열림에서는 시험 자리만 반납하고 성공 카운터를 올리지 않으며, 닫힘에서는
+    /// 연속 실패 카운터를 건드리지 않는다(타입 문서 "취소는 성공이 아니다").
+    /// </remarks>
+    void ReleaseProbe();
 }

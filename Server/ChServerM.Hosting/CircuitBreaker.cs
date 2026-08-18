@@ -169,6 +169,18 @@ public sealed class CircuitBreaker : ICircuitBreaker
         }
     }
 
+    /// <inheritdoc/>
+    public void ReleaseProbe()
+    {
+        // 중립 반납 — 성공도 실패도 세지 않는다. 취소를 RecordSuccess 로 보고하면
+        // 반열림에서 실제 성공 없이 회로가 닫히고, 닫힘에서 연속 실패가 리셋되어
+        // 실패가 취소와 섞이는 배포에서 회로가 영영 열리지 않는다(감사 2026-08-18 H-1).
+        if ((CircuitState)Volatile.Read(ref _state) == CircuitState.HalfOpen)
+        {
+            Interlocked.Decrement(ref _halfOpenProbesInFlight);
+        }
+    }
+
     /// <summary>회로를 강제로 닫는다(운영 도구·테스트용).</summary>
     public void Reset() => Close();
 

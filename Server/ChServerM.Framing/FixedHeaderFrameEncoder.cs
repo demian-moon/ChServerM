@@ -58,6 +58,11 @@ public sealed class FixedHeaderFrameEncoder : IFrameEncoder
     /// <remarks>고정 헤더이므로 상한이 곧 정확한 크기다.</remarks>
     public int MaxHeaderSize => FrameHeader.Size;
 
+    /// <inheritdoc />
+    /// <remarks>고정 헤더는 버전·플래그·일련번호 필드를 전부 갖는다.</remarks>
+    public FrameCodecCapabilities Capabilities =>
+        FrameCodecCapabilities.Flags | FrameCodecCapabilities.Sequence | FrameCodecCapabilities.ProtocolVersion;
+
     /// <summary>허용하는 최대 페이로드 크기.</summary>
     public int MaxPayloadLength => _maxPayloadLength;
 

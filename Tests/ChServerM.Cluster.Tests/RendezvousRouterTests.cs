@@ -26,7 +26,8 @@ public sealed class RendezvousRouterTests
 {
     private const int KeyCount = 100_000;
 
-    private static ClusterView View(int nodeCount, int startAt = 0)
+    // 노드 번호는 1부터다 — 0 은 NodeId.None 센티넬로 예약됐다(감사 2026-08-18 C-6).
+    private static ClusterView View(int nodeCount, int startAt = 1)
     {
         List<ClusterNode> nodes = new(nodeCount);
         for (int i = startAt; i < startAt + nodeCount; i++)
@@ -292,7 +293,7 @@ public sealed class RendezvousRouterTests
         for (int i = 0; i < 1000; i++)
         {
             Assert.True(router.TryGetOwner(Key(i), out ClusterNode? owner));
-            Assert.Equal("node-00", owner!.Name);
+            Assert.Equal("node-01", owner!.Name);
         }
     }
 

@@ -129,20 +129,30 @@ public sealed class Room
     }
 
     /// <summary>룸을 해산한다. 여러 번 불러도 안전하다.</summary>
-    /// <returns>해산 시점의 멤버 수. 이미 해산됐으면 0.</returns>
-    public int Disband()
+    /// <returns>해산 시점의 멤버 스냅샷. 이미 해산됐으면 빈 배열.</returns>
+    /// <remarks>
+    /// <para>
+    /// <b>스냅샷을 돌려주는 이유(감사 2026-08-18 R-6).</b> "닫힘 통지는 해산 전에 앱이
+    /// 브로드캐스트한다"가 계약이지만, 그 통지와 이 호출 사이의 창에 <see cref="TryJoin"/> 이
+    /// 끼어들 수 있다 — 그 멤버는 <see cref="RoomJoinStatus.Joined"/> 를 받고도 통지 없이
+    /// 제거된다. 반환된 스냅샷이 그 창의 멤버까지 담으므로 앱이 마지막 통지·정리를 할 수 있다.
+    /// </para>
+    /// <para>배열 1회 할당은 해산 시점(저빈도)에만 일어난다. 반환 배열의 소유권은 호출자에게
+    /// 넘어간다 — 룸은 더 이상 참조하지 않는다.</para>
+    /// </remarks>
+    public IRoomMemberSink[] Disband()
     {
         lock (_mutationLock)
         {
             if (_disbanded)
             {
-                return 0;
+                return EmptyMembers;
             }
 
-            int count = _members.Length;
+            IRoomMemberSink[] snapshot = _members;
             _disbanded = true;
             Volatile.Write(ref _members, EmptyMembers);
-            return count;
+            return snapshot;
         }
     }
 }

@@ -31,6 +31,14 @@ public interface IFrameEncoder
     /// </remarks>
     int MaxHeaderSize { get; }
 
+    /// <summary>이 인코더가 와이어에 실을 수 있는 논리 필드.</summary>
+    /// <remarks>
+    /// 조립 검사가 이 선언으로 죽은 조합(예: 압축 코덱 + 플래그 없는 프레이밍)을 시작
+    /// 시점에 거부한다. 선언과 실제 동작이 어긋나면 안 된다 — 선언하지 않은 필드의
+    /// 기본값 아닌 값은 여전히 예외로 거부한다(ADR-0010).
+    /// </remarks>
+    FrameCodecCapabilities Capabilities { get; }
+
     /// <summary>헤더를 쓴다.</summary>
     /// <param name="writer">출력 버퍼.</param>
     /// <param name="envelope">프레임의 논리 메타데이터.</param>

@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using ChServerM.Identity;
 
 namespace ChServerM.Cluster;
@@ -49,14 +50,14 @@ public interface IClusterRouter
 
     /// <summary>키의 소유 노드를 구한다.</summary>
     /// <param name="key">파티션 키.</param>
-    /// <param name="owner">소유 노드.</param>
+    /// <param name="owner">소유 노드. 반환값이 <see langword="true"/> 면 <see langword="null"/> 이 아니다.</param>
     /// <returns>뷰에 노드가 하나라도 있으면 <see langword="true"/>.</returns>
     /// <remarks>
     /// <b>예외를 쓰지 않는다.</b> 뷰가 비는 것(모든 노드가 사라짐)은 운영 중 실제로
     /// 일어날 수 있는 상태이고, 그것을 핫패스의 예외로 만들면 장애가 예외 폭풍이 된다
     /// (CLAUDE.md 8: 핫패스 제어 흐름에 예외를 쓰지 않는다).
     /// </remarks>
-    bool TryGetOwner(PartitionKey key, out ClusterNode? owner);
+    bool TryGetOwner(PartitionKey key, [NotNullWhen(true)] out ClusterNode? owner);
 
     /// <summary>키의 소유 후보를 <b>순위대로</b> 채운다.</summary>
     /// <param name="key">파티션 키.</param>

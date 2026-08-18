@@ -5404,3 +5404,76 @@ nuget.org 발행에는 인증이 필요하다. 초안은 장수명 API 키(`NUGE
   사용자명은 "정책 생성자"여야 한다(오류 메시지가 정확했다) ② **출처 증명의 검증
   대상은 워크플로 아티팩트다** — nuget.org 가 업로드본에 저장소 서명을 덧붙여
   다운로드본의 해시가 달라진다(실측). 다운로드본은 `dotnet nuget verify` 몫
+
+
+## ADR-0074: 노드 번호 0 예약 — NodeId.None 센티넬과 유효 번호의 분리
+
+- **날짜**: 2026-08-18
+- **상태**: 채택 (감사 2026-08-18 C-6, 사용자 결정)
+- **영향 범위**: `ChServerM.Core`(NodeId·ClusterNode), `ChServerM.Cluster.Consul`(옵션 검증·BuildView)
+
+### 배경
+
+`NodeId.None`(=default=0)과 "유효한 0번 노드"가 같은 값이었다. `ObjectId.Create` 는
+노드 0~1023 을 받으므로, 노드 번호 미기입(default) 실수가 유효한 구성으로 통과할 수
+있었다 — 이 프레임워크가 센티넬을 두는 이유("미설정은 가장 제한적") 그 자체의 위반.
+Shipped 동결 후에는 어느 쪽으로도 고칠 수 없어 1.0 전 결정이 필요했다.
+
+### 결정
+
+**노드 번호 0을 센티넬로 예약한다. 유효한 클러스터 노드 번호는 1~1023 이다.**
+
+- `NodeId(ushort)` 생성자가 0을 거부한다 — 0인 인스턴스는 `default`(=`None`)뿐
+- `NodeId.IsNone` 추가(형제 ID 타입들과 대칭)
+- `ClusterNode` 생성자·`ConsulClusterMembershipOptions.Validate`·Consul `BuildView` 가
+  미설정/0을 거부·제외한다
+
+### 대안과 탈락 이유
+
+| 대안 | 탈락 이유 |
+|---|---|
+| 0을 유효로 확정하고 `None` 제거 | ObjectId 노드 공간 1칸을 더 얻지만 미설정 감지 수단이 사라진다 — 형제 ID 타입 전부가 None 센티넬을 갖는 규약과도 어긋난다 |
+| 현상 유지 + 문서화 | 모호함이 1.0 계약으로 동결된다. 가장 싸지만 가장 오래 비싸다 |
+
+### 결과
+
+- 긍정: 번호 미기입이 조립 시점에 잡힌다. ID 타입 규약(`IsNone`)이 균질해졌다
+- 부정: 노드 0으로 배포된 기존 구성(있다면)은 1로 옮겨야 한다 — 0.x 라 지금이 유일한 적기
+
+## ADR-0075: 프레이밍 계약에 capabilities 표면 추가 — 죽은 조립의 시작 시점 거부
+
+- **날짜**: 2026-08-18
+- **상태**: 채택 (감사 2026-08-18 H-8, 사용자 결정)
+- **영향 범위**: `ChServerM.Core`(IFrameEncoder·IFrameDecoder·FrameCodecCapabilities), `ChServerM.Framing`(코덱 4종), `ChServerM.Hosting`(CompositionGuard)
+
+### 배경
+
+와이어 포맷은 프레이밍 구현이 소유한다(ADR-0010). 그 결과 "압축 코덱 + 플래그 없는
+varint 프레이밍", "버전 협상 + 버전 필드 없는 프레이밍" 같은 구조적으로 성립하지 않는
+조합이 존재하는데, Core 계약에 표면이 없어 조립 시점 검증이 불가능했다. 증상은 송신 측
+런타임 예외(첫 압축 프레임에서야) 또는 수신 측 조용한 무동작(해제가 영영 발동하지 않음)
+— "조립 시점 실패가 런타임 디버깅보다 싸다" 원칙의 마지막 구멍이었다.
+
+### 결정
+
+**`FrameCodecCapabilities` [Flags] enum(Flags·Sequence·ProtocolVersion)을 Core 에 추가하고
+`IFrameEncoder`/`IFrameDecoder` 에 `Capabilities` 프로퍼티를 얹는다.** `CompositionGuard` 가
+`UsePayloadCodec`(Flags 요구)·`UseVersionNegotiation`(ProtocolVersion 요구)을 Build 에서
+검사한다. capabilities 는 선언이지 검증이 아니다 — 인코더의 표현 불가 값 예외(ADR-0010)는
+그대로 유지되며, 이 선언은 그 예외를 조립 시점으로 앞당기는 근거다.
+
+### 대안과 탈락 이유
+
+| 대안 | 탈락 이유 |
+|---|---|
+| 추가하지 않음(문서 경고만) | 인터페이스 최소 표면은 지키지만, 죽은 조립이 영구히 런타임에만 발견된다. Shipped 동결 후 추가는 구현자 파괴적 변경(major) — 지금이 마지막 기회였다 |
+| 마커 인터페이스(IFlagCapableFraming 등) | 능력이 늘 때마다 인터페이스가 는다 — flags enum 이 확장에 싸다 |
+| 코덱 타입 화이트리스트 검사 | 서드파티 프레이밍 구현이 검사에서 제외된다 — 축 교체 가능성 위반 |
+
+### 결과
+
+- 긍정: 압축·협상의 죽은 조립이 시작 시점에 명확한 메시지로 거부된다.
+  VersionNegotiationOptions 문서가 "불가능"이라 보류했던 검증이 실현됐다
+- 부정: 서드파티 IFrameEncoder/IFrameDecoder 구현자는 멤버 하나를 더 구현해야
+  한다(0.x 추가라 허용). capabilities 선언과 실동작의 불일치는 컴파일러가 못 잡는다 —
+  구현 규약 문서로 남긴다

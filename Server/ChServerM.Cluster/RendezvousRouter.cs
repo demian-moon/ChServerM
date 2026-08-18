@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using ChServerM.Identity;
 
@@ -89,7 +90,7 @@ public sealed class RendezvousRouter : IClusterRouter
     public ClusterView View { get; }
 
     /// <inheritdoc/>
-    public bool TryGetOwner(PartitionKey key, out ClusterNode? owner)
+    public bool TryGetOwner(PartitionKey key, [NotNullWhen(true)] out ClusterNode? owner)
     {
         if (_nodes.Length == 0)
         {

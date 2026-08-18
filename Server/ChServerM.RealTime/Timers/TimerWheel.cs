@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Threading;
 using ChServerM.Diagnostics;
 
@@ -64,7 +65,7 @@ public sealed class TimerWheel
         internal ITimerJob? Job;
         internal long DeadlineRaw;
         internal TimerNode? SlotNext;   // 슬롯 연결 리스트. 드라이버 전용.
-        internal TimerNode? StackNext;  // 유입/풀 Treiber 스택 링크.
+        internal TimerNode? StackNext;  // 유입 Treiber 스택 링크. 풀은 ConcurrentQueue 라 쓰지 않는다.
     }
 
     private readonly TimerWheelOptions _options;
@@ -80,7 +81,12 @@ public sealed class TimerWheel
     private readonly long _originRaw;              // 휠 원점 = 생성 시각 (레거시 결함 #1 수정).
 
     private TimerNode? _incomingHead;              // 예약 유입 Treiber 스택 (MPSC, 드라이버가 일괄 추출).
-    private TimerNode? _poolHead;                  // 노드 풀 Treiber 스택.
+
+    // 노드 풀. Treiber 스택이 아니라 ConcurrentQueue 다 — 다중 스레드 pop 이 있는 재사용 노드
+    // 스택은 고전적 ABA(선점된 pop 이 낡은 next 를 헤드로 설치 → 활성 노드가 풀에 재진입)를
+    // 피할 수 없다. 유입 스택(_incomingHead)은 push + 전량 Exchange 라 ABA 가 없어 그대로 둔다.
+    // 감사 2026-08-18 X-1. ExecutionPartition.WorkBoxPool 과 같은 패턴이다.
+    private readonly ConcurrentQueue<TimerNode> _pool = new();
     private int _poolCount;
     private int _shutdown;
 
@@ -522,24 +528,13 @@ public sealed class TimerWheel
 
     private TimerNode RentNode()
     {
-        var spinner = new SpinWait();
-        while (true)
+        if (_pool.TryDequeue(out TimerNode? node))
         {
-            TimerNode? head = Volatile.Read(ref _poolHead);
-            if (head is null)
-            {
-                return new TimerNode();
-            }
-
-            if (Interlocked.CompareExchange(ref _poolHead, head.StackNext, head) == head)
-            {
-                Interlocked.Decrement(ref _poolCount);
-                head.StackNext = null;
-                return head;
-            }
-
-            spinner.SpinOnce(); // 재시도 시에만 스핀한다 (9.3).
+            Interlocked.Decrement(ref _poolCount);
+            return node;
         }
+
+        return new TimerNode();
     }
 
     private void ReturnNode(TimerNode node)
@@ -547,6 +542,7 @@ public sealed class TimerWheel
         uint generation = UnpackGeneration(Volatile.Read(ref node.StateAndGeneration));
         node.Job = null;
         node.SlotNext = null;
+        node.StackNext = null;
         // 세대 증가가 곧 낡은 핸들의 무효화다. Free 공개 전에 참조를 끊는다.
         Volatile.Write(ref node.StateAndGeneration, Pack(generation + 1, StateFree));
 
@@ -556,7 +552,7 @@ public sealed class TimerWheel
             return; // 상한 초과분은 GC 에 맡긴다 — 무제한 풀 금지.
         }
 
-        PushStack(ref _poolHead, node);
+        _pool.Enqueue(node);
     }
 
     private static void PushStack(ref TimerNode? head, TimerNode node)

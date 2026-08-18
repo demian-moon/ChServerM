@@ -74,15 +74,27 @@ public sealed class RoomDirectory
 
     /// <summary>룸을 해산하고 디렉터리에서 제거한다.</summary>
     /// <returns>룸이 있었으면 <see langword="true"/>.</returns>
-    public bool TryDisband(RoomId id)
+    public bool TryDisband(RoomId id) => TryDisband(id, out _);
+
+    /// <summary>룸을 해산하고 디렉터리에서 제거하며, 해산 시점의 멤버 스냅샷을 돌려준다.</summary>
+    /// <param name="id">해산할 룸.</param>
+    /// <param name="members">해산 시점의 멤버. 룸이 없었으면 빈 배열.</param>
+    /// <returns>룸이 있었으면 <see langword="true"/>.</returns>
+    /// <remarks>
+    /// 앱의 사전 통지와 해산 사이의 창에 끼어든 멤버(<see cref="Room.TryJoin"/> 성공 후 통지
+    /// 없이 제거될 뻔한)가 이 스냅샷에 담긴다 — 앱이 이 목록으로 마지막 통지·정리를 한다
+    /// (감사 2026-08-18 R-6, <see cref="Room.Disband"/> 참조).
+    /// </remarks>
+    public bool TryDisband(RoomId id, out IRoomMemberSink[] members)
     {
         if (!_rooms.TryRemove(id, out Room? room))
         {
+            members = [];
             return false;
         }
 
         Interlocked.Decrement(ref _roomCount);
-        room.Disband();
+        members = room.Disband();
         return true;
     }
 }

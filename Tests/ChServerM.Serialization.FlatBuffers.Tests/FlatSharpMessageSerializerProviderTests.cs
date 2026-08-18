@@ -21,7 +21,8 @@ public sealed class FlatSharpMessageSerializerProviderTests
 
         ArrayBufferWriter<byte> writer = new();
         serializer.Serialize(writer, new FbChatMessage { Text = "등록 경로" });
-        Assert.True(serializer.TryDeserialize(new ReadOnlySequence<byte>(writer.WrittenMemory), out FbChatMessage decoded));
+        Assert.True(serializer.TryDeserialize(new ReadOnlySequence<byte>(writer.WrittenMemory), out FbChatMessage? decoded));
+        Assert.NotNull(decoded);
         Assert.Equal("등록 경로", decoded.Text);
     }
 

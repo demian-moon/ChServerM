@@ -2,6 +2,7 @@ using System;
 using System.Net.Security;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading;
 
 namespace ChServerM.Security.Tls;
 
@@ -57,6 +58,18 @@ public sealed class TlsSecurityOptions
     public SslProtocols EnabledProtocols { get; set; } = SslProtocols.Tls13;
 #pragma warning restore CA5398
 
+    /// <summary>핸드셰이크 상한 시간. 기본 10초. <b>끌 수 없다</b> — 0·음수·무한은 검증이 거부한다.</summary>
+    /// <remarks>
+    /// TCP 연결 후 ClientHello 를 보내지 않거나 찔끔찔끔 보내는 클라이언트(slowloris)는
+    /// 이 상한이 없으면 핸드셰이크 대기 상태로 커넥션 슬롯·메모리를 무기한 점유한다 —
+    /// <c>IdleTimeout</c> 기본값이 비활성이라 기본 조립에는 다른 회수 경로가 없다
+    /// (감사 2026-08-18 T-1, THREAT-MODEL T-16). Kestrel 의 기본 TLS 핸드셰이크 타임아웃(10초)과
+    /// 같은 값이며, <c>VersionNegotiationOptions.HandshakeTimeout</c>과 같은 규율(끌 수 없음)이다.
+    /// 초과는 <see cref="Security.SecureChannelStatus.HandshakeFailed"/>로 관측된다 — 외부
+    /// 취소(<see cref="Security.SecureChannelStatus.Canceled"/>)와 구분된다.
+    /// </remarks>
+    public TimeSpan HandshakeTimeout { get; set; } = TimeSpan.FromSeconds(10);
+
     /// <summary>클라이언트 측 서버 인증서 검증 재정의. null 이면 기본 체인 검증(공인 CA)이다.</summary>
     /// <remarks>
     /// 사설 CA·핀 고정(pinning)·테스트용이다. <b>무조건 true 를 반환하는 콜백은
@@ -73,6 +86,13 @@ public sealed class TlsSecurityOptions
             throw new InvalidOperationException(
                 $"{nameof(EnabledProtocols)}가 None 이다. 프로토콜 선택을 OS 기본값에 맡기지 않는다 — " +
                 "기본값은 시점·플랫폼에 따라 달라져 조립 결과가 재현되지 않는다.");
+        }
+
+        if (HandshakeTimeout <= TimeSpan.Zero || HandshakeTimeout == Timeout.InfiniteTimeSpan)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(HandshakeTimeout)}({HandshakeTimeout})는 양수여야 하고 끌 수 없다 — " +
+                "상한 없는 핸드셰이크 대기는 slowloris 형 점유 공격에 커넥션 슬롯을 내준다(T-16).");
         }
 
         if (ServerCertificate is not null && ServerCertificateSource is not null)

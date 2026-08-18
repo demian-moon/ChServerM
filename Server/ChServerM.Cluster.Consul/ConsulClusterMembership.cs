@@ -76,6 +76,7 @@ public sealed class ConsulClusterMembership : IClusterMembership
     private static readonly EventId QueryFailedEvent = new(2021, "ConsulQueryFailed");
     private static readonly EventId MalformedNodeEvent = new(2022, "ConsulMalformedNode");
     private static readonly EventId SelfMissingEvent = new(2023, "SelfNotInView");
+    private static readonly EventId TimeoutMismatchEvent = new(2024, "ConsulTimeoutMismatch");
 
     private readonly HttpClient _http;
     private readonly bool _ownsHttp;
@@ -135,6 +136,26 @@ public sealed class ConsulClusterMembership : IClusterMembership
 
         HttpClient http = httpClient ?? new HttpClient();
         bool ownsHttp = httpClient is null;
+
+        if (ownsHttp)
+        {
+            // ⚠ 기본 HttpClient Timeout(100초)은 블로킹 쿼리 wait(기본 5분)보다 짧다. 그대로 두면
+            //   유휴 클러스터에서 모든 블로킹 쿼리가 타임아웃으로 잘려 "조회 실패" 경고가
+            //   영구 반복되고, 그 소음이 진짜 Consul 장애를 가린다(감사 2026-08-18 S-2).
+            //   Consul 은 wait 에 최대 1/16 지터를 더하므로 상한은 wait × 17/16 + 여유다.
+            http.Timeout = (options.WaitTime * (17.0 / 16.0)) + TimeSpan.FromSeconds(10);
+        }
+        else if (http.Timeout != Timeout.InfiniteTimeSpan
+            && http.Timeout <= options.WaitTime
+            && logger.IsEnabled(LogLevel.Warning))
+        {
+            logger.Log(
+                LogLevel.Warning, TimeoutMismatchEvent, (http.Timeout, options.WaitTime), null,
+                static (state, _) =>
+                    $"주입된 HttpClient 의 Timeout({state.Item1})이 블로킹 쿼리 WaitTime({state.Item2}) 이하다. "
+                    + "모든 블로킹 쿼리가 타임아웃으로 잘려 조회 실패 경고가 반복된다 — "
+                    + "Timeout 을 WaitTime × 17/16 + 여유보다 크게 잡는다.");
+        }
 
         try
         {
@@ -255,6 +276,15 @@ public sealed class ConsulClusterMembership : IClusterMembership
             {
                 return;
             }
+#pragma warning disable CA1031 // 항목 격리(9.2): 예상 못 한 예외 하나가 멤버십 루프를 영구 정지시키면
+            // 뷰가 마지막 상태로 동결되고 WaitForChangeAsync 대기자가 영원히 깨어나지 않는다 —
+            // 로그 한 줄 없이. 실패로 다루고 마지막 구성을 유지한 채 재시도한다(감사 2026-08-18 S-1).
+            catch (Exception exception)
+            {
+                LogQueryFailure(_logger, $"예상하지 못한 오류: {exception.Message}");
+                result = null;
+            }
+#pragma warning restore CA1031
 
             if (result is null)
             {
@@ -487,6 +517,15 @@ public sealed class ConsulClusterMembership : IClusterMembership
                 continue;
             }
 
+            if (id == 0 || id > ObjectId.MaxNodeId)
+            {
+                // ⚠ ushort 는 통과해도 NodeId 생성자(0 은 센티넬 예약, 10비트 상한)는 던진다.
+                //   여기서 거르지 않으면 카탈로그의 등록 하나가 예외가 되어 멤버십 루프가
+                //   조용히 영구 정지한다(감사 2026-08-18 S-1, C-6).
+                LogMalformed(logger, service.Id, $"노드 번호가 허용 범위(1~{ObjectId.MaxNodeId})를 벗어났다: {id}");
+                continue;
+            }
+
             if (string.IsNullOrWhiteSpace(service.Address))
             {
                 LogMalformed(logger, service.Id, "주소가 비어 있다");
@@ -500,11 +539,50 @@ public sealed class ConsulClusterMembership : IClusterMembership
                 continue;
             }
 
-            nodes.Add(new ClusterNode(new NodeId(id), service.Id ?? $"node-{id}", new DnsEndPoint(service.Address, port)));
+            // ⚠ 빈 문자열("")은 null 이 아니라 ?? 폴백을 타지 않는다 — ClusterNode 생성자가 던진다.
+            string name = string.IsNullOrWhiteSpace(service.Id) ? $"node-{id}" : service.Id;
+            nodes.Add(new ClusterNode(new NodeId(id), name, new DnsEndPoint(service.Address, port)));
         }
 
-        // 중복 번호·이름은 ClusterView 가 판정한다 — 규칙의 정본이 한 곳이어야 한다(ADR-0048).
+        // ⚠ 중복 번호·이름은 여기서 걸러 **충돌한 등록을 전부 제외**한다. ClusterView 생성자도
+        //   같은 규칙을 검증하지만 그쪽은 예외 던지기다 — Consul 서비스 ID 는 에이전트-로컬
+        //   유일이라 여러 노드가 같은 ID("chserverm")로 등록하는 것이 오히려 표준 패턴이고,
+        //   그 예외 하나가 멤버십 루프를 무로그 영구 정지시켰다(감사 2026-08-18 S-1).
+        //   어느 등록이 진짜인지 여기서는 알 수 없으므로 모두 빼고 경고한다 — 자기 자신이
+        //   빠지면 WarnIfSelfMissing 이 알린다.
+        RemoveConflicts(nodes, logger);
+
         return new ClusterView(nodes, generation);
+    }
+
+    /// <summary>번호 또는 이름이 다른 등록과 충돌하는 노드를 전부 제외하고 기록한다.</summary>
+    private static void RemoveConflicts(List<ClusterNode> nodes, IServerLogger logger)
+    {
+        if (nodes.Count < 2)
+        {
+            return;
+        }
+
+        Dictionary<NodeId, int> idCounts = new(nodes.Count);
+        Dictionary<string, int> nameCounts = new(nodes.Count, StringComparer.Ordinal);
+        foreach (ClusterNode node in nodes)
+        {
+            idCounts[node.Id] = idCounts.TryGetValue(node.Id, out int byId) ? byId + 1 : 1;
+            nameCounts[node.Name] = nameCounts.TryGetValue(node.Name, out int byName) ? byName + 1 : 1;
+        }
+
+        nodes.RemoveAll(node =>
+        {
+            if (idCounts[node.Id] <= 1 && nameCounts[node.Name] <= 1)
+            {
+                return false;
+            }
+
+            LogMalformed(
+                logger, node.Name,
+                $"노드 번호({node.Id.Value}) 또는 이름이 다른 등록과 충돌한다 — 충돌한 등록을 모두 제외한다");
+            return true;
+        });
     }
 
     /// <summary>노드 간 포트를 정한다 — 메타가 있으면 그것, 없으면 서비스 포트.</summary>

@@ -72,6 +72,10 @@ public sealed class VarintFrameDecoder : IFrameDecoder
     public int MaxPayloadLength => _maxPayloadLength;
 
     /// <inheritdoc />
+    /// <remarks>길이·메시지 ID 뿐이다 — 플래그·일련번호·버전 필드가 없다.</remarks>
+    public FrameCodecCapabilities Capabilities => FrameCodecCapabilities.None;
+
+    /// <inheritdoc />
     public FrameDecodeResult Decode(in ReadOnlySequence<byte> buffer)
     {
         SequenceReader<byte> reader = new(buffer);

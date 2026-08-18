@@ -114,14 +114,20 @@ public sealed class SessionResumeProtocolTests
     }
 
     [Fact]
-    public void Unspecified_is_zero_so_an_empty_buffer_is_not_read_as_success()
+    public void Undefined_status_bytes_are_rejected_as_malformed()
     {
-        byte[] empty = new byte[SessionHandshakeCodec.ResumeResponseSize];
+        // 감사 2026-08-18 C-5: 정의되지 않은 상태 바이트(0=Unspecified 포함)를 "형식이 맞다"로
+        // 통과시키지 않는다 — VersionHandshakeCodec 의 "부트스트랩에 관대한 수신은 없다"와
+        // 같은 원칙. 빈 버퍼(전부 0)는 이제 파싱 자체가 거부된다.
         byte[] token = new byte[SessionHandshakeCodec.TokenLength];
 
-        Assert.True(SessionHandshakeCodec.TryReadResumeResponse(empty, out SessionResumeStatus status, token));
+        byte[] empty = new byte[SessionHandshakeCodec.ResumeResponseSize];
+        Assert.False(SessionHandshakeCodec.TryReadResumeResponse(empty, out SessionResumeStatus status, token));
         Assert.Equal(SessionResumeStatus.Unspecified, status);
-        Assert.NotEqual(SessionResumeStatus.Resumed, status);
+
+        byte[] garbage = new byte[SessionHandshakeCodec.ResumeResponseSize];
+        garbage[0] = 200; // 정의되지 않은 상태 값
+        Assert.False(SessionHandshakeCodec.TryReadResumeResponse(garbage, out _, token));
     }
 
     // ── 서버 측 배선 ────────────────────────────────────────────────────────

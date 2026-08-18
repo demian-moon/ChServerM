@@ -135,6 +135,54 @@ public sealed class TlsTransportSecurityTests : IDisposable
         Assert.Throws<InvalidOperationException>(static () => new TlsTransportSecurity(new TlsSecurityOptions()));
     }
 
+    [Fact]
+    public async Task Silent_client_hits_handshake_timeout_as_failure_not_cancellation()
+    {
+        // 회귀(감사 2026-08-18 T-1): 상한이 없으면 ClientHello 를 보내지 않는 클라이언트가
+        // 핸드셰이크 대기 상태로 커넥션 슬롯을 무기한 점유한다(slowloris, T-16).
+        // 상한 초과는 Canceled 가 아니라 HandshakeFailed 다 — 취소로 위장하면
+        // 공격 시나리오가 관측에서 사라진다.
+        (IDuplexPipe serverSide, _) = CreateTransportPair();
+
+        TlsTransportSecurity server = new(new TlsSecurityOptions
+        {
+            ServerCertificate = _certificate,
+            HandshakeTimeout = TimeSpan.FromMilliseconds(500),
+        });
+
+        SecureChannelResult result = await server.SecureAsServerAsync(serverSide, _timeout.Token);
+
+        Assert.Equal(SecureChannelStatus.HandshakeFailed, result.Status);
+        Assert.Null(result.Channel);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Non_positive_handshake_timeout_fails_at_assembly_time(int seconds)
+    {
+        TlsSecurityOptions options = new()
+        {
+            ServerCertificate = TestCertificates.CreateSelfSigned(),
+            HandshakeTimeout = TimeSpan.FromSeconds(seconds),
+        };
+
+        Assert.Throws<InvalidOperationException>(options.Validate);
+    }
+
+    [Fact]
+    public void Infinite_handshake_timeout_fails_at_assembly_time()
+    {
+        // 끌 수 없다 — 무한 대기는 VersionNegotiationOptions.HandshakeTimeout 과 같은 규율로 거부한다.
+        TlsSecurityOptions options = new()
+        {
+            ServerCertificate = TestCertificates.CreateSelfSigned(),
+            HandshakeTimeout = Timeout.InfiniteTimeSpan,
+        };
+
+        Assert.Throws<InvalidOperationException>(options.Validate);
+    }
+
     // ── 조립 도우미 ────────────────────────────────────────────
 
     private static (IDuplexPipe ServerSide, IDuplexPipe ClientSide) CreateTransportPair()

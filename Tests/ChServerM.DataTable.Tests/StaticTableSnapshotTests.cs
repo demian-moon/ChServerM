@@ -66,6 +66,38 @@ public sealed class StaticTableSnapshotTests
 
     private static StaticTableSchema[] Schemas => [ItemSchema, RecipeSchema];
 
+    // ── 손상 방어 ────────────────────────────────────────────────────
+
+    [Fact]
+    public void Corrupted_huge_rowCount_is_rejected_before_allocation()
+    {
+        // 회귀(감사 2026-08-18 R-5): 선언된 행 수를 믿고 배열을 선할당하면 손상 스냅샷
+        // 하나(rowCount ≈ int.MaxValue)가 수 GB 할당 → OOM 이 된다. 값을 읽기 전에
+        // "남은 바이트로 성립하는가"를 검증해 거부해야 한다.
+        byte[] bytes = StaticTableSnapshot.ToArray(Load());
+
+        // Item 표 머리말의 (columnCount=6, rowCount=2) 8바이트 패턴을 찾아 rowCount 를 조작한다.
+        ReadOnlySpan<byte> pattern = [6, 0, 0, 0, 2, 0, 0, 0];
+        int at = bytes.AsSpan().IndexOf(pattern);
+        Assert.True(at >= 0, "표 머리말 패턴을 찾지 못했다 — 스냅샷 형식이 바뀌었으면 테스트를 갱신한다.");
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(at + 4), int.MaxValue);
+
+        Assert.Throws<StaticTableLoadException>(() => StaticTableSnapshot.Read(bytes, Schemas));
+    }
+
+    [Fact]
+    public void Corrupted_huge_tableCount_is_rejected_before_allocation()
+    {
+        byte[] bytes = StaticTableSnapshot.ToArray(Load());
+
+        // 머리말 레이아웃: 매직 "CHSMTBL\0"(8) + 버전(2) + 예약(2) + tableCount(4).
+        const int tableCountOffset = 12;
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(
+            bytes.AsSpan(tableCountOffset), int.MaxValue);
+
+        Assert.Throws<StaticTableLoadException>(() => StaticTableSnapshot.Read(bytes, Schemas));
+    }
+
     // ── 왕복 ─────────────────────────────────────────────────────────
 
     [Fact]

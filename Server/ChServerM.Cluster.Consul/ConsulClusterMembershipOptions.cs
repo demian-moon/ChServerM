@@ -91,6 +91,13 @@ public sealed class ConsulClusterMembershipOptions
                 + "같은 클러스터의 모든 노드가 같은 이름을 써야 서로를 발견한다.");
         }
 
+        if (SelfId.IsNone)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(SelfId)} 가 설정되지 않았다(None). 노드 번호는 1부터다 — "
+                + "이 값이 ObjectId 발급에 쓰이므로 미기입을 유효 구성으로 통과시키지 않는다.");
+        }
+
         if (string.IsNullOrWhiteSpace(SelfName))
         {
             throw new InvalidOperationException(
