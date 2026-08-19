@@ -5,6 +5,7 @@ XML 문서 주석에서 생성되는 API 레퍼런스다. **문서가 제품의 
 
 - [API 레퍼런스](xref:ChServerM)
 - **시각 가이드(초보자용)**: [시작·축 조립](guides/server.html) · [클라이언트](guides/client.html)
+- **샘플 가이드**: [FlatGameRoom — 로그인·세션·FlatBuffers 실데이터 총망라](samples/flatgameroom.md)
 - 원문: 저장소의 `docs/GETTING-STARTED.md` · `docs/GUIDE-CHOOSING-AXES.md`
 
 ## 로컬에서 생성하기

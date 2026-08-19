@@ -23,7 +23,7 @@
   "build": {
     "content": [
       { "files": [ "api/**.yml", "api/index.md" ] },
-      { "files": [ "toc.yml", "index.md" ] }
+      { "files": [ "toc.yml", "index.md", "samples/**.md" ] }
     ],
     "resource": [
       { "files": [ "guides/**" ] }

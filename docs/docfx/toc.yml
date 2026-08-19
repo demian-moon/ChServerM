@@ -2,5 +2,7 @@
   href: guides/server.html
 - name: 클라이언트
   href: guides/client.html
+- name: 샘플 FlatGameRoom
+  href: samples/flatgameroom.md
 - name: API 레퍼런스
   href: api/

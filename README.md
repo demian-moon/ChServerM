@@ -50,6 +50,7 @@ await using ChServerMServer server = new ServerBuilder()
 
 - **[시작 가이드](docs/GETTING-STARTED.md)** — 5분 안에 에코 서버
 - **시각 가이드(초보자용)** — [서버 조립](https://demian-moon.github.io/ChServerM/guides/server.html) · [클라이언트](https://demian-moon.github.io/ChServerM/guides/client.html)
+- **[종합 샘플 FlatGameRoom](https://demian-moon.github.io/ChServerM/samples/flatgameroom.html)** — 로그인·세션(재개 토큰)·룸 브로드캐스트·FlatBuffers 실데이터를 한 조립에 (`Samples/ChServerM.Samples.FlatGameRoom`)
 - [축 선택 가이드](docs/GUIDE-CHOOSING-AXES.md) · [성능 튜닝](docs/GUIDE-PERFORMANCE.md) · [레거시 마이그레이션](docs/GUIDE-MIGRATION.md)
 - [아키텍처](docs/ARCHITECTURE.md) · [설계 결정(ADR)](docs/DECISIONS.md) · [배포 예제(Docker/K8s)](deploy/README.md)
 
