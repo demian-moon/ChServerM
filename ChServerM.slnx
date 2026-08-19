@@ -40,6 +40,7 @@
   </Folder>
   <Folder Name="/Samples/">
     <Project Path="Samples/ChServerM.Samples.EchoServer/ChServerM.Samples.EchoServer.csproj" />
+    <Project Path="Samples/ChServerM.Samples.FlatGameRoom/ChServerM.Samples.FlatGameRoom.csproj" />
     <Project Path="Samples/ChServerM.Samples.GameRoom/ChServerM.Samples.GameRoom.csproj" />
     <Project Path="Samples/ChServerM.Samples.Matchmaking/ChServerM.Samples.Matchmaking.csproj" />
     <Project Path="Samples/ChServerM.Samples.StatelessWeb/ChServerM.Samples.StatelessWeb.csproj" />

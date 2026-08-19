@@ -244,6 +244,7 @@ ChServerM.Hosting.CircuitBreaker.CircuitBreaker(ChServerM.Hosting.CircuitBreaker
 ChServerM.Hosting.CircuitBreaker.Name.get -> string!
 ChServerM.Hosting.CircuitBreaker.RecordFailure(System.Exception? exception = null) -> void
 ChServerM.Hosting.CircuitBreaker.RecordSuccess() -> void
+ChServerM.Hosting.CircuitBreaker.ReleaseProbe() -> void
 ChServerM.Hosting.CircuitBreaker.Reset() -> void
 ChServerM.Hosting.CircuitBreaker.State.get -> ChServerM.Resilience.CircuitState
 ChServerM.Hosting.CircuitBreaker.TryEnter() -> bool

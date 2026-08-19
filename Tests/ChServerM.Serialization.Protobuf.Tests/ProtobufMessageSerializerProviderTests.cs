@@ -21,8 +21,9 @@ public sealed class ProtobufMessageSerializerProviderTests
 
         ArrayBufferWriter<byte> writer = new();
         serializer.Serialize(writer, new ProtoChatMessage { Text = "등록 경로" });
-        Assert.True(serializer.TryDeserialize(new ReadOnlySequence<byte>(writer.WrittenMemory), out ProtoChatMessage decoded));
-        Assert.Equal("등록 경로", decoded.Text);
+        // 인터페이스 계약은 [MaybeNullWhen(false)] 라 지역 변수도 널 허용으로 받는다(감사 C-2).
+        Assert.True(serializer.TryDeserialize(new ReadOnlySequence<byte>(writer.WrittenMemory), out ProtoChatMessage? decoded));
+        Assert.Equal("등록 경로", decoded!.Text);
     }
 
     [Fact]

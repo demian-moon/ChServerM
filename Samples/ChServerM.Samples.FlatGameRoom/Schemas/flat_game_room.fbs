@@ -1,0 +1,80 @@
+// FlatGameRoom 샘플 전용 스키마 — 로그인·룸 입장·채팅·이동·퇴장의 모든 요청·응답·브로드캐스트를
+// FlatBuffers 테이블로 정의한다. 원시 바이트 규약은 세션 핸드셰이크(프레임워크 동결 코덱)뿐이다.
+//
+// ⚠ 모든 테이블에 (fs_serializer:"Greedy") 를 지정한다. ChServerM 의 IMessageSerializer 계약은
+//   "호출이 끝나면 페이로드는 무효"이고, Lazy/Progressive 역직렬화는 반환 객체가 페이로드 버퍼를
+//   계속 참조하므로 FlatSharpMessageSerializer 생성자가 조립 시점에 거부한다(ADR-0012).
+attribute "fs_serializer";
+
+namespace ChServerM.Samples.FlatGameRoom.Messages;
+
+// 로그인 결과. 자격 불일치 실패는 이 값이 아니라 커넥션 종료(ErrorCode 6000)로 드러난다 —
+// 실패 사유를 와이어로 알리지 않는 프레임워크 규약(THREAT-MODEL T-20, 계정 열거 방지) 때문에
+// 실제로 송신되는 값은 Ok 뿐이다. 값 하나짜리 enum 을 유지하는 이유: 스키마 진화 시
+// 새 결과 코드를 추가할 자리를 처음부터 확보해 둔다(FlatBuffers 는 뒤에 값 추가가 호환이다).
+enum LoginResult : ubyte { Ok = 0 }
+
+enum JoinRoomResult : ubyte {
+  Joined = 0,
+  AlreadyInRoom = 1,
+  RoomFull = 2,
+  Disbanded = 3,
+  OpenFailed = 4,
+  InvalidRoomId = 5
+}
+
+enum LeaveRoomResult : ubyte { Left = 0, NotInRoom = 1 }
+
+// 자격 메시지. AuthenticationMiddleware 가 IAuthenticator(DemoAuthenticator)로 검증한다.
+table LoginRequest (fs_serializer:"Greedy") {
+  displayName: string;   // 표시 이름(1~32자). 서버가 검증하고 세션 상태로 보존한다.
+  clientToken: string;   // 데모용 공유 비밀. 실서비스라면 플랫폼 티켓/OAuth 토큰이 실릴 자리다.
+}
+
+table LoginReply (fs_serializer:"Greedy") {
+  result: LoginResult;
+  playerId: int64;       // 서버가 발급한 플레이어 식별자. 이후 브로드캐스트에서 발신자 표기에 쓴다.
+  motd: string;          // 오늘의 메시지 — 서버→클라이언트 실데이터 왕복 검증에 쓴다.
+}
+
+table JoinRoomRequest (fs_serializer:"Greedy") {
+  roomId: uint64;        // 0 은 무효(InvalidRoomId) — 강타입 RoomId 의 센티넬과 맞춘다.
+}
+
+table JoinRoomReply (fs_serializer:"Greedy") {
+  result: JoinRoomResult;
+  memberCount: int32;    // 입장 직후의 룸 인원(자신 포함). 실패면 0.
+}
+
+// 채팅 요청. 같은 룸의 다른 멤버 전원에게 ChatBroadcast 로 배달된다(발신자 제외).
+table ChatSend (fs_serializer:"Greedy") {
+  text: string;          // 1~512자. 범위 밖은 서버가 버린다.
+}
+
+table ChatBroadcast (fs_serializer:"Greedy") {
+  senderName: string;    // 발신자 표시 이름. 세션 재개 후에는 세션 상태에서 복원된 이름이다.
+  text: string;
+  sentAtUnixMs: int64;   // 서버 기준 송신 시각(Unix ms) — 클라이언트 시계를 믿지 않는다.
+}
+
+// 이동 보고. 서버가 좌표 범위를 검증한 뒤 같은 룸의 다른 멤버에게 MoveBroadcast 로 뿌린다.
+table MoveUpdate (fs_serializer:"Greedy") {
+  x: float;
+  y: float;
+  heading: float;        // 도 단위 [0, 360).
+}
+
+table MoveBroadcast (fs_serializer:"Greedy") {
+  playerId: int64;       // 누가 움직였는가 — 수신자는 이 값으로 대상 오브젝트를 찾는다.
+  x: float;
+  y: float;
+  heading: float;
+}
+
+table LeaveRoomRequest (fs_serializer:"Greedy") {
+  notifyOthers: bool;    // true 면 남은 멤버에게 퇴장 통지(ChatBroadcast)를 뿌린다.
+}
+
+table LeaveRoomReply (fs_serializer:"Greedy") {
+  result: LeaveRoomResult;
+}
