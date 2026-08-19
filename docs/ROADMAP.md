@@ -546,11 +546,14 @@ ADR-0002로 프레이밍은 직렬화와 분리된 독립 축이 됐다. 별도 
   FrameCodecCapabilities ADR-0075 · Room.Disband 스냅샷 반환 · 미방출 메트릭 제거).
   파괴적 변경이라 **0.2.0 승격** + ApiCompat 억제 파일. 게이트 6단계 전부 통과
   (`e22b4cc`·`9e8451c`)
-- [ ] 감사 D 목록(1.0 전 권장) 반영 — `docs/audit/2026-08-18/00-summary.md` D 절.
-  ID 타입 ISpanFormattable 일괄, 전송 축 비대칭(HTTP/WS/QUIC AdmissionControl·메트릭,
-  QUIC 인증서 회전, WS Origin), SslStreamCertificateContext, StopAsync 무토큰 드레인 계약,
-  TickLoop 기본 스핀 창, 매치메이커 앵커 재개, GC runtimeconfig 자동 게이트,
-  결정적 빌드 검증 연결, Bench GC 오타 잔재, 기준선 ENV 표기 정정 등
+- [x] **감사 D 목록(1.0 전 권장) 반영** (2026-08-19) — 19건 전량. 전송·TLS 5(드레인 상한 ·
+  SslStreamCertificateContext+원천 계약 교체 · QUIC 회전 · 수용 제어 대칭 · WS Origin/버전) ·
+  Hosting·관측 6(Build 1회 계약 · 상태명 캐시+`dispatch_status` 태그 · DrainAsync
+  TimeProvider · Dispose try/finally · 토큰 해시 · 히스토그램 단위/버킷) · 실시간·매치 4
+  (스핀 창 기본 0 · 매치 앵커 재개+검사 상한 · 룸 메트릭 단일 집계 · 타이머 취소 노드
+  회수) · Core 1(값 타입 11종 ISpanFormattable/IUtf8SpanFormattable) · 운영 4(Bench GC
+  오타 잔재 · 기준선 ENV-B 정정 · gc-config 산출물 게이트 · 결정적 빌드 검증 연결).
+  상세: `docs/audit/2026-08-18/00-summary.md` 반영 현황
 - [ ] 최종 성능 기준선 공표
 - [x] 문서 전체 검토 — 죽은 링크, 낡은 예제 (2026-08-12 `3e5c3fe`: **링크 전수 검사 61개 md → 깨진 링크 0**(레거시 인덱스 7건 수정) · 낡은 서술 정정(VERSIONING·ROADMAP·시작 가이드·README 의 발행 전 문구) · ARCHITECTURE 최신화(Matchmaking·메타 패키지) · DocFX 경고 0(`c8d874f`) · 시작 가이드 조합은 템플릿 종단 검증이 재실증. 기록성 문서(history·ADR·BENCHMARKS)는 추가 전용 원칙대로 불변)
 - [ ] 1.0 태그 + 릴리스
