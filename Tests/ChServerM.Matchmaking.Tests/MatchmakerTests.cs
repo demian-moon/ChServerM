@@ -264,6 +264,106 @@ public sealed class MatchmakerTests
         Assert.Equal(1, result.Waiting);
     }
 
+    // ── 앵커 재개·검사 상한 (감사 2026-08-18 R-4) ────────────────────
+
+    [Fact]
+    public void 매치_성립_후_같은_패스에서_뒤따르는_매치도_전부_뽑힌다_인덱스_보정()
+    {
+        // 회귀(감사 2026-08-18 R-4 ②): 매치 성립 시 앵커 0 재시작을 제자리 재개로 바꿨다.
+        // 이 시나리오는 매치가 앵커보다 앞 인덱스의 티켓(id1)을 제거하게 구성되어 있다 —
+        // 재개 인덱스 보정이 틀리면(제거 수만큼 당기지 않으면) 뒤따르는 매치를 놓친다.
+        // 협동 3인(팀 1 × 3명), 창 100 고정. 호환 관계:
+        //   id1(1500)-id2(1420)✓ id1-id3(1580)✓ id1-id4(1560)✓ / id2-id5(1390)✓ id2-id6(1395)✓
+        //   id3-id4✓ id5-id6✓, 그 외 전부 창 밖.
+        // 스캔: 앵커 id1 실패(뽑힌 id2 가 id3·id4 와 불화) → 앵커 id2 실패(id1 이 id5·id6 과
+        // 불화) → 앵커 id3 이 {id3, id1, id4} 성립(앞 인덱스 id1 제거!) → 보정된 위치에서
+        // 계속 → {id5, id2, id6} 성립. 한 패스에 2매치, 대기 0.
+        (Matchmaker matchmaker, ManualTimeProvider time) = Create(teamSize: 3, teamCount: 1, growth: 0);
+        Enqueue(matchmaker, time, id: 1, rating: 1500);
+        Enqueue(matchmaker, time, id: 2, rating: 1420);
+        Enqueue(matchmaker, time, id: 3, rating: 1580);
+        Enqueue(matchmaker, time, id: 4, rating: 1560);
+        Enqueue(matchmaker, time, id: 5, rating: 1390);
+        Enqueue(matchmaker, time, id: 6, rating: 1395);
+
+        List<MatchProposal> matches = [];
+        MatchmakingPassResult result = matchmaker.RunPass(Now(time), matches);
+
+        Assert.Equal(2, result.Matched);
+        Assert.Equal(0, result.Waiting);
+        Assert.Equal(2, matches.Count);
+
+        ulong[] first = [.. matches[0].Teams.SelectMany(t => t).Select(t => t.Id.Value).Order()];
+        ulong[] second = [.. matches[1].Teams.SelectMany(t => t).Select(t => t.Id.Value).Order()];
+        Assert.Equal(new ulong[] { 1, 3, 4 }, first);
+        Assert.Equal(new ulong[] { 2, 5, 6 }, second);
+    }
+
+    [Fact]
+    public void 검사_상한에_도달하면_패스가_중단되고_다음_패스가_이어서_본다()
+    {
+        // 감사 2026-08-18 R-4 ③: 상한(여기서는 1 — 앵커 하나만 처리 가능)에 걸린 패스는
+        // 끊긴 앵커 위치를 보존한다. 보존하지 않으면 매 패스가 앵커 0(id1)만 보다가 끊겨
+        // 뒤쪽의 성립 가능한 쌍(id3-id4)이 영원히 굶는다.
+        ManualTimeProvider time = new();
+        Matchmaker matchmaker = new(
+            new MatchmakingOptions
+            {
+                InitialRatingWindow = 100,
+                RatingWindowGrowthPerSecond = 0,
+                MaxWaitTime = null,
+                MaxCompatibilityChecksPerPass = 1,
+            },
+            time);
+        Enqueue(matchmaker, time, id: 1, rating: 1000);   // 아무와도 창이 안 겹친다
+        Enqueue(matchmaker, time, id: 2, rating: 3000);   // 아무와도 창이 안 겹친다
+        Enqueue(matchmaker, time, id: 3, rating: 5000);
+        Enqueue(matchmaker, time, id: 4, rating: 5000);   // id3 과만 호환
+
+        List<MatchProposal> matches = [];
+        Assert.Equal(0, matchmaker.RunPass(Now(time), matches).Matched); // 앵커 id1 에서 중단
+        Assert.Equal(0, matchmaker.RunPass(Now(time), matches).Matched); // 앵커 id2 에서 중단
+        Assert.Equal(1, matchmaker.RunPass(Now(time), matches).Matched); // 앵커 id3 → 매치
+
+        ulong[] matched = [.. Assert.Single(matches).Teams.SelectMany(t => t).Select(t => t.Id.Value).Order()];
+        Assert.Equal(new ulong[] { 3, 4 }, matched);
+        Assert.Equal(2, matchmaker.Count); // id1·id2 는 대기 유지 — 만료도 억지 매치도 아니다
+    }
+
+    [Fact]
+    public void 완주한_패스는_재개_위치를_처음으로_되돌린다()
+    {
+        // 상한 없는(기본) 패스가 완주하면 다음 패스는 다시 최장 대기(앵커 0)부터 본다.
+        ManualTimeProvider time = new();
+        Matchmaker matchmaker = new(
+            new MatchmakingOptions
+            {
+                InitialRatingWindow = 100,
+                RatingWindowGrowthPerSecond = 50,
+                MaxWaitTime = null,
+                MaxCompatibilityChecksPerPass = 1,
+            },
+            time);
+        Enqueue(matchmaker, time, id: 1, rating: 1500);
+        Enqueue(matchmaker, time, id: 2, rating: 1700);   // 격차 200 — 2초 뒤부터 호환
+
+        List<MatchProposal> matches = [];
+        Assert.Equal(0, matchmaker.RunPass(Now(time), matches).Matched); // 앵커 0 처리 후 중단(재개=1)
+        Assert.Equal(0, matchmaker.RunPass(Now(time), matches).Matched); // 앵커 1 처리 후 완주(재개=0)
+
+        time.AdvanceMonotonic(TimeSpan.FromSeconds(2));
+        // 완주가 재개 위치를 0 으로 되돌렸으므로, 창이 자란 지금 앵커 0(id1)에서 바로 매치된다.
+        Assert.Equal(1, matchmaker.RunPass(Now(time), matches).Matched);
+    }
+
+    [Fact]
+    public void 음수_검사_상한은_거부된다()
+    {
+        var options = new MatchmakingOptions { MaxCompatibilityChecksPerPass = -1 };
+
+        Assert.Throws<InvalidOperationException>(options.Validate);
+    }
+
     // ── 도우미 ───────────────────────────────────────────────────────
 
     private static (Matchmaker Matchmaker, ManualTimeProvider Time) Create1v1(

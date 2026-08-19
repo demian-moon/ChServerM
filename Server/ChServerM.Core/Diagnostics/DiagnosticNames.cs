@@ -73,7 +73,7 @@ public static class MetricNames
     /// <summary>메시지 처리 지연(초).</summary>
     public const string DispatchDuration = DiagnosticNames.Prefix + ".dispatch.duration";
 
-    /// <summary>핸들러 실패 수.</summary>
+    /// <summary>핸들러 실패·거부 수. <see cref="TagNames.DispatchStatus"/> 로 분류한다.</summary>
     public const string DispatchFailures = DiagnosticNames.Prefix + ".dispatch.failures";
 
     /// <summary>파티션 큐에 쌓인 작업 수.</summary>
@@ -129,7 +129,21 @@ public static class TagNames
     public const string ConnectionId = "connection_id";
 
     /// <summary><see cref="Diagnostics.ErrorCode"/> 값.</summary>
+    /// <remarks>
+    /// <b>이 태그에는 <see cref="Diagnostics.ErrorCode"/> 값만 싣는다.</b> 디스패치 결과
+    /// (<c>DispatchStatus</c>) 이름은 <see cref="DispatchStatus"/> 태그의 몫이다 — 두 의미가
+    /// 한 태그에 섞이면 대시보드 필터가 성립하지 않는다(감사 2026-08-18 O-9).
+    /// </remarks>
     public const string ErrorCode = "error_code";
+
+    /// <summary>디스패치 결과(<see cref="Dispatch.DispatchStatus"/>) 이름.</summary>
+    /// <remarks>
+    /// <see cref="MetricNames.DispatchFailures"/> 의 분류 태그다. <see cref="ErrorCode"/> 와
+    /// 분리한 이유: 그쪽 계약은 <see cref="Diagnostics.ErrorCode"/> 값이라, 디스패치 상태명을
+    /// 실으면 한 태그에 두 값 체계가 섞여 대시보드에서 구분할 수 없게 된다
+    /// (감사 2026-08-18 O-9). 값은 유한 enum 이름이라 카디널리티가 안전하다.
+    /// </remarks>
+    public const string DispatchStatus = "dispatch_status";
 
     /// <summary>커넥션 종료 사유.</summary>
     public const string CloseReason = "close_reason";

@@ -183,6 +183,42 @@ public sealed class DrainOrchestrationTests
             async () => await server.DrainAsync(options, cancel.Token));
     }
 
+    [Fact]
+    public async Task Drain_measuresElapsedWithInjectedTimeProvider()
+    {
+        // 감사 2026-08-18 H-5 — 드레인 절차가 UseTimeProvider 를 따르는지. 시각이 멈춘
+        // 시간 원본을 주입하면 보고되는 경과도 0 이어야 한다 — 시스템 시계(Stopwatch)를
+        // 쓰던 이전 구현이면 실제 경과가 새어 들어와 0 이 될 수 없다.
+        InMemoryTransportHub hub = new();
+        InMemoryEndPoint endPoint = new($"drain-{Guid.NewGuid():N}");
+        await using ChServerMServer server = new ServerBuilder()
+            .UseTransport(new InMemoryServerTransport(hub, endPoint, new InMemoryTransportOptions()))
+            .UseFraming(
+                new FixedHeaderFrameDecoder(new FramingOptions { MaxPayloadLength = 1024 }),
+                new FixedHeaderFrameEncoder(new FramingOptions { MaxPayloadLength = 1024 }))
+            .UseTimeProvider(new FrozenTimeProvider())
+            .ConfigureDispatcher(d => d.MapRaw(Ping, _ => ValueTask.FromResult(DispatchStatus.Handled)))
+            .Build();
+        await server.StartAsync(CancellationToken.None);
+
+        DrainOptions options = new()
+        {
+            ReadinessPropagationDelay = TimeSpan.Zero,
+            ConnectionDrainTimeout = TimeSpan.FromSeconds(30),
+        };
+
+        DrainReport report = await server.DrainAsync(options, CancellationToken.None);
+
+        Assert.True(report.CompletedWithinTimeout);
+        Assert.Equal(TimeSpan.Zero, report.Elapsed);
+    }
+
+    /// <summary>시각이 0 에 멈춘 시간 원본 — 주입 여부만 판별한다. 타이머는 기본(실시간)이다.</summary>
+    private sealed class FrozenTimeProvider : TimeProvider
+    {
+        public override long GetTimestamp() => 0;
+    }
+
     [Theory]
     [InlineData(-1, 30)]
     [InlineData(5, -1)]

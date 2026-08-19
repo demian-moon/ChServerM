@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using ChServerM.Connections;
 using ChServerM.Diagnostics;
 using ChServerM.Identity;
+using ChServerM.Resilience;
 using ChServerM.Transports;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -47,6 +48,13 @@ namespace ChServerM.Transport.WebSocket;
 /// <b>평문 HTTP/1.1 업그레이드 전용이다.</b> WebSocket over HTTP/2(RFC 8441)는 배포 이득이
 /// 확인되면 별도 결정으로 더한다. TLS(wss)는 Kestrel 소유의 후속 옵션이다 —
 /// <c>ITransportSecurity</c> 를 이 전송에 조립하지 않는다(이중 암호화).
+/// </para>
+/// <para>
+/// <b>핸드셰이크 검증(감사 2026-08-18 T-6).</b> <c>Sec-WebSocket-Version</c> 은 콤마 분리 후
+/// <c>"13"</c> 정확 일치만 통과한다(<c>Contains</c> 는 "130" 도 통과시킨다).
+/// <see cref="WebSocketTransportOptions.AllowedOrigins"/> 가 지정되면 <c>Origin</c> 헤더를
+/// Ordinal 화이트리스트로 검사해 불일치를 <c>403</c> 으로 거부한다(CSWSH 방어).
+/// <c>Sec-WebSocket-Protocol</c> 은 협상하지 않는다 — 옵션 문서 참조.
 /// </para>
 /// <para><b>스레드 규약.</b> 스레드 안전하다.</para>
 /// </remarks>
@@ -184,9 +192,15 @@ public sealed class WebSocketServerTransport : IServerTransport, ITransportBuffe
         {
             try
             {
-                await Task.WhenAll(pending).WaitAsync(cancellationToken).ConfigureAwait(false);
+                // 취소 불가 토큰(기본 인자 포함)이면 1차 드레인에도 ShutdownTimeout 을 적용한다 —
+                // 상시 연결 워크로드에서 상한 없는 대기는 종료를 영원히 막는다(감사 2026-08-18 T-2).
+                Task drain = Task.WhenAll(pending);
+                await (cancellationToken.CanBeCanceled
+                        ? drain.WaitAsync(cancellationToken)
+                        : drain.WaitAsync(_options.ShutdownTimeout, CancellationToken.None))
+                    .ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
+            catch (Exception exception) when (exception is OperationCanceledException or TimeoutException)
             {
                 foreach (ActiveConnection active in _connections.Values)
                 {
@@ -255,12 +269,24 @@ public sealed class WebSocketServerTransport : IServerTransport, ITransportBuffe
         if (upgrade is not { IsUpgradableRequest: true }
             || !string.Equals(request.Method, "GET", StringComparison.Ordinal)
             || string.IsNullOrEmpty(key)
-            || !request.Headers.SecWebSocketVersion.ToString().Contains("13", StringComparison.Ordinal))
+            || !HasWebSocketVersion13(request.Headers.SecWebSocketVersion.ToString()))
         {
             // WebSocket 업그레이드가 아니다. 426 이 "이 경로는 업그레이드 전용"을 정확히 말한다.
             response.StatusCode = 426;
             response.Headers.Upgrade = "websocket";
             return;
+        }
+
+        // CSWSH 방어 — 임의 웹사이트의 JS 가 방문자 브라우저에서 이 서버로 소켓을 여는 것을
+        // 막는다(감사 2026-08-18 T-6). Origin 이 없는 요청(비브라우저)은 통과한다 — 옵션 문서 참조.
+        if (_options.AllowedOrigins is { } allowedOrigins)
+        {
+            string origin = request.Headers.Origin.ToString();
+            if (origin.Length > 0 && !IsAllowedOrigin(allowedOrigins, origin))
+            {
+                response.StatusCode = 403;
+                return;
+            }
         }
 
         IConnectionHandler? handler = _handler;
@@ -275,6 +301,25 @@ public sealed class WebSocketServerTransport : IServerTransport, ITransportBuffe
         {
             Interlocked.Decrement(ref _activeCount);
             EmitRejected(response, CloseReasonTags.ConnectionLimit);
+            return;
+        }
+
+        // 원격 주소는 수용 판정과 커넥션 식별 양쪽에 쓴다 — 여기서 한 번만 읽는다.
+        IHttpConnectionFeature? httpConnection = features.Get<IHttpConnectionFeature>();
+        IPEndPoint? remote = httpConnection?.RemoteIpAddress is { } remoteIp
+            ? new IPEndPoint(remoteIp, httpConnection.RemotePort)
+            : null;
+        IPEndPoint? local = httpConnection?.LocalIpAddress is { } localIp
+            ? new IPEndPoint(localIp, httpConnection.LocalPort)
+            : _localEndPoint;
+
+        // 동적 수용 제어 — 상한 안의 연결 폭주(재접속 스톰)를 막는다. 정적 상한 통과 후에만
+        // 묻고, 거부 시 증가시킨 카운터를 되돌린다 — TCP·인메모리와 같은 배선(감사 2026-08-18 T-5).
+        if (_options.AdmissionControl is { } admissionControl
+            && !admissionControl.TryAdmit(remote).IsAdmitted)
+        {
+            Interlocked.Decrement(ref _activeCount);
+            EmitRejected(response, CloseReasonTags.Admission);
             return;
         }
 
@@ -306,14 +351,6 @@ public sealed class WebSocketServerTransport : IServerTransport, ITransportBuffe
                 IsServer = true,
                 KeepAliveInterval = TimeSpan.Zero,
             });
-
-            IHttpConnectionFeature? httpConnection = features.Get<IHttpConnectionFeature>();
-            IPEndPoint? remote = httpConnection?.RemoteIpAddress is { } remoteIp
-                ? new IPEndPoint(remoteIp, httpConnection.RemotePort)
-                : null;
-            IPEndPoint? local = httpConnection?.LocalIpAddress is { } localIp
-                ? new IPEndPoint(localIp, httpConnection.LocalPort)
-                : _localEndPoint;
 
 #pragma warning disable CA2000 // 이 메서드의 finally 가 DisposeAsync 를 보장한다(수락 루프 골격).
             connection = new WebSocketDuplexConnection(
@@ -369,10 +406,59 @@ public sealed class WebSocketServerTransport : IServerTransport, ITransportBuffe
     private ConnectionId NextConnectionId() =>
         new((uint)Interlocked.Increment(ref _nextSlot), generation: 1);
 
-    /// <summary>거부 응답(503)을 만들고 기록한다.</summary>
+    /// <summary><c>Sec-WebSocket-Version</c> 헤더에 정확히 <c>13</c> 이 있는지 판별한다.</summary>
+    /// <remarks>
+    /// 콤마 분리 목록("13, 8")을 허용하되 각 항목은 정확 일치여야 한다 — 이전의
+    /// <c>Contains("13")</c> 은 "130" 같은 값도 통과시켰다(감사 2026-08-18 T-6).
+    /// </remarks>
+    private static bool HasWebSocketVersion13(string headerValue)
+    {
+        ReadOnlySpan<char> remaining = headerValue;
+        while (!remaining.IsEmpty)
+        {
+            int comma = remaining.IndexOf(',');
+            ReadOnlySpan<char> token = comma < 0 ? remaining : remaining[..comma];
+            if (token.Trim().SequenceEqual("13"))
+            {
+                return true;
+            }
+
+            remaining = comma < 0 ? default : remaining[(comma + 1)..];
+        }
+
+        return false;
+    }
+
+    /// <summary>Origin 값이 화이트리스트에 있는지 — Ordinal 정확 일치(감사 2026-08-18 T-6).</summary>
+    private static bool IsAllowedOrigin(IReadOnlyList<string> allowedOrigins, string origin)
+    {
+        for (int i = 0; i < allowedOrigins.Count; i++)
+        {
+            if (string.Equals(allowedOrigins[i], origin, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>거부 응답(503)을 만들고 관측·기록한다.</summary>
+    /// <remarks>
+    /// 정적 상한·동적 수용·드레인 거부가 같은 경로를 쓴다 — 통지·관측 로직이 두 벌이 되면
+    /// 한쪽만 고치는 사고가 난다(TCP 의 <c>RejectConnection</c> 과 같은 판단).
+    /// </remarks>
     private void EmitRejected(IHttpResponseFeature response, string reason)
     {
         response.StatusCode = 503;
+
+        // 거부는 핸들러에 닿지 않으므로 전송이 직접 방출한다 — 조용한 유실은 관측되지
+        // 않으면 존재하지 않는 것과 같다(CLAUDE.md 9.6). TCP 와 같은 배선(감사 2026-08-18 T-5).
+        if (_options.MetricsSink is { } sink)
+        {
+            Span<MetricTag> tags = [new MetricTag(TagNames.CloseReason, reason)];
+            sink.Count(MetricNames.ConnectionsRejected, 1, tags);
+        }
 
         if (_logger.IsEnabled(LogLevel.Warning))
         {
@@ -398,11 +484,12 @@ public sealed class WebSocketServerTransport : IServerTransport, ITransportBuffe
         }
     }
 
-    /// <summary>커넥션 거부 로그의 저카디널리티 사유 태그 값.</summary>
+    /// <summary>커넥션 거부 메트릭·로그의 저카디널리티 사유 태그 값.</summary>
     private static class CloseReasonTags
     {
         public const string ConnectionLimit = "connection_limit";
         public const string Draining = "draining";
+        public const string Admission = "admission";
     }
 
     private readonly record struct ActiveConnection(WebSocketDuplexConnection Connection, Task Completion);

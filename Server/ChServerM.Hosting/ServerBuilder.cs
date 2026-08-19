@@ -59,6 +59,12 @@ public sealed class ServerBuilder
     private IServerLogger _logger = NullServerLogger.Instance;
     private TimeProvider _timeProvider = TimeProvider.System;
 
+    // Build() 1회 계약의 근거 플래그(감사 2026-08-18 H-3). Build 는 공유 _dispatcher 에
+    // 관측 미들웨어·세션 라우팅을 "추가"하므로 두 번째 호출이 조용히 이중 배선된다 —
+    // 세션 조립은 MapRaw 중복 예외로 시끄럽게 죽지만, 메트릭/추적만 켠 조립은 프레임 수·
+    // 지연이 소리 없이 2배로 계수된다. 조용한 오계측보다 즉시 예외가 낫다.
+    private bool _built;
+
     /// <summary>수용 전송을 지정한다.</summary>
     /// <param name="transport">전송 인스턴스. 서버가 소유권을 가져간다.</param>
     /// <returns>메서드 체이닝을 위한 자기 자신.</returns>
@@ -374,15 +380,34 @@ public sealed class ServerBuilder
         return this;
     }
 
-    /// <summary>조립을 끝내고 서버를 만든다.</summary>
+    /// <summary>조립을 끝내고 서버를 만든다. <b>한 번만 부를 수 있다.</b></summary>
     /// <returns>시작할 준비가 된 서버.</returns>
-    /// <exception cref="InvalidOperationException">필수 축이 지정되지 않았을 때.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// 필수 축이 지정되지 않았거나, 이 빌더로 이미 <see cref="Build"/> 가 실행됐을 때.
+    /// </exception>
     /// <remarks>
+    /// <para>
     /// <b>누락된 축은 예외로 즉시 알린다.</b> 기본값을 몰래 채우면 "왜 프레임이
     /// 안 잘리는가"를 런타임에 디버깅하게 된다. 조립 시점 실패는 예외가 옳다.
+    /// </para>
+    /// <para>
+    /// <b>이 메서드는 1회용이다</b>(감사 2026-08-18 H-3). Build 는 내부 디스패처에 관측
+    /// 미들웨어·세션 라우팅을 추가하므로, 재호출을 허용하면 두 번째 서버가 그것들을 이중
+    /// 배선한 채 만들어진다(프레임 수·지연 2배 계수, span 중첩). 서버가 하나 더 필요하면
+    /// <see cref="ServerBuilder"/> 를 새로 만든다. 필수 축 누락 같은 <b>조립 검증 실패는
+    /// 이 계약을 소모하지 않는다</b> — 축을 채워 다시 부를 수 있다.
+    /// </para>
     /// </remarks>
     public ChServerMServer Build()
     {
+        if (_built)
+        {
+            throw new InvalidOperationException(
+                $"이 빌더로는 이미 {nameof(Build)}() 가 실행됐다. {nameof(Build)} 는 내부 디스패처에 관측 "
+                + "미들웨어·세션 라우팅을 추가하므로 두 번째 호출은 그것들을 이중 배선한다. "
+                + $"서버가 하나 더 필요하면 {nameof(ServerBuilder)} 를 새로 조립한다.");
+        }
+
         IServerTransport transport = _transport
             ?? throw new InvalidOperationException(
                 $"전송이 지정되지 않았다. {nameof(UseTransport)} 를 호출한다.");
@@ -408,7 +433,19 @@ public sealed class ServerBuilder
         if (_versionNegotiation is not null)
         {
             CompositionGuard.EnsureCodecSupportsVersionNegotiation(encoder, decoder);
+            _versionNegotiation.Validate();
         }
+
+        if (_contentFingerprint.IsSet && _versionNegotiation is null)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(RequireContentFingerprint)} 는 {nameof(UseVersionNegotiation)} 을 함께 요구한다. "
+                + "지문 교환은 협상 직후에 일어나고, 거부 프레임이 서버 지원 버전 구간을 함께 싣는다.");
+        }
+
+        // 여기서부터 공유 상태(_dispatcher)를 변이한다 — 위의 검증은 전부 순수라 실패해도
+        // 재시도할 수 있지만, 이 아래에서 실패하면 빌더가 오염되므로 재호출을 지금 막는다(H-3).
+        _built = true;
 
         // 세션 축이 있으면 재개 예약 메시지를 배선한다. 앱이 ID 40007 을 알 필요가 없다.
         // 라우팅 등록이므로 미들웨어 조립보다 먼저 해도 순서에 영향이 없다.
@@ -440,18 +477,12 @@ public sealed class ServerBuilder
 
         // 콘텐츠 지문 게이트가 있으면 협상 안쪽·프레이밍 바깥에 끼어든다(ADR-0044).
         // 순서가 협상 안쪽인 이유: 프로토콜이 안 맞으면 콘텐츠 비교는 의미가 없다.
+        // 협상 필수 검증은 위(순수 구간)에서 이미 끝났다.
         if (_contentFingerprint.IsSet)
         {
-            if (_versionNegotiation is null)
-            {
-                throw new InvalidOperationException(
-                    $"{nameof(RequireContentFingerprint)} 는 {nameof(UseVersionNegotiation)} 을 함께 요구한다. "
-                    + "지문 교환은 협상 직후에 일어나고, 거부 프레임이 서버 지원 버전 구간을 함께 싣는다.");
-            }
-
             handler = new ContentFingerprintConnectionHandler(
                 _contentFingerprint,
-                _versionNegotiation.SupportedVersions,
+                _versionNegotiation!.SupportedVersions,
                 _versionNegotiation.HandshakeTimeout,
                 handler,
                 _timeProvider,
@@ -461,7 +492,6 @@ public sealed class ServerBuilder
         // 버전 협상이 있으면 프레이밍 전에 1왕복 핸드셰이크가 끼어든다(ADR-0017 결정 3).
         if (_versionNegotiation is not null)
         {
-            _versionNegotiation.Validate();
             handler = new VersionNegotiatingConnectionHandler(_versionNegotiation, handler, _timeProvider, _logger);
         }
 
@@ -494,7 +524,7 @@ public sealed class ServerBuilder
 
         return new ChServerMServer(
             transport, handler, encoder, _executionModel, lifecycle, health, diagnostics,
-            _sessionResume, sessionDispatch);
+            _sessionResume, sessionDispatch, _timeProvider);
     }
 
     /// <summary>내장 헬스 체크와 사용자 등록을 하나의 목록으로 모은다.</summary>

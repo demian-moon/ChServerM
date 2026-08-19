@@ -1,6 +1,8 @@
 using System;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
+using ChServerM.Diagnostics;
+using ChServerM.Resilience;
 
 namespace ChServerM.Transport.Quic;
 
@@ -43,9 +45,47 @@ public sealed class QuicTransportOptions
     /// <summary>ALPN 프로토콜 이름. 서버·클라이언트가 같아야 연결이 수립된다.</summary>
     public string AlpnProtocol { get; set; } = DefaultAlpnProtocol;
 
-    /// <summary>서버 인증서. <b>서버 전송의 필수 입력이다</b> — QUIC 은 TLS 없이 서지 않는다.</summary>
-    /// <remarks>클라이언트 전송에서는 무시된다.</remarks>
+    /// <summary>고정 서버 인증서. <see cref="ServerCertificateContextSource"/>와 상호 배타 —
+    /// 서버 전송이면 둘 중 하나가 필수다. QUIC 은 TLS 없이 서지 않는다.</summary>
+    /// <remarks>
+    /// 클라이언트 전송에서는 무시된다. 고정 인스턴스는 회전이 없다 — 전송이 바인드 시점에
+    /// <see cref="SslStreamCertificateContext"/>로 1회 승격해 보관한다(감사 2026-08-18 T-3).
+    /// 회전이 필요하면 <see cref="ServerCertificateContextSource"/>를 쓴다.
+    /// </remarks>
     public X509Certificate2? ServerCertificate { get; set; }
+
+    /// <summary>서버 인증서 컨텍스트의 원천 — <b>연결 수립마다</b> 해석되므로 인증서 회전이
+    /// 재시작 없이 새 연결부터 반영된다(감사 2026-08-18 T-4). <see cref="ServerCertificate"/>와 상호 배타.</summary>
+    /// <remarks>
+    /// <para>
+    /// 타입이 <c>Func</c>인 이유: 회전 원천의 참조 구현은
+    /// <c>ChServerM.Security.Tls.FileCertificateSource</c>(<c>IServerCertificateSource</c>)지만,
+    /// 이 어셈블리가 TLS 어댑터를 참조하면 어댑터끼리 결합된다 — 메서드 그룹
+    /// (<c>source.GetCertificateContext</c>)을 그대로 넘기면 같은 원천을 결합 없이 재사용한다.
+    /// </para>
+    /// <para>
+    /// 콜백은 여러 연결 수립이 동시에 부른다 — 스레드 안전해야 하고, 보관해 둔 컨텍스트를
+    /// 돌려줘야 한다(호출 시점 체인 구축 금지 — 연결 수립 경로다). 돌려준 컨텍스트의 수명은
+    /// 원천이 소유한다. 클라이언트 전송에서는 무시된다.
+    /// </para>
+    /// </remarks>
+    public Func<SslStreamCertificateContext>? ServerCertificateContextSource { get; set; }
+
+    /// <summary>신규 커넥션(스트림) 동적 수용 제어. <see langword="null"/>이면 정적 상한만 적용.</summary>
+    /// <remarks>
+    /// <see cref="MaxConnections"/>(정적 하드 상한)를 통과한 뒤에만 물어본다. 거부하면 스트림을
+    /// 즉시 중단으로 닫는다 — TCP 전송과 같은 배선(감사 2026-08-18 T-5). 참조 구현:
+    /// <c>ChServerM.Hosting.ConnectionRateAdmissionControl</c>(토큰 버킷).
+    /// </remarks>
+    public IAdmissionControl? AdmissionControl { get; set; }
+
+    /// <summary>커넥션 거부를 관측할 메트릭 싱크. <see langword="null"/>이면 기록하지 않는다.</summary>
+    /// <remarks>
+    /// 거부된 스트림은 핸들러에 닿지 않으므로 거부(<see cref="MetricNames.ConnectionsRejected"/>)는
+    /// 전송이 직접 방출한다 — 정적 상한·동적 수용·드레인 거부 모두 관측된다(감사 2026-08-18 T-5,
+    /// CLAUDE.md 9.6 "드롭 수를 메트릭으로 노출한다").
+    /// </remarks>
+    public IMetricsSink? MetricsSink { get; set; }
 
     /// <summary>클라이언트의 서버 인증서 검증 콜백. <see langword="null"/> 이면 시스템 기본 신뢰 체계.</summary>
     /// <remarks>
@@ -89,10 +129,20 @@ public sealed class QuicTransportOptions
             throw new InvalidOperationException($"{nameof(AlpnProtocol)} 은 비어 있을 수 없다.");
         }
 
-        if (requireServerCertificate && ServerCertificate is null)
+        // 고정 인스턴스와 원천이 함께 오면 어느 쪽이 진짜인지 모호하다 — TLS 어댑터의
+        // ServerCertificate/ServerCertificateSource 상호 배타와 같은 규율(감사 2026-08-18 T-4).
+        if (ServerCertificate is not null && ServerCertificateContextSource is not null)
         {
             throw new InvalidOperationException(
-                $"{nameof(ServerCertificate)} 는 서버 전송의 필수 입력이다 — QUIC 은 TLS 없이 서지 않는다. "
+                $"{nameof(ServerCertificate)}와 {nameof(ServerCertificateContextSource)}가 함께 지정됐다 — "
+                + "고정 인스턴스 또는 원천 중 하나만 쓴다.");
+        }
+
+        if (requireServerCertificate && ServerCertificate is null && ServerCertificateContextSource is null)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(ServerCertificate)} 또는 {nameof(ServerCertificateContextSource)} 는 서버 전송의 "
+                + "필수 입력이다 — QUIC 은 TLS 없이 서지 않는다. "
                 + "자가서명이라도 serverAuth EKU 와 PFX 재로드가 필요하다(ADR-0060).");
         }
 

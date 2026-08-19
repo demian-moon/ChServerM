@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Net.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
@@ -16,7 +17,13 @@ namespace ChServerM.Security.Tls;
 /// 일어나는 운영 환경에서, 서버 재시작 없이 새 인증서를 집는 경로다.
 /// </para>
 /// <para>
-/// <b>회전 감지 = 핸드셰이크 시점 지연 재확인.</b> <see cref="GetCertificate"/> 호출 시
+/// <b>컨텍스트는 적재 시 1회 생성.</b> <see cref="SslStreamCertificateContext"/> 를
+/// 세대마다 한 번만 만들어 보관한다 — 핸드셰이크마다 원시 인증서로 체인을 재구축하는
+/// 비용(OS 저장소 조회 포함)을 없앤다(감사 2026-08-18 T-3). 생성은 <c>offline: true</c> 로
+/// 한다 — 재적재는 핸드셰이크 스레드에서 실행되므로 네트워크(AIA) 조회로 막히면 안 된다.
+/// </para>
+/// <para>
+/// <b>회전 감지 = 핸드셰이크 시점 지연 재확인.</b> <see cref="GetCertificateContext"/> 호출 시
 /// 재확인 주기가 지났으면 파일 수정 시각을 비교하고, 바뀌었을 때만 재적재한다.
 /// <c>FileSystemWatcher</c> 를 쓰지 않는 이유: k8s Secret 마운트(심볼릭 링크 원자 교체)
 /// 에서 이벤트 누락으로 악명 높고, 전용 감시 핸들·스레드가 생긴다(9.5). 폴링은
@@ -62,10 +69,10 @@ public sealed class FileCertificateSource : IServerCertificateSource
     private readonly TimeProvider _timeProvider;
     private readonly IServerLogger _logger;
 
-    private X509Certificate2 _current;
+    private CertificateGeneration _current;
 
     /// <summary>직전 세대 — 진행 중 핸드셰이크 보호용. 게이트 안에서만 쓴다.</summary>
-    private X509Certificate2? _previous;
+    private CertificateGeneration? _previous;
 
     /// <summary>파일이 이 시각과 같으면 재적재하지 않는다. 게이트 안에서만 쓴다.</summary>
     private DateTime _loadedWriteTimeUtc;
@@ -102,13 +109,13 @@ public sealed class FileCertificateSource : IServerCertificateSource
 
         // 시작 시점 적재 실패는 던진다 — 첫 커넥션이 아니라 조립 시점에 드러나야 한다.
         _loadedWriteTimeUtc = ReadLatestWriteTimeUtc();
-        _current = LoadFromFiles();
+        _current = LoadGenerationFromFiles();
         ScheduleNextCheck();
-        LogLoaded(_current, rotated: false);
+        LogLoaded(_current.Certificate, rotated: false);
     }
 
     /// <inheritdoc />
-    public X509Certificate2 GetCertificate()
+    public SslStreamCertificateContext GetCertificateContext()
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
 
@@ -118,7 +125,7 @@ public sealed class FileCertificateSource : IServerCertificateSource
             TryReload(force: false);
         }
 
-        return Volatile.Read(ref _current);
+        return Volatile.Read(ref _current).Context;
     }
 
     /// <summary>파일 수정 시각과 무관하게 지금 재적재한다 — 운영 신호(SIGHUP 류)용.</summary>
@@ -139,6 +146,7 @@ public sealed class FileCertificateSource : IServerCertificateSource
 
         _current.Dispose();
         _previous?.Dispose();
+        // 컨텍스트는 별도 폐기 대상이 아니다 — 대상 인증서 폐기로 함께 무효해진다.
     }
 
     private void TryReload(bool force)
@@ -161,17 +169,17 @@ public sealed class FileCertificateSource : IServerCertificateSource
                 return;
             }
 
-            X509Certificate2 loaded = LoadFromFiles();
+            CertificateGeneration loaded = LoadGenerationFromFiles();
             _loadedWriteTimeUtc = writeTimeUtc;
 
-            X509Certificate2? retired = _previous;
+            CertificateGeneration? retired = _previous;
             _previous = Volatile.Read(ref _current);
             Volatile.Write(ref _current, loaded);
 
             // 두 세대 전만 폐기한다 — 직전 세대는 진행 중 핸드셰이크가 참조할 수 있다.
             retired?.Dispose();
 
-            LogLoaded(loaded, rotated: true);
+            LogLoaded(loaded.Certificate, rotated: true);
         }
         catch (Exception exception)
             when (exception is IOException or CryptographicException or ArgumentException or UnauthorizedAccessException)
@@ -210,6 +218,27 @@ public sealed class FileCertificateSource : IServerCertificateSource
         return certificateTime > keyTime ? certificateTime : keyTime;
     }
 
+    /// <summary>파일에서 인증서를 적재하고 컨텍스트까지 만든 세대를 돌려준다.</summary>
+    private CertificateGeneration LoadGenerationFromFiles()
+    {
+        X509Certificate2 certificate = LoadFromFiles();
+
+        try
+        {
+            // 컨텍스트는 세대당 1회 — 핸드셰이크마다 체인 재구축을 없앤다(감사 2026-08-18 T-3).
+            // offline: true — 재적재는 핸드셰이크 스레드에서 돌므로 네트워크(AIA) 조회 금지.
+            return new CertificateGeneration(
+                certificate,
+                SslStreamCertificateContext.Create(certificate, additionalCertificates: null, offline: true));
+        }
+        catch
+        {
+            // 컨텍스트 생성 실패(개인키 없음 등)면 방금 적재한 인증서가 새지 않게 닫는다.
+            certificate.Dispose();
+            throw;
+        }
+    }
+
     private X509Certificate2 LoadFromFiles()
     {
         if (_pfxPath is not null)
@@ -221,6 +250,20 @@ public sealed class FileCertificateSource : IServerCertificateSource
         // PFX 왕복으로 흡수한다. 플랫폼 무관 동일 동작(적재는 드물어 비용 무의미).
         using X509Certificate2 ephemeral = X509Certificate2.CreateFromPemFile(_certificatePemPath!, _privateKeyPemPath!);
         return X509CertificateLoader.LoadPkcs12(ephemeral.Export(X509ContentType.Pfx), password: null);
+    }
+
+    /// <summary>세대 하나 — 인증서와, 그 인증서로 1회 생성한 컨텍스트의 짝.</summary>
+    /// <remarks>
+    /// 폐기는 인증서만 한다 — <see cref="SslStreamCertificateContext"/> 는 폐기 대상이
+    /// 아니고, 대상 인증서의 키 핸들이 닫히면 함께 무효해진다(세대 보관 규약의 근거).
+    /// </remarks>
+    private sealed class CertificateGeneration(X509Certificate2 certificate, SslStreamCertificateContext context)
+    {
+        public X509Certificate2 Certificate { get; } = certificate;
+
+        public SslStreamCertificateContext Context { get; } = context;
+
+        public void Dispose() => Certificate.Dispose();
     }
 
     private void LogLoaded(X509Certificate2 certificate, bool rotated)

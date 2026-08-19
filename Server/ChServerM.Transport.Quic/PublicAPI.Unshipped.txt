@@ -13,12 +13,16 @@ ChServerM.Transport.Quic.QuicServerTransport.QuicServerTransport(System.Net.IPEn
 ChServerM.Transport.Quic.QuicServerTransport.StopAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 ChServerM.Transport.Quic.QuicServerTransport.UnbindAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 ChServerM.Transport.Quic.QuicTransportOptions
+ChServerM.Transport.Quic.QuicTransportOptions.AdmissionControl.get -> ChServerM.Resilience.IAdmissionControl?
+ChServerM.Transport.Quic.QuicTransportOptions.AdmissionControl.set -> void
 ChServerM.Transport.Quic.QuicTransportOptions.AlpnProtocol.get -> string!
 ChServerM.Transport.Quic.QuicTransportOptions.AlpnProtocol.set -> void
 ChServerM.Transport.Quic.QuicTransportOptions.MaxConnections.get -> int
 ChServerM.Transport.Quic.QuicTransportOptions.MaxConnections.set -> void
 ChServerM.Transport.Quic.QuicTransportOptions.MaxStreamsPerConnection.get -> int
 ChServerM.Transport.Quic.QuicTransportOptions.MaxStreamsPerConnection.set -> void
+ChServerM.Transport.Quic.QuicTransportOptions.MetricsSink.get -> ChServerM.Diagnostics.IMetricsSink?
+ChServerM.Transport.Quic.QuicTransportOptions.MetricsSink.set -> void
 ChServerM.Transport.Quic.QuicTransportOptions.PauseWriterThreshold.get -> long
 ChServerM.Transport.Quic.QuicTransportOptions.PauseWriterThreshold.set -> void
 ChServerM.Transport.Quic.QuicTransportOptions.QuicTransportOptions() -> void
@@ -28,6 +32,8 @@ ChServerM.Transport.Quic.QuicTransportOptions.ResumeWriterThreshold.get -> long
 ChServerM.Transport.Quic.QuicTransportOptions.ResumeWriterThreshold.set -> void
 ChServerM.Transport.Quic.QuicTransportOptions.ServerCertificate.get -> System.Security.Cryptography.X509Certificates.X509Certificate2?
 ChServerM.Transport.Quic.QuicTransportOptions.ServerCertificate.set -> void
+ChServerM.Transport.Quic.QuicTransportOptions.ServerCertificateContextSource.get -> System.Func<System.Net.Security.SslStreamCertificateContext!>?
+ChServerM.Transport.Quic.QuicTransportOptions.ServerCertificateContextSource.set -> void
 ChServerM.Transport.Quic.QuicTransportOptions.ShutdownTimeout.get -> System.TimeSpan
 ChServerM.Transport.Quic.QuicTransportOptions.ShutdownTimeout.set -> void
 ChServerM.Transport.Quic.QuicTransportOptions.TargetHost.get -> string?

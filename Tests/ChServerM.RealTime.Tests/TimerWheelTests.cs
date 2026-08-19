@@ -401,4 +401,162 @@ public sealed class TimerWheelTests
 
         Assert.Throws<InvalidOperationException>(options.Validate);
     }
+
+    [Fact]
+    public void 취소_노드_청소_임계는_1_미만을_거부한다()
+    {
+        var options = new TimerWheelOptions { CanceledNodeCleanupThreshold = 0 };
+
+        Assert.Throws<InvalidOperationException>(options.Validate);
+    }
+
+    [Fact]
+    public void 긴_지연_예약_취소_반복에도_취소_미회수_노드는_임계_내로_유지된다()
+    {
+        // 회귀(감사 2026-08-18 R-3): 취소는 상태 전이만 하고 물리 회수는 슬롯 도달 시 하므로,
+        // "긴 지연 예약 → 즉시 취소 → 재예약"(세션 타임아웃 연장·쿨다운 리셋)에서 죽은 노드가
+        // 마감 슬롯까지 어떤 상한에도 걸리지 않고 누적됐다(9.6 사각지대). 임계 초과 시
+        // Advance 서두의 전 슬롯 청소 패스가 누적을 끊는 것을 반복 실행으로 고정한다(9.9).
+        const int threshold = 64;
+        const int iterations = 1_000;
+        (TimerWheel wheel, ManualTimeProvider provider) = CreateWheel(o =>
+        {
+            o.CanceledNodeCleanupThreshold = threshold;
+        });
+
+        var job = new RecordingJob();
+        for (int i = 0; i < iterations; i++)
+        {
+            Assert.Equal(
+                TimerScheduleStatus.Accepted,
+                wheel.TrySchedule(job, TimeSpan.FromHours(1), out TimerHandle handle));
+
+            // 먼저 슬롯에 배치시킨 뒤 취소한다 — 유입 스택에서의 취소는 다음 드레인이 바로
+            // 회수하므로, 문제의 "슬롯에 남는 죽은 노드" 경로를 정확히 밟게 만든다.
+            provider.Advance(TimeSpan.FromMilliseconds(100));
+            wheel.Advance();
+            Assert.True(handle.TryCancel());
+
+            // 임계 초과분은 늦어도 다음 Advance 의 청소 패스가 회수한다 — 관측 상한은
+            // "임계 + 다음 Advance 까지의 신규 취소(여기서는 1)"이다.
+            Assert.True(
+                wheel.Statistics.CanceledUnreclaimedNodes <= threshold + 1,
+                $"취소-미회수 노드가 임계를 넘어 누적됐다: {wheel.Statistics.CanceledUnreclaimedNodes}");
+        }
+
+        wheel.Advance();
+        TimerWheelStatistics stats = wheel.Statistics;
+        Assert.True(stats.CanceledUnreclaimedNodes <= threshold);
+        Assert.Equal(iterations, stats.CanceledTimers);
+        Assert.Equal(iterations, job.Canceled);
+        Assert.Equal(0, stats.PendingTimers);
+
+        // 청소 패스가 살아 있는 타이머를 건드리지 않았는지 — churn 이후에도 정상 발화한다.
+        var live = new RecordingJob();
+        wheel.TrySchedule(live, TimeSpan.FromMilliseconds(100), out _);
+        provider.Advance(TimeSpan.FromMilliseconds(300));
+        Assert.Equal(1, wheel.Advance());
+        Assert.Equal(1, live.Expired);
+    }
+
+    [Fact]
+    public void 청소_패스는_같은_슬롯의_살아_있는_타이머를_보존한다()
+    {
+        // 청소가 슬롯 리스트를 재구성하므로, 취소 노드와 같은 슬롯에 있던 살아 있는 노드가
+        // 유실·조기 발화되지 않는지를 고정한다.
+        const int threshold = 8;
+        (TimerWheel wheel, ManualTimeProvider provider) = CreateWheel(o =>
+        {
+            o.CanceledNodeCleanupThreshold = threshold;
+        });
+
+        var survivor = new RecordingJob();
+        wheel.TrySchedule(survivor, TimeSpan.FromHours(1), out _);
+
+        var churn = new RecordingJob();
+        for (int i = 0; i < threshold * 4; i++)
+        {
+            // 같은 마감(1시간)이라 같은 슬롯에 링크된다.
+            wheel.TrySchedule(churn, TimeSpan.FromHours(1), out TimerHandle handle);
+            provider.Advance(TimeSpan.FromMilliseconds(100));
+            wheel.Advance();
+            Assert.True(handle.TryCancel());
+        }
+
+        wheel.Advance(); // 마지막 청소 기회.
+        Assert.True(wheel.Statistics.CanceledUnreclaimedNodes <= threshold);
+        Assert.Equal(0, survivor.Expired);
+        Assert.Equal(0, survivor.Canceled);
+
+        provider.Advance(TimeSpan.FromHours(2));
+        wheel.Advance();
+        Assert.Equal(1, survivor.Expired); // 생존자는 청소를 통과해 제때 발화한다.
+    }
+
+    [Fact]
+    public void 동시_취소_경합에서도_취소_미회수_노드가_임계_부근으로_수렴한다()
+    {
+        // 반복 실행 테스트(9.9) — 임의 스레드의 취소와 드라이버의 청소 패스가 경합해도
+        // 카운터(증가 = 취소자, 감소 = 드라이버 회수)가 어긋나지 않는지 고정한다.
+        const int threshold = 128;
+        var wheel = new TimerWheel(new TimerWheelOptions
+        {
+            TickDuration = TimeSpan.FromMilliseconds(1),
+            SlotsPerLevel = 32,
+            LevelCount = 3,
+            CanceledNodeCleanupThreshold = threshold,
+        });
+
+        const int workerCount = 4;
+        const int perWorker = 2_000;
+        bool stop = false;
+
+        var driver = new Thread(() =>
+        {
+            while (!Volatile.Read(ref stop))
+            {
+                wheel.Advance();
+                Thread.Sleep(0);
+            }
+
+            wheel.Advance();
+        })
+        { IsBackground = true };
+        driver.Start();
+
+        var workers = new Thread[workerCount];
+        for (int w = 0; w < workerCount; w++)
+        {
+            workers[w] = new Thread(() =>
+            {
+                var job = new AtomicJob();
+                for (int i = 0; i < perWorker; i++)
+                {
+                    if (wheel.TrySchedule(job, TimeSpan.FromHours(1), out TimerHandle handle)
+                        == TimerScheduleStatus.Accepted)
+                    {
+                        handle.TryCancel(); // 전부 즉시 취소 — 자연 회수(슬롯 도달)는 1시간 뒤라 청소만이 상한이다.
+                    }
+                }
+            })
+            { IsBackground = true };
+            workers[w].Start();
+        }
+
+        foreach (Thread worker in workers)
+        {
+            worker.Join();
+        }
+
+        Volatile.Write(ref stop, true);
+        driver.Join();
+        wheel.Advance(); // 마지막 취소분의 청소 기회.
+
+        TimerWheelStatistics stats = wheel.Statistics;
+        Assert.Equal(0, stats.PendingTimers);
+        Assert.Equal(stats.ScheduledTimers, stats.CanceledTimers);
+        Assert.True(
+            stats.CanceledUnreclaimedNodes <= threshold,
+            $"청소 패스 후에도 취소-미회수 노드가 임계를 넘는다: {stats.CanceledUnreclaimedNodes}");
+    }
 }

@@ -26,6 +26,9 @@ ChServerM.Connections.IConnection.Input.get -> System.IO.Pipelines.PipeReader!
 ChServerM.Connections.IConnection.Output.get -> System.IO.Pipelines.PipeWriter!
 ChServerM.Connections.IConnectionHandler
 ChServerM.Connections.IConnectionHandler.RunAsync(ChServerM.Connections.IConnection! connection) -> System.Threading.Tasks.Task!
+ChServerM.Content.ContentFingerprint.ToString(string? format, System.IFormatProvider? formatProvider) -> string!
+ChServerM.Content.ContentFingerprint.TryFormat(System.Span<byte> utf8Destination, out int bytesWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
+ChServerM.Content.ContentFingerprint.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
 ChServerM.CoreAssembly
 ChServerM.Diagnostics.ActivityNames
 ChServerM.Diagnostics.DiagnosticNames
@@ -64,6 +67,9 @@ ChServerM.Diagnostics.EventId.EventId() -> void
 ChServerM.Diagnostics.EventId.EventId(int id, string? name = null) -> void
 ChServerM.Diagnostics.EventId.Id.get -> int
 ChServerM.Diagnostics.EventId.Name.get -> string?
+ChServerM.Diagnostics.EventId.ToString(string? format, System.IFormatProvider? formatProvider) -> string!
+ChServerM.Diagnostics.EventId.TryFormat(System.Span<byte> utf8Destination, out int bytesWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
+ChServerM.Diagnostics.EventId.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
 ChServerM.Diagnostics.IServerLogger
 ChServerM.Diagnostics.IServerLogger.IsEnabled(ChServerM.Diagnostics.LogLevel level) -> bool
 ChServerM.Diagnostics.IServerLogger.Log<TState>(ChServerM.Diagnostics.LogLevel level, ChServerM.Diagnostics.EventId eventId, TState state, System.Exception? exception, System.Func<TState, System.Exception?, string!>! formatter) -> void
@@ -182,6 +188,9 @@ ChServerM.Framing.MessageEnvelope.MessageEnvelope() -> void
 ChServerM.Framing.MessageEnvelope.MessageEnvelope(ChServerM.Identity.MessageId messageId, ChServerM.Framing.FrameFlags flags, uint sequence) -> void
 ChServerM.Framing.MessageEnvelope.MessageId.get -> ChServerM.Identity.MessageId
 ChServerM.Framing.MessageEnvelope.Sequence.get -> uint
+ChServerM.Handshake.ProtocolVersionRange.ToString(string? format, System.IFormatProvider? formatProvider) -> string!
+ChServerM.Handshake.ProtocolVersionRange.TryFormat(System.Span<byte> utf8Destination, out int bytesWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
+ChServerM.Handshake.ProtocolVersionRange.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
 ChServerM.Identity.ConnectionId
 ChServerM.Identity.ConnectionId.ConnectionId() -> void
 ChServerM.Identity.ConnectionId.ConnectionId(uint slot, uint generation) -> void
@@ -190,6 +199,9 @@ ChServerM.Identity.ConnectionId.Generation.get -> uint
 ChServerM.Identity.ConnectionId.IsNone.get -> bool
 ChServerM.Identity.ConnectionId.Slot.get -> uint
 ChServerM.Identity.ConnectionId.ToPartitionKey() -> ChServerM.Identity.PartitionKey
+ChServerM.Identity.ConnectionId.ToString(string? format, System.IFormatProvider? formatProvider) -> string!
+ChServerM.Identity.ConnectionId.TryFormat(System.Span<byte> utf8Destination, out int bytesWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
+ChServerM.Identity.ConnectionId.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
 ChServerM.Identity.FrameworkMessageIds
 ChServerM.Identity.IObjectIdGenerator
 ChServerM.Identity.IObjectIdGenerator.NextId() -> ChServerM.Identity.ObjectId
@@ -201,6 +213,9 @@ ChServerM.Identity.JobId.JobId() -> void
 ChServerM.Identity.JobId.JobId(ulong owner, ulong local) -> void
 ChServerM.Identity.JobId.Local.get -> ulong
 ChServerM.Identity.JobId.Owner.get -> ulong
+ChServerM.Identity.JobId.ToString(string? format, System.IFormatProvider? formatProvider) -> string!
+ChServerM.Identity.JobId.TryFormat(System.Span<byte> utf8Destination, out int bytesWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
+ChServerM.Identity.JobId.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
 ChServerM.Identity.MessageId
 ChServerM.Identity.MessageId.CompareTo(ChServerM.Identity.MessageId other) -> int
 ChServerM.Identity.MessageId.Equals(ChServerM.Identity.MessageId other) -> bool
@@ -209,12 +224,18 @@ ChServerM.Identity.MessageId.IsFrameworkRange.get -> bool
 ChServerM.Identity.MessageId.IsNone.get -> bool
 ChServerM.Identity.MessageId.MessageId() -> void
 ChServerM.Identity.MessageId.MessageId(ushort value) -> void
+ChServerM.Identity.MessageId.ToString(string? format, System.IFormatProvider? formatProvider) -> string!
+ChServerM.Identity.MessageId.TryFormat(System.Span<byte> utf8Destination, out int bytesWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
+ChServerM.Identity.MessageId.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
 ChServerM.Identity.MessageId.Value.get -> ushort
 ChServerM.Identity.NodeId
 ChServerM.Identity.NodeId.Equals(ChServerM.Identity.NodeId other) -> bool
 ChServerM.Identity.NodeId.IsNone.get -> bool
 ChServerM.Identity.NodeId.NodeId() -> void
 ChServerM.Identity.NodeId.NodeId(ushort value) -> void
+ChServerM.Identity.NodeId.ToString(string? format, System.IFormatProvider? formatProvider) -> string!
+ChServerM.Identity.NodeId.TryFormat(System.Span<byte> utf8Destination, out int bytesWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
+ChServerM.Identity.NodeId.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
 ChServerM.Identity.NodeId.Value.get -> ushort
 ChServerM.Identity.ObjectId
 ChServerM.Identity.ObjectId.CompareTo(ChServerM.Identity.ObjectId other) -> int
@@ -226,11 +247,17 @@ ChServerM.Identity.ObjectId.ObjectId(long value) -> void
 ChServerM.Identity.ObjectId.Sequence.get -> int
 ChServerM.Identity.ObjectId.TimestampMs.get -> long
 ChServerM.Identity.ObjectId.ToPartitionKey() -> ChServerM.Identity.PartitionKey
+ChServerM.Identity.ObjectId.ToString(string? format, System.IFormatProvider? formatProvider) -> string!
+ChServerM.Identity.ObjectId.TryFormat(System.Span<byte> utf8Destination, out int bytesWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
+ChServerM.Identity.ObjectId.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
 ChServerM.Identity.ObjectId.Value.get -> long
 ChServerM.Identity.PartitionKey
 ChServerM.Identity.PartitionKey.Equals(ChServerM.Identity.PartitionKey other) -> bool
 ChServerM.Identity.PartitionKey.PartitionKey() -> void
 ChServerM.Identity.PartitionKey.ToIndex(int partitionCount) -> int
+ChServerM.Identity.PartitionKey.ToString(string? format, System.IFormatProvider? formatProvider) -> string!
+ChServerM.Identity.PartitionKey.TryFormat(System.Span<byte> utf8Destination, out int bytesWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
+ChServerM.Identity.PartitionKey.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
 ChServerM.Identity.PartitionKey.Value.get -> ulong
 ChServerM.Identity.SessionId
 ChServerM.Identity.SessionId.Equals(ChServerM.Identity.SessionId other) -> bool
@@ -238,6 +265,9 @@ ChServerM.Identity.SessionId.IsNone.get -> bool
 ChServerM.Identity.SessionId.SessionId() -> void
 ChServerM.Identity.SessionId.SessionId(ChServerM.Identity.ObjectId value) -> void
 ChServerM.Identity.SessionId.ToPartitionKey() -> ChServerM.Identity.PartitionKey
+ChServerM.Identity.SessionId.ToString(string? format, System.IFormatProvider? formatProvider) -> string!
+ChServerM.Identity.SessionId.TryFormat(System.Span<byte> utf8Destination, out int bytesWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
+ChServerM.Identity.SessionId.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
 ChServerM.Identity.SessionId.Value.get -> ChServerM.Identity.ObjectId
 ChServerM.Security.ISecureChannel
 ChServerM.Security.ITransportSecurity
@@ -270,6 +300,9 @@ ChServerM.Time.MonotonicTimestamp.HasPassed(ChServerM.Time.MonotonicTimestamp de
 ChServerM.Time.MonotonicTimestamp.IsNone.get -> bool
 ChServerM.Time.MonotonicTimestamp.MonotonicTimestamp() -> void
 ChServerM.Time.MonotonicTimestamp.Raw.get -> long
+ChServerM.Time.MonotonicTimestamp.ToString(string? format, System.IFormatProvider? formatProvider) -> string!
+ChServerM.Time.MonotonicTimestamp.TryFormat(System.Span<byte> utf8Destination, out int bytesWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
+ChServerM.Time.MonotonicTimestamp.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
 ChServerM.Transports.IClientTransport
 ChServerM.Transports.IClientTransport.ConnectAsync(System.Net.EndPoint! endPoint, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ChServerM.Connections.IConnection!>
 ChServerM.Transports.IServerTransport
@@ -298,6 +331,7 @@ const ChServerM.Diagnostics.MetricNames.PartitionQueueDepth = "chserverm.partiti
 const ChServerM.Diagnostics.MetricNames.PartitionWorkRejected = "chserverm.partition.work.rejected" -> string!
 const ChServerM.Diagnostics.TagNames.CloseReason = "close_reason" -> string!
 const ChServerM.Diagnostics.TagNames.ConnectionId = "connection_id" -> string!
+const ChServerM.Diagnostics.TagNames.DispatchStatus = "dispatch_status" -> string!
 const ChServerM.Diagnostics.TagNames.ErrorCode = "error_code" -> string!
 const ChServerM.Diagnostics.TagNames.MessageId = "message_id" -> string!
 const ChServerM.Diagnostics.TagNames.Partition = "partition" -> string!

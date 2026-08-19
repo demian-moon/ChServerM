@@ -92,9 +92,13 @@ public sealed class TracingMiddleware : IServerMiddleware
         if (activity is not null && status != DispatchStatus.Handled)
         {
             // 거부·실패를 span 상태로 남긴다 — 추적 백엔드에서 오류 span 만 필터링된다.
-            // 상태값은 유한 enum 이라 태그 카디널리티가 안전하다(메트릭 실패 분류와 같은 값).
-            activity.SetStatus(ActivityStatusCode.Error, status.ToString());
-            activity.SetTag(TagNames.ErrorCode, status.ToString());
+            // 상태값은 유한 enum 이라 태그 카디널리티가 안전하고, 이름은 정적 캐시라 실패
+            // 프레임마다 문자열을 만들지 않는다(감사 2026-08-18 H-4). 태그 이름은 메트릭 실패
+            // 분류와 같은 dispatch_status 다 — error_code 는 ErrorCode 값 계약이라 여기에
+            // 상태명을 실으면 두 의미가 한 태그에 섞인다(O-9).
+            string statusName = DispatchStatusNames.Get(status);
+            activity.SetStatus(ActivityStatusCode.Error, statusName);
+            activity.SetTag(TagNames.DispatchStatus, statusName);
         }
 
         return status;

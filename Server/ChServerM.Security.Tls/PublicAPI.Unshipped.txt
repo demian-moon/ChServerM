@@ -15,10 +15,10 @@ ChServerM.Security.Tls.FileCertificateOptions.Validate() -> void
 ChServerM.Security.Tls.FileCertificateSource
 ChServerM.Security.Tls.FileCertificateSource.Dispose() -> void
 ChServerM.Security.Tls.FileCertificateSource.FileCertificateSource(ChServerM.Security.Tls.FileCertificateOptions! options, System.TimeProvider? timeProvider = null, ChServerM.Diagnostics.IServerLogger? logger = null) -> void
-ChServerM.Security.Tls.FileCertificateSource.GetCertificate() -> System.Security.Cryptography.X509Certificates.X509Certificate2!
+ChServerM.Security.Tls.FileCertificateSource.GetCertificateContext() -> System.Net.Security.SslStreamCertificateContext!
 ChServerM.Security.Tls.FileCertificateSource.Reload() -> void
 ChServerM.Security.Tls.IServerCertificateSource
-ChServerM.Security.Tls.IServerCertificateSource.GetCertificate() -> System.Security.Cryptography.X509Certificates.X509Certificate2!
+ChServerM.Security.Tls.IServerCertificateSource.GetCertificateContext() -> System.Net.Security.SslStreamCertificateContext!
 ChServerM.Security.Tls.TlsSecurityOptions
 ChServerM.Security.Tls.TlsSecurityOptions.HandshakeTimeout.get -> System.TimeSpan
 ChServerM.Security.Tls.TlsSecurityOptions.HandshakeTimeout.set -> void

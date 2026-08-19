@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -35,6 +34,11 @@ public sealed class ChServerMServer : IAsyncDisposable
     private readonly IExecutionModel? _executionModel;
     private readonly ServerLifecycleState _lifecycle;
 
+    // 드레인 절차의 대기·상한·경과 측정이 전부 이 시간 원본을 탄다(감사 2026-08-18 H-5).
+    // 핸들러들만 UseTimeProvider 를 따르고 생명주기는 실시간에 묶여 있으면, 드레인 테스트가
+    // 기본값으로 실제 수 초를 기다려야 한다 — 프레임워크의 시간 주입 일관성이 여기서 끊긴다.
+    private readonly TimeProvider _timeProvider;
+
     private int _started;
     private int _disposed;
 
@@ -47,7 +51,8 @@ public sealed class ChServerMServer : IAsyncDisposable
         HealthCheckService health,
         DiagnosticsService diagnostics,
         SessionResumeService? sessions,
-        Sessions.SessionResumeDispatch? sessionDispatch)
+        Sessions.SessionResumeDispatch? sessionDispatch,
+        TimeProvider timeProvider)
     {
         Sessions = sessions;
         SessionDispatch = sessionDispatch;
@@ -55,6 +60,7 @@ public sealed class ChServerMServer : IAsyncDisposable
         _handler = handler;
         _executionModel = executionModel;
         _lifecycle = lifecycle;
+        _timeProvider = timeProvider;
         Encoder = encoder;
         Health = health;
         Diagnostics = diagnostics;
@@ -219,7 +225,9 @@ public sealed class ChServerMServer : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(options);
         options.Validate();
 
-        long startedAt = Stopwatch.GetTimestamp();
+        // 경과·대기·상한 전부 주입된 시간 원본을 쓴다(감사 2026-08-18 H-5) —
+        // UseTimeProvider 로 시간을 바꾼 테스트가 이 절차만 실시간에 묶이지 않게.
+        long startedAt = _timeProvider.GetTimestamp();
 
         // 1. readiness 를 먼저 내린다. 아직 수용은 계속한다 — 이 구간이 요점이다.
         _lifecycle.Set(ServerState.Draining);
@@ -228,7 +236,7 @@ public sealed class ChServerMServer : IAsyncDisposable
         //    "아직 나에게 보내고 있는" 트래픽을 RST 로 되돌린다.
         if (options.ReadinessPropagationDelay > TimeSpan.Zero)
         {
-            await Task.Delay(options.ReadinessPropagationDelay, cancellationToken).ConfigureAwait(false);
+            await Task.Delay(options.ReadinessPropagationDelay, _timeProvider, cancellationToken).ConfigureAwait(false);
         }
 
         // 3. 이제 수용을 멈춘다. 여기서부터 새 접속은 오지 않는다.
@@ -237,7 +245,7 @@ public sealed class ChServerMServer : IAsyncDisposable
         // 4. 기존 커넥션을 상한까지 기다린다.
         //    ⚠ 드레인 상한과 절차 취소를 **다른 토큰**으로 둔다. 겹치면 상한 만료가
         //      OperationCanceledException 으로 새어 나가 "배포가 취소됐다" 로 읽힌다.
-        using CancellationTokenSource drainDeadline = new(options.ConnectionDrainTimeout);
+        using CancellationTokenSource drainDeadline = new(options.ConnectionDrainTimeout, _timeProvider);
         using CancellationTokenSource linked =
             CancellationTokenSource.CreateLinkedTokenSource(drainDeadline.Token, cancellationToken);
 
@@ -246,7 +254,7 @@ public sealed class ChServerMServer : IAsyncDisposable
         // 절차 자체가 취소된 것이면 그것은 호출자에게 던져야 한다 — 상한 만료와 다르다.
         cancellationToken.ThrowIfCancellationRequested();
 
-        return new DrainReport(Stopwatch.GetElapsedTime(startedAt), !drainDeadline.IsCancellationRequested);
+        return new DrainReport(_timeProvider.GetElapsedTime(startedAt), !drainDeadline.IsCancellationRequested);
     }
 
     /// <inheritdoc />
@@ -261,7 +269,16 @@ public sealed class ChServerMServer : IAsyncDisposable
         using CancellationTokenSource immediate = new();
         await immediate.CancelAsync().ConfigureAwait(false);
 
-        await StopAsync(immediate.Token).ConfigureAwait(false);
-        await _transport.DisposeAsync().ConfigureAwait(false);
+        // StopAsync(실행 모델 정리 포함)가 던져도 전송은 반드시 정리한다 — 건너뛰면 수락
+        // 소켓·포트가 산 채로 남는데, _disposed 는 이미 1이라 재시도조차 불가능해 이중
+        // Dispose 가드가 누수를 고착시킨다(감사 2026-08-18 H-6).
+        try
+        {
+            await StopAsync(immediate.Token).ConfigureAwait(false);
+        }
+        finally
+        {
+            await _transport.DisposeAsync().ConfigureAwait(false);
+        }
     }
 }

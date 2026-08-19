@@ -102,6 +102,7 @@ const ChServerM.RealTime.Rooms.RoomMetricNames.FramesAccepted = "chserverm.room.
 const ChServerM.RealTime.Rooms.RoomMetricNames.FramesDelivered = "chserverm.room.frames.delivered" -> string!
 const ChServerM.RealTime.Rooms.RoomMetricNames.FramesRejected = "chserverm.room.frames.rejected" -> string!
 const ChServerM.RealTime.Rooms.RoomMetricNames.SinkFaults = "chserverm.room.sink.faults" -> string!
+const ChServerM.RealTime.Rooms.RoomMetricNames.SinkQueueFull = "chserverm.room.sink.queue.full" -> string!
 override ChServerM.RealTime.Rooms.RoomBroadcastResult.Equals(object? obj) -> bool
 override ChServerM.RealTime.Rooms.RoomBroadcastResult.GetHashCode() -> int
 override ChServerM.RealTime.Rooms.RoomId.Equals(object? obj) -> bool

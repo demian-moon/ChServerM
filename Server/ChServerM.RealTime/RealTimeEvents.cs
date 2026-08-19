@@ -23,6 +23,9 @@ internal static class RealTimeEvents
     /// <summary>틱 루프 자체가 예외로 중단됐다. 핸들러 예외가 아니라 루프 결함이다.</summary>
     internal static readonly EventId TickLoopCrashed = new(1704, nameof(TickLoopCrashed));
 
+    /// <summary>스핀 구간이 실측상 효과 없는 조합으로 설정됐다(감사 2026-08-18 R-9).</summary>
+    internal static readonly EventId SpinWindowIneffective = new(1705, nameof(SpinWindowIneffective));
+
     /// <summary>타이머 콜백이 예외를 던졌다.</summary>
     internal static readonly EventId TimerCallbackFaulted = new(1711, nameof(TimerCallbackFaulted));
 

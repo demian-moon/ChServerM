@@ -13,9 +13,13 @@ ChServerM.Transport.Http.HttpServerTransport.MaxBufferedBytesPerConnection.get -
 ChServerM.Transport.Http.HttpServerTransport.StopAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 ChServerM.Transport.Http.HttpServerTransport.UnbindAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 ChServerM.Transport.Http.HttpTransportOptions
+ChServerM.Transport.Http.HttpTransportOptions.AdmissionControl.get -> ChServerM.Resilience.IAdmissionControl?
+ChServerM.Transport.Http.HttpTransportOptions.AdmissionControl.set -> void
 ChServerM.Transport.Http.HttpTransportOptions.HttpTransportOptions() -> void
 ChServerM.Transport.Http.HttpTransportOptions.MaxConnections.get -> int
 ChServerM.Transport.Http.HttpTransportOptions.MaxConnections.set -> void
+ChServerM.Transport.Http.HttpTransportOptions.MetricsSink.get -> ChServerM.Diagnostics.IMetricsSink?
+ChServerM.Transport.Http.HttpTransportOptions.MetricsSink.set -> void
 ChServerM.Transport.Http.HttpTransportOptions.Path.get -> string!
 ChServerM.Transport.Http.HttpTransportOptions.Path.set -> void
 ChServerM.Transport.Http.HttpTransportOptions.ShutdownTimeout.get -> System.TimeSpan

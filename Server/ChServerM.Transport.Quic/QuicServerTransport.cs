@@ -132,12 +132,23 @@ public sealed class QuicServerTransport : IServerTransport, ITransportBufferLimi
 
         SslApplicationProtocol alpn = new(_options.AlpnProtocol);
 
+        // 고정 인증서 경로는 여기서 컨텍스트로 1회 승격한다 — 원시 인증서를 넘기면 연결
+        // 수립마다 체인을 재구축한다(OS 저장소 조회 포함, 감사 2026-08-18 T-3).
+        // offline: true — 바인드가 네트워크(AIA) 조회에 매달리지 않는다(TLS 어댑터와 같은 규율).
+        SslStreamCertificateContext? fixedCertificateContext = _options.ServerCertificate is { } fixedCertificate
+            ? SslStreamCertificateContext.Create(fixedCertificate, additionalCertificates: null, offline: true)
+            : null;
+        Func<SslStreamCertificateContext>? certificateContextSource = _options.ServerCertificateContextSource;
+
         try
         {
             _listener = await QuicListener.ListenAsync(new QuicListenerOptions
             {
                 ListenEndPoint = _listenEndPoint,
                 ApplicationProtocols = [alpn],
+
+                // 이 콜백은 연결마다 호출된다 — 원천이 있으면 여기서 해석해 인증서 회전이
+                // 새 연결부터 재시작 없이 반영된다(감사 2026-08-18 T-4).
                 ConnectionOptionsCallback = (_, _, _) => ValueTask.FromResult(new QuicServerConnectionOptions
                 {
                     DefaultStreamErrorCode = QuicStreamConnection.AbortErrorCode,
@@ -149,7 +160,7 @@ public sealed class QuicServerTransport : IServerTransport, ITransportBufferLimi
                     ServerAuthenticationOptions = new SslServerAuthenticationOptions
                     {
                         ApplicationProtocols = [alpn],
-                        ServerCertificate = _options.ServerCertificate,
+                        ServerCertificateContext = certificateContextSource?.Invoke() ?? fixedCertificateContext,
                     },
                 }),
             }, cancellationToken).ConfigureAwait(false);
@@ -241,6 +252,16 @@ public sealed class QuicServerTransport : IServerTransport, ITransportBufferLimi
                     continue;
                 }
 
+                // 동적 수용 제어 — 상한 안의 연결 폭주를 막는다. 정적 상한 통과 후에만 묻고,
+                // 거부 시 증가시킨 카운터를 되돌린다 — TCP·인메모리와 같은 배선(감사 2026-08-18 T-5).
+                if (_options.AdmissionControl is { } admissionControl
+                    && !admissionControl.TryAdmit(quicConnection.RemoteEndPoint).IsAdmitted)
+                {
+                    Interlocked.Decrement(ref _activeCount);
+                    RejectStream(stream, CloseReasonTags.Admission);
+                    continue;
+                }
+
                 _ = Task.Run(() => RunHandlerAsync(handler, stream, quicConnection));
             }
         }
@@ -329,6 +350,14 @@ public sealed class QuicServerTransport : IServerTransport, ITransportBufferLimi
         }
 #pragma warning restore CA1031
 
+        // 거부는 핸들러에 닿지 않으므로 전송이 직접 방출한다 — 조용한 유실은 관측되지
+        // 않으면 존재하지 않는 것과 같다(CLAUDE.md 9.6). TCP 와 같은 배선(감사 2026-08-18 T-5).
+        if (_options.MetricsSink is { } sink)
+        {
+            Span<MetricTag> tags = [new MetricTag(TagNames.CloseReason, reason)];
+            sink.Count(MetricNames.ConnectionsRejected, 1, tags);
+        }
+
         if (_logger.IsEnabled(LogLevel.Warning))
         {
             _logger.Log(
@@ -386,9 +415,15 @@ public sealed class QuicServerTransport : IServerTransport, ITransportBufferLimi
         {
             try
             {
-                await Task.WhenAll(pending).WaitAsync(cancellationToken).ConfigureAwait(false);
+                // 취소 불가 토큰(기본 인자 포함)이면 1차 드레인에도 ShutdownTimeout 을 적용한다 —
+                // 상시 연결 워크로드에서 상한 없는 대기는 종료를 영원히 막는다(감사 2026-08-18 T-2).
+                Task drain = Task.WhenAll(pending);
+                await (cancellationToken.CanBeCanceled
+                        ? drain.WaitAsync(cancellationToken)
+                        : drain.WaitAsync(_options.ShutdownTimeout, CancellationToken.None))
+                    .ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
+            catch (Exception exception) when (exception is OperationCanceledException or TimeoutException)
             {
                 foreach (ActiveConnection active in _connections.Values)
                 {
@@ -467,11 +502,12 @@ public sealed class QuicServerTransport : IServerTransport, ITransportBufferLimi
         }
     }
 
-    /// <summary>커넥션 거부 로그의 저카디널리티 사유 태그 값.</summary>
+    /// <summary>커넥션 거부 메트릭·로그의 저카디널리티 사유 태그 값.</summary>
     private static class CloseReasonTags
     {
         public const string ConnectionLimit = "connection_limit";
         public const string Draining = "draining";
+        public const string Admission = "admission";
     }
 
     private readonly record struct ActiveConnection(QuicStreamConnection Connection, Task Completion);

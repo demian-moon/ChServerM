@@ -17,6 +17,7 @@ public sealed class MeterMetricsSinkTests : IDisposable
     private readonly MeterListener _listener = new();
     private readonly List<(string Instrument, long Value, KeyValuePair<string, object?>[] Tags)> _longMeasurements = [];
     private readonly List<(string Instrument, double Value, KeyValuePair<string, object?>[] Tags)> _doubleMeasurements = [];
+    private readonly List<Instrument> _instruments = [];
 
     public MeterMetricsSinkTests()
     {
@@ -24,6 +25,11 @@ public sealed class MeterMetricsSinkTests : IDisposable
         {
             if (ReferenceEquals(instrument.Meter, _meter))
             {
+                lock (_instruments)
+                {
+                    _instruments.Add(instrument);
+                }
+
                 listener.EnableMeasurementEvents(instrument);
             }
         };
@@ -107,6 +113,81 @@ public sealed class MeterMetricsSinkTests : IDisposable
 
         Assert.Equal(2, _longMeasurements.Count);
         Assert.All(_longMeasurements, m => Assert.Equal(MetricNames.FramesReceived, m.Instrument));
+    }
+
+    [Fact]
+    public void DispatchDuration_histogram_declares_seconds_unit_and_bucket_advice()
+    {
+        // 감사 2026-08-18 O-3 — 단위·버킷 메타데이터가 없으면 OTel 을 Meter 구독으로 얹는
+        // 순간(ADR-0020) 기본 명시 버킷(0, 5, 10, 25…)이 초 단위 값(~0.001)을 전부 첫 버킷에
+        // 넣어 p50/p99 가 무의미해진다. 어댑터가 알려진 이름에 메타데이터를 붙이는 것을 고정한다.
+        MeterMetricsSink sink = new(_meter);
+
+        sink.Record(MetricNames.DispatchDuration, 0.0025, ReadOnlySpan<MetricTag>.Empty);
+
+        Instrument instrument;
+        lock (_instruments)
+        {
+            instrument = Assert.Single(_instruments, i => i.Name == MetricNames.DispatchDuration);
+        }
+
+        Assert.Equal("s", instrument.Unit);
+
+        Histogram<double> histogram = Assert.IsType<Histogram<double>>(instrument);
+        Assert.NotNull(histogram.Advice);
+        System.Collections.Generic.IReadOnlyList<double>? buckets = histogram.Advice!.HistogramBucketBoundaries;
+        Assert.NotNull(buckets);
+
+        // 초 스케일 로그 계열(0.5ms~10s) — 첫/끝 경계가 규약이다.
+        Assert.Equal(0.0005, buckets![0]);
+        Assert.Equal(10.0, buckets[^1]);
+    }
+
+    [Fact]
+    public void Bytes_counters_declare_ucum_By_unit()
+    {
+        // 감사 2026-08-18 O-3 — 바이트 카운터의 단위는 UCUM "By" 다.
+        MeterMetricsSink sink = new(_meter);
+
+        sink.Count(MetricNames.BytesSent, 128, ReadOnlySpan<MetricTag>.Empty);
+        sink.Count(MetricNames.BytesReceived, 64, ReadOnlySpan<MetricTag>.Empty);
+        sink.Count(MetricNames.FramesReceived, 1, ReadOnlySpan<MetricTag>.Empty);
+
+        lock (_instruments)
+        {
+            Assert.Equal("By", Assert.Single(_instruments, i => i.Name == MetricNames.BytesSent).Unit);
+            Assert.Equal("By", Assert.Single(_instruments, i => i.Name == MetricNames.BytesReceived).Unit);
+
+            // 바이트가 아닌 카운터에는 단위를 붙이지 않는다 — 이름 기반 매핑의 경계.
+            Assert.Null(Assert.Single(_instruments, i => i.Name == MetricNames.FramesReceived).Unit);
+        }
+    }
+
+    [Fact]
+    public void ObserveCounter_duplicate_registration_is_ignored()
+    {
+        // 감사 2026-08-18 O-10 — Observable 은 등록마다 계측기가 늘어 수집 시점에 값이
+        // 중복 보고된다. 이름 캐시가 두 번째 등록을 걸러 첫 콜백만 남는 것을 고정한다.
+        MeterMetricsSink sink = new(_meter);
+
+        sink.ObserveCounter(MetricNames.PoolBuffersRented, static () => 1, ReadOnlySpan<MetricTag>.Empty);
+        sink.ObserveCounter(MetricNames.PoolBuffersRented, static () => 100, ReadOnlySpan<MetricTag>.Empty);
+
+        List<long> observed = [];
+        _listener.SetMeasurementEventCallback<long>((instrument, value, _, _) =>
+        {
+            if (instrument.Name == MetricNames.PoolBuffersRented)
+            {
+                lock (observed)
+                {
+                    observed.Add(value);
+                }
+            }
+        });
+        _listener.RecordObservableInstruments();
+
+        long value = Assert.Single(observed);
+        Assert.Equal(1, value); // 먼저 등록한 콜백이 이긴다.
     }
 
     [Fact]

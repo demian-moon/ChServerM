@@ -21,9 +21,11 @@
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
 
-    <!-- 서버 GC 로 측정한다. 워크로드 GC 특성이 완전히 달라지므로 프로덕션과 맞춘다. -->
-    <ServerGarbageCollector>true</ServerGarbageCollector>
-    <ConcurrentGarbageCollector>true</ConcurrentGarbageCollector>
+    <!--
+      서버 GC 는 루트 Directory.Build.props 가 올바른 철자(ServerGarbageCollection)로 설정한다.
+      종전 이 자리의 `...Collector` 선언 2줄은 ADR-0031 이 경고한 바로 그 오타라 MSBuild 가
+      조용히 무시했다 — 죽은 선언은 복사·회귀의 씨앗이므로 제거했다(감사 2026-08-18 X-2).
+    -->
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.IO.Pipelines;
+using System.Net.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
@@ -43,10 +44,26 @@ public sealed class FileCertificateSourceTests : IDisposable
         string path = WriteFile("cert.pfx", pfx);
 
         using FileCertificateSource source = new(new FileCertificateOptions { PfxPath = path });
-        X509Certificate2 loaded = source.GetCertificate();
+        X509Certificate2 loaded = source.GetCertificateContext().TargetCertificate;
 
         Assert.Equal(thumbprint, loaded.Thumbprint);
         Assert.True(loaded.HasPrivateKey);
+    }
+
+    [Fact]
+    public void Context_is_created_once_per_generation_not_per_handshake()
+    {
+        // 감사 2026-08-18 T-3 — 컨텍스트가 호출마다 새로 만들어지면 핸드셰이크마다
+        // 체인 재구축 비용을 그대로 내는 것이다. 같은 세대에서는 같은 인스턴스여야 한다.
+        (_, byte[] pfx, _, _) = TestCertificates.CreateFileMaterial();
+        string path = WriteFile("cert.pfx", pfx);
+
+        using FileCertificateSource source = new(new FileCertificateOptions { PfxPath = path });
+
+        SslStreamCertificateContext first = source.GetCertificateContext();
+        SslStreamCertificateContext second = source.GetCertificateContext();
+
+        Assert.Same(first, second);
     }
 
     [Fact]
@@ -111,16 +128,19 @@ public sealed class FileCertificateSourceTests : IDisposable
             new FileCertificateOptions { PfxPath = path, ReloadCheckInterval = TimeSpan.FromMinutes(1) },
             time);
 
-        X509Certificate2 generationA = source.GetCertificate();
+        SslStreamCertificateContext contextA = source.GetCertificateContext();
+        X509Certificate2 generationA = contextA.TargetCertificate;
         Assert.Equal(firstThumbprint, generationA.Thumbprint);
 
-        // 파일 교체 — 주기 도래 전에는 옛 인증서가 유지된다(파일 IO 없이).
+        // 파일 교체 — 주기 도래 전에는 옛 인증서(같은 컨텍스트 인스턴스)가 유지된다(파일 IO 없이).
         OverwriteFile(path, secondPfx);
-        Assert.Equal(firstThumbprint, source.GetCertificate().Thumbprint);
+        Assert.Same(contextA, source.GetCertificateContext());
 
-        // 주기 도래 후 첫 핸드셰이크가 회전을 집는다.
+        // 주기 도래 후 첫 핸드셰이크가 회전을 집는다 — 새 세대는 새 컨텍스트다(T-3).
         time.Advance(TimeSpan.FromMinutes(2));
-        Assert.Equal(secondThumbprint, source.GetCertificate().Thumbprint);
+        SslStreamCertificateContext contextB = source.GetCertificateContext();
+        Assert.NotSame(contextA, contextB);
+        Assert.Equal(secondThumbprint, contextB.TargetCertificate.Thumbprint);
 
         // 직전 세대는 폐기되지 않았다 — 진행 중 핸드셰이크가 참조할 수 있다.
         Assert.Equal(firstThumbprint, generationA.Thumbprint);
@@ -141,12 +161,12 @@ public sealed class FileCertificateSourceTests : IDisposable
         // 1. 깨진 파일(반쯤 쓰인 순간의 모사) — 기존 인증서로 계속 서비스해야 한다.
         OverwriteFile(path, [1, 2, 3]);
         time.Advance(TimeSpan.FromMinutes(2));
-        Assert.Equal(firstThumbprint, source.GetCertificate().Thumbprint);
+        Assert.Equal(firstThumbprint, source.GetCertificateContext().TargetCertificate.Thumbprint);
 
         // 2. 다음 주기에 정상 파일이 오면 복구된다.
         OverwriteFile(path, secondPfx);
         time.Advance(TimeSpan.FromMinutes(2));
-        Assert.Equal(secondThumbprint, source.GetCertificate().Thumbprint);
+        Assert.Equal(secondThumbprint, source.GetCertificateContext().TargetCertificate.Thumbprint);
     }
 
     [Fact]
@@ -162,11 +182,11 @@ public sealed class FileCertificateSourceTests : IDisposable
         OverwriteFile(path, secondPfx);
 
         // 자동 재확인이 꺼져 있으므로 교체가 반영되지 않는다.
-        Assert.Equal(firstThumbprint, source.GetCertificate().Thumbprint);
+        Assert.Equal(firstThumbprint, source.GetCertificateContext().TargetCertificate.Thumbprint);
 
         // 운영 신호(SIGHUP 류)의 명시 재적재는 즉시 반영된다.
         source.Reload();
-        Assert.Equal(secondThumbprint, source.GetCertificate().Thumbprint);
+        Assert.Equal(secondThumbprint, source.GetCertificateContext().TargetCertificate.Thumbprint);
     }
 
     // ── 조립 시점 검증 ────────────────────────────────────────────

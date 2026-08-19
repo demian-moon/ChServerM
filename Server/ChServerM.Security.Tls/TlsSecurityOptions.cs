@@ -32,7 +32,10 @@ public sealed class TlsSecurityOptions
     /// <remarks>
     /// 인증서 수명은 호출자가 소유한다 — 이 옵션은 참조만 보관하며 폐기하지 않는다.
     /// 고정 인스턴스는 회전이 없다 — 프로덕션 회전 경로는 <see cref="ServerCertificateSource"/>
-    /// (예: <see cref="FileCertificateSource"/>)를 쓴다.
+    /// (예: <see cref="FileCertificateSource"/>)를 쓴다. 어댑터는 이 인스턴스로
+    /// <see cref="System.Net.Security.SslStreamCertificateContext"/>를 생성 시점에 1회 만들어
+    /// 보관한다 — 핸드셰이크마다 체인을 재구축하지 않는다(감사 2026-08-18 T-3). 따라서
+    /// 어댑터 생성 후에는 이 인증서를 폐기하면 안 된다.
     /// </remarks>
     public X509Certificate2? ServerCertificate { get; set; }
 

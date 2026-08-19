@@ -56,10 +56,15 @@ public interface IServerTransport : IAsyncDisposable
     /// <summary>남은 커넥션을 드레인하고 전송을 정리한다.</summary>
     /// <param name="cancellationToken">
     /// 드레인 제한 시간. 취소되면 남은 커넥션을 <see cref="IConnection.Abort"/>로 끊는다.
+    /// 취소가 불가능한 토큰(기본 인자 포함)이면 구현체가 자체 종료 상한
+    /// (<c>ShutdownTimeout</c> 류 옵션)을 드레인 대기에 적용한다 — 호출자가 상한을 주지
+    /// 않았다고 무한 대기가 되지 않는다(감사 2026-08-18 T-2).
     /// </param>
     /// <remarks>
     /// <see cref="UnbindAsync"/>를 먼저 부르지 않았다면 내부적으로 먼저 수행한다.
     /// <b>드레인에 무한정 기다리지 않는다</b> — 상한 없는 대기는 종료를 영원히 막는다.
+    /// 상시 연결 워크로드에서는 커넥션이 스스로 끝나지 않으므로, 어떤 호출 방식이든
+    /// 시간 상한 → <see cref="IConnection.Abort"/> → 정리 순서가 보장돼야 한다.
     /// </remarks>
     ValueTask StopAsync(CancellationToken cancellationToken = default);
 }

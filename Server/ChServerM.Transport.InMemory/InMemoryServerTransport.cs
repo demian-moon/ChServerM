@@ -161,9 +161,15 @@ public sealed class InMemoryServerTransport : IServerTransport, ITransportBuffer
 
         try
         {
-            await Task.WhenAll(pending).WaitAsync(cancellationToken).ConfigureAwait(false);
+            // 취소 불가 토큰(기본 인자 포함)이면 1차 드레인에도 ShutdownTimeout 을 적용한다 —
+            // 상시 연결 워크로드에서 상한 없는 대기는 종료를 영원히 막는다(감사 2026-08-18 T-2).
+            Task drain = Task.WhenAll(pending);
+            await (cancellationToken.CanBeCanceled
+                    ? drain.WaitAsync(cancellationToken)
+                    : drain.WaitAsync(_shutdownTimeout, CancellationToken.None))
+                .ConfigureAwait(false);
         }
-        catch (OperationCanceledException)
+        catch (Exception exception) when (exception is OperationCanceledException or TimeoutException)
         {
             // 드레인 제한 시간이 끝났다. 남은 것은 끊는다 — 상한 없는 대기는 종료를 영원히 막는다.
             foreach (ActiveConnection active in _connections.Values)

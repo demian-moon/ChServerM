@@ -292,4 +292,71 @@ public sealed class TickLoopTests
 
         Assert.Throws<InvalidOperationException>(options.Validate);
     }
+
+    [Fact]
+    public void 기본_스핀_구간은_순수_슬립이다()
+    {
+        // 기본값 변경(감사 2026-08-18 R-9): 이전 기본 1ms 는 자체 실측상 효과 없는 구성이었다
+        // (OS 슬립 해상도 15.6ms 미만의 스핀 구간은 슬립 초과 수면에 먹힌다).
+        Assert.Equal(TimeSpan.Zero, TickLoopOptions.DefaultSpinWaitWindow);
+        Assert.Equal(TimeSpan.Zero, new TickLoopOptions().SpinWaitWindow);
+    }
+
+    [Fact]
+    public void 효과_없는_스핀_조합은_검증에서_경고를_남긴다()
+    {
+        // 함정 조합(감사 2026-08-18 R-9): 0 < 스핀 구간 < OS 해상도(15.6ms)인데 틱 간격이 더 길다
+        // — 슬립의 초과 수면이 스핀 구간을 통째로 건너뛰어 지터 억제 효과가 없다.
+        var logger = new RecordingLogger();
+        var options = new TickLoopOptions
+        {
+            TickInterval = TimeSpan.FromMilliseconds(50),
+            SpinWaitWindow = TimeSpan.FromMilliseconds(1),
+            Logger = logger,
+        };
+
+        options.Validate(); // 유효한 설정이므로 던지지 않는다 — 경고만 남긴다.
+
+        (ChServerM.Diagnostics.LogLevel level, int eventId) = Assert.Single(logger.Entries);
+        Assert.Equal(ChServerM.Diagnostics.LogLevel.Warning, level);
+        Assert.Equal(1705, eventId); // SpinWindowIneffective
+    }
+
+    [Theory]
+    [InlineData(50, 0)]    // 순수 슬립 — 정직한 기본
+    [InlineData(50, 16)]   // 스핀 구간 > OS 해상도 — 실측상 효과 있음
+    [InlineData(10, 10)]   // 간격 전체 스핀 — 실측상 효과 있음
+    public void 효과_있는_스핀_조합은_경고가_없다(int intervalMs, int spinMs)
+    {
+        var logger = new RecordingLogger();
+        var options = new TickLoopOptions
+        {
+            TickInterval = TimeSpan.FromMilliseconds(intervalMs),
+            SpinWaitWindow = TimeSpan.FromMilliseconds(spinMs),
+            Logger = logger,
+        };
+
+        options.Validate();
+
+        Assert.Empty(logger.Entries);
+    }
+
+    /// <summary>경고 발생 여부를 기록하는 로거. R-9 함정 조합 경고 검증용.</summary>
+    private sealed class RecordingLogger : ChServerM.Diagnostics.IServerLogger
+    {
+        public readonly List<(ChServerM.Diagnostics.LogLevel Level, int EventId)> Entries = [];
+
+        public bool IsEnabled(ChServerM.Diagnostics.LogLevel level) => true;
+
+        public void Log<TState>(
+            ChServerM.Diagnostics.LogLevel level,
+            ChServerM.Diagnostics.EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            _ = formatter(state, exception); // 포매터가 실제로 동작하는지도 함께 검증한다.
+            Entries.Add((level, eventId.Id));
+        }
+    }
 }

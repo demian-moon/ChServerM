@@ -18,7 +18,8 @@ public readonly struct TimerWheelStatistics : IEquatable<TimerWheelStatistics>
         long canceledTimers,
         long rejectedSchedules,
         long faultedCallbacks,
-        long pendingTimers)
+        long pendingTimers,
+        long canceledUnreclaimedNodes)
     {
         ScheduledTimers = scheduledTimers;
         FiredTimers = firedTimers;
@@ -26,6 +27,7 @@ public readonly struct TimerWheelStatistics : IEquatable<TimerWheelStatistics>
         RejectedSchedules = rejectedSchedules;
         FaultedCallbacks = faultedCallbacks;
         PendingTimers = pendingTimers;
+        CanceledUnreclaimedNodes = canceledUnreclaimedNodes;
     }
 
     /// <summary>수락된 예약 수(누적).</summary>
@@ -46,6 +48,15 @@ public readonly struct TimerWheelStatistics : IEquatable<TimerWheelStatistics>
     /// <summary>살아 있는(아직 발화·취소되지 않은) 타이머 수(현재값).</summary>
     public long PendingTimers { get; }
 
+    /// <summary>취소됐지만 아직 슬롯에서 회수되지 않은 노드 수(현재값).</summary>
+    /// <remarks>
+    /// 상한은 <see cref="TimerWheelOptions.CanceledNodeCleanupThreshold"/> + 다음
+    /// <see cref="TimerWheel.Advance"/>까지의 신규 취소분이다 — 이 값이 임계 근처에 계속
+    /// 머문다면 "긴 지연 예약 → 즉시 취소 → 재예약" 워크로드라는 뜻이고, 임계를 낮춰
+    /// 메모리 상한을 조이거나 재예약 빈도를 줄이는 것을 검토한다(감사 2026-08-18 R-3).
+    /// </remarks>
+    public long CanceledUnreclaimedNodes { get; }
+
     /// <inheritdoc />
     public bool Equals(TimerWheelStatistics other) =>
         ScheduledTimers == other.ScheduledTimers &&
@@ -53,14 +64,16 @@ public readonly struct TimerWheelStatistics : IEquatable<TimerWheelStatistics>
         CanceledTimers == other.CanceledTimers &&
         RejectedSchedules == other.RejectedSchedules &&
         FaultedCallbacks == other.FaultedCallbacks &&
-        PendingTimers == other.PendingTimers;
+        PendingTimers == other.PendingTimers &&
+        CanceledUnreclaimedNodes == other.CanceledUnreclaimedNodes;
 
     /// <inheritdoc />
     public override bool Equals(object? obj) => obj is TimerWheelStatistics other && Equals(other);
 
     /// <inheritdoc />
     public override int GetHashCode() => HashCode.Combine(
-        ScheduledTimers, FiredTimers, CanceledTimers, RejectedSchedules, FaultedCallbacks, PendingTimers);
+        ScheduledTimers, FiredTimers, CanceledTimers, RejectedSchedules, FaultedCallbacks,
+        PendingTimers, CanceledUnreclaimedNodes);
 
     /// <summary>두 값이 같은지 비교한다.</summary>
     public static bool operator ==(TimerWheelStatistics left, TimerWheelStatistics right) => left.Equals(right);

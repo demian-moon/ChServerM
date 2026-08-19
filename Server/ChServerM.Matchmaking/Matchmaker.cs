@@ -30,6 +30,12 @@ namespace ChServerM.Matchmaking;
 /// 유계가 우선이다(ADR-0068 결정 4).
 /// </para>
 /// <para>
+/// <b>앵커 재개(감사 2026-08-18 R-4 ②).</b> 매치가 성립하면 앵커 0부터 재시작하지 않고
+/// 현재 앵커 위치(제거된 티켓 수만큼 보정)에서 스캔을 계속한다 — 티켓 제거는 후보 집합을
+/// 줄이기만 하므로 이미 실패한 앞선 앵커가 같은 패스에서 다시 성공할 수는 없다. 결과는
+/// 재시작 방식과 동일하고, 성공한 매치마다 붙던 O(n) 재스캔 낭비만 사라진다.
+/// </para>
+/// <para>
 /// <b>수명 규약.</b> 성립한 매치의 티켓은 큐에서 제거된다. <see cref="MatchProposal"/> 이후
 /// (수락·ready check·결과 반영)는 호출자 도메인이다 — 큐는 매치 결과를 모른다(결정 5).
 /// </para>
@@ -45,6 +51,15 @@ public sealed class Matchmaker
     private readonly double _maxWindow;
     private readonly TimeSpan? _maxWaitTime;
     private readonly int _maxQueueDepth;
+    private readonly int _maxChecksPerPass;
+
+    /// <summary>상한 도달로 끊긴 패스의 재개 앵커. 0 이면 처음부터(완주한 패스가 되돌린다).</summary>
+    /// <remarks>
+    /// 정확한 이어달리기가 아니라 <b>기아 방지 장치</b>다 — 등록·취소·만료로 인덱스가 밀릴 수
+    /// 있고, 그 오차는 다음 완주 패스가 해소한다. 정확한 위치 추적(ID 기반 커서 등)은 단순성을
+    /// 해쳐 택하지 않았다(감사 2026-08-18 R-4 ③, 단순성 우선으로 결정·문서화).
+    /// </remarks>
+    private int _resumeAnchor;
 
     /// <summary>도착 순 티켓 목록 — 인덱스 0 이 최장 대기(= 앵커 우선순위).</summary>
     private readonly List<MatchTicket> _tickets = [];
@@ -75,6 +90,7 @@ public sealed class Matchmaker
         _maxWindow = options.MaxRatingWindow;
         _maxWaitTime = options.MaxWaitTime;
         _maxQueueDepth = options.MaxQueueDepth;
+        _maxChecksPerPass = options.MaxCompatibilityChecksPerPass;
 
         _teamFill = new int[_teamCount];
         _candidateOrder = CompareCandidates;
@@ -133,11 +149,20 @@ public sealed class Matchmaker
         return true;
     }
 
-    /// <summary>매칭 패스 한 번 — 만료를 걷어내고, 성립하는 매치를 전부 뽑는다.</summary>
+    /// <summary>매칭 패스 한 번 — 만료를 걷어내고, 성립하는 매치를 뽑는다.</summary>
     /// <param name="now">현재 단조 시각. 드라이버(틱 루프 등)가 준다.</param>
     /// <param name="matches">성립한 매치가 추가되는 목록. 호출자 소유 — 재사용하려면 비우고 넘긴다.</param>
     /// <param name="expired">만료 티켓이 추가되는 목록. <see langword="null"/>이면 개수만 집계된다 — 유실을 관측하려면 넘긴다(9.6).</param>
     /// <returns>이번 패스의 집계.</returns>
+    /// <remarks>
+    /// <para>
+    /// 상한(<see cref="MatchmakingOptions.MaxCompatibilityChecksPerPass"/>)이 없으면 성립하는
+    /// 매치를 전부 뽑는다. 상한이 있으면 도달 시점의 앵커 위치에서 패스를 중단하고, 다음
+    /// 패스가 그 위치에서 이어서 본다 — 완주한 패스는 재개 위치를 처음(최장 대기)으로
+    /// 되돌린다. 재개 위치는 대략적이다(등록·취소·만료로 밀릴 수 있다) — 기아 방지가 목적이지
+    /// 정확한 이어달리기가 아니다(감사 2026-08-18 R-4 ③).
+    /// </para>
+    /// </remarks>
     public MatchmakingPassResult RunPass(
         MonotonicTimestamp now,
         ICollection<MatchProposal> matches,
@@ -148,23 +173,37 @@ public sealed class Matchmaker
         int expiredCount = RemoveExpired(now, expired);
 
         int matchedCount = 0;
-        bool progress = true;
-        while (progress)
-        {
-            progress = false;
+        int checksUsed = 0;
+        bool truncated = false;
 
-            // 인덱스 0 = 최장 대기. 매치가 나오면 목록이 바뀌므로 처음(최장 대기)부터 다시 본다.
-            for (int anchor = 0; anchor < _tickets.Count; anchor++)
+        // 인덱스 0 = 최장 대기. 상한으로 끊긴 직전 패스가 있으면 그 근처에서 이어서 본다.
+        int anchor = _resumeAnchor < _tickets.Count ? _resumeAnchor : 0;
+        while (anchor < _tickets.Count)
+        {
+            // 상한 검사는 앵커 경계에서 — 초과분은 최대 앵커 1개 분량이다(옵션 문서).
+            if (_maxChecksPerPass > 0 && checksUsed >= _maxChecksPerPass)
             {
-                if (TryBuildMatch(anchor, now, out MatchProposal? match))
-                {
-                    matches.Add(match!);
-                    matchedCount++;
-                    progress = true;
-                    break;
-                }
+                truncated = true;
+                break;
+            }
+
+            if (TryBuildMatch(anchor, now, ref checksUsed, out MatchProposal? match, out int removedBelowAnchor))
+            {
+                matches.Add(match!);
+                matchedCount++;
+
+                // 앵커 0 재시작 대신 제자리 재개(감사 2026-08-18 R-4 ②). 제거된 티켓 중 앵커보다
+                // 앞에 있던 수만큼 당기면, 앵커 다음의 첫 미검사 티켓이 정확히 이 위치로 내려온다.
+                // 앞선 앵커들은 후보가 줄기만 했으므로 다시 볼 필요가 없다.
+                anchor -= removedBelowAnchor;
+            }
+            else
+            {
+                anchor++;
             }
         }
+
+        _resumeAnchor = truncated ? anchor : 0;
 
         return new MatchmakingPassResult(matchedCount, expiredCount, _tickets.Count);
     }
@@ -191,9 +230,15 @@ public sealed class Matchmaker
         return removed;
     }
 
-    private bool TryBuildMatch(int anchorIndex, MonotonicTimestamp now, out MatchProposal? match)
+    private bool TryBuildMatch(
+        int anchorIndex,
+        MonotonicTimestamp now,
+        ref int checksUsed,
+        out MatchProposal? match,
+        out int removedBelowAnchor)
     {
         match = null;
+        removedBelowAnchor = 0;
 
         MatchTicket anchor = _tickets[anchorIndex];
         int playersNeeded = _teamSize * _teamCount;
@@ -208,6 +253,7 @@ public sealed class Matchmaker
                 continue;
             }
 
+            checksUsed++;
             if (AreCompatible(anchor, _tickets[i], now))
             {
                 _candidates.Add(i);
@@ -242,8 +288,13 @@ public sealed class Matchmaker
             bool compatibleWithSelected = true;
             foreach (int selectedIndex in _selected)
             {
-                if (selectedIndex != anchorIndex
-                    && !AreCompatible(candidate, _tickets[selectedIndex], now))
+                if (selectedIndex == anchorIndex)
+                {
+                    continue; // 앵커와의 호환은 후보 수집에서 이미 검사했다.
+                }
+
+                checksUsed++;
+                if (!AreCompatible(candidate, _tickets[selectedIndex], now))
                 {
                     compatibleWithSelected = false;
                     break;
@@ -278,11 +329,16 @@ public sealed class Matchmaker
             return false;
         }
 
-        match = BuildProposalAndRemoveSelected();
+        match = BuildProposalAndRemoveSelected(anchorIndex, out removedBelowAnchor);
         return true;
     }
 
-    private MatchProposal BuildProposalAndRemoveSelected()
+    /// <param name="anchorIndex">이번 매치의 앵커 인덱스(제거 전 기준).</param>
+    /// <param name="removedBelowAnchor">
+    /// 제거된 티켓 중 앵커보다 앞(인덱스가 작은 쪽)에 있던 수. 호출자가 스캔 위치를 이만큼
+    /// 당기면 앵커 다음의 첫 미검사 티켓 위치가 된다(감사 2026-08-18 R-4 ②의 인덱스 보정).
+    /// </param>
+    private MatchProposal BuildProposalAndRemoveSelected(int anchorIndex, out int removedBelowAnchor)
     {
         // 매치 산출물 할당은 의도된 결정이다(ADR-0068 결정 5) — 매치는 핫패스가 아니다.
         var teams = new MatchTicket[_teamCount][];
@@ -309,9 +365,15 @@ public sealed class Matchmaker
 
         // 큰 인덱스부터 제거해야 앞선 인덱스가 밀리지 않는다.
         _selected.Sort();
+        removedBelowAnchor = 0;
         for (int i = _selected.Count - 1; i >= 0; i--)
         {
             int index = _selected[i];
+            if (index < anchorIndex)
+            {
+                removedBelowAnchor++;
+            }
+
             _ids.Remove(_tickets[index].Id);
             _tickets.RemoveAt(index);
         }

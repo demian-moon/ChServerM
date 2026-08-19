@@ -48,6 +48,14 @@ jobs:
         shell: pwsh
         run: ./eng/build.ps1 -Configuration Release -WarnAsError
 
+      # 결정적 빌드 검증 — "같은 커밋 = 같은 바이너리"를 두 번 완전 재빌드 + SHA-256 비교로
+      # 실증한다. 출처 증명(attestation)은 "누가 빌드했는가"를 서명할 뿐, 결정성 회귀
+      # (비결정적 생성기 출력 등)는 이 단계가 없으면 조용히 들어온다(감사 2026-08-18 O-6).
+      # 태그 릴리스에만 붙는 비용(전체 재빌드 2회)이라 CI 에는 넣지 않는다.
+      - name: Verify deterministic build
+        shell: pwsh
+        run: ./eng/verify-deterministic.ps1
+
       # ContinuousIntegrationBuild=true — 결정적 빌드 경로 정규화(verify-deterministic 과 동일).
       - name: Pack
         run: dotnet pack ChServerM.slnx --configuration Release -p:ContinuousIntegrationBuild=true --output artifacts/packages

@@ -13,8 +13,14 @@ ChServerM.Transport.WebSocket.WebSocketServerTransport.StopAsync(System.Threadin
 ChServerM.Transport.WebSocket.WebSocketServerTransport.UnbindAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 ChServerM.Transport.WebSocket.WebSocketServerTransport.WebSocketServerTransport(System.Net.IPEndPoint! listenEndPoint, ChServerM.Transport.WebSocket.WebSocketTransportOptions? options = null, ChServerM.Diagnostics.IServerLogger? logger = null) -> void
 ChServerM.Transport.WebSocket.WebSocketTransportOptions
+ChServerM.Transport.WebSocket.WebSocketTransportOptions.AdmissionControl.get -> ChServerM.Resilience.IAdmissionControl?
+ChServerM.Transport.WebSocket.WebSocketTransportOptions.AdmissionControl.set -> void
+ChServerM.Transport.WebSocket.WebSocketTransportOptions.AllowedOrigins.get -> System.Collections.Generic.IReadOnlyList<string!>?
+ChServerM.Transport.WebSocket.WebSocketTransportOptions.AllowedOrigins.set -> void
 ChServerM.Transport.WebSocket.WebSocketTransportOptions.MaxConnections.get -> int
 ChServerM.Transport.WebSocket.WebSocketTransportOptions.MaxConnections.set -> void
+ChServerM.Transport.WebSocket.WebSocketTransportOptions.MetricsSink.get -> ChServerM.Diagnostics.IMetricsSink?
+ChServerM.Transport.WebSocket.WebSocketTransportOptions.MetricsSink.set -> void
 ChServerM.Transport.WebSocket.WebSocketTransportOptions.Path.get -> string!
 ChServerM.Transport.WebSocket.WebSocketTransportOptions.Path.set -> void
 ChServerM.Transport.WebSocket.WebSocketTransportOptions.PauseWriterThreshold.get -> long

@@ -86,7 +86,7 @@ public sealed class TracingTests
     }
 
     [Fact]
-    public async Task RejectedStatus_SetsErrorStatus_AndErrorCodeTag()
+    public async Task RejectedStatus_SetsErrorStatus_AndDispatchStatusTag()
     {
         List<Activity> captured = [];
         using ActivityListener listener = CaptureSpans(captured);
@@ -103,7 +103,11 @@ public sealed class TracingTests
 
         Activity span = Assert.Single(captured);
         Assert.Equal(ActivityStatusCode.Error, span.Status);
-        Assert.Equal(nameof(DispatchStatus.RejectedByPolicy), span.GetTagItem(TagNames.ErrorCode));
+
+        // 상태명은 error_code(ErrorCode 값 계약)가 아니라 전용 dispatch_status 태그다
+        // (감사 2026-08-18 O-9) — error_code 에는 아무것도 싣지 않는다.
+        Assert.Equal(nameof(DispatchStatus.RejectedByPolicy), span.GetTagItem(TagNames.DispatchStatus));
+        Assert.Null(span.GetTagItem(TagNames.ErrorCode));
     }
 
     [Fact]

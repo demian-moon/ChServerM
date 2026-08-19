@@ -209,6 +209,38 @@ public sealed class SessionResumeTests
         Assert.Throws<ArgumentException>(() => SessionResumeToken.FromBytes(new byte[33]));
     }
 
+    [Fact]
+    public void GetHashCode_does_not_expose_leading_token_bytes()
+    {
+        // ★ 이전 구현은 앞 4바이트를 리틀엔디언 int 로 그대로 반환했다 — 해시 코드가
+        //   보이는 자리에 노출되면 비밀 원문 4바이트가 그대로 샌다(감사 2026-08-18 H-14).
+        //   전체를 섞은 비가역 해시는 원문을 복원할 수 없어야 한다.
+        byte[] raw = new byte[SessionResumeToken.Length];
+        for (int i = 0; i < raw.Length; i++)
+        {
+            raw[i] = (byte)(i + 1);
+        }
+
+        SessionResumeToken token = SessionResumeToken.FromBytes(raw);
+        int leading = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(raw);
+
+        Assert.NotEqual(leading, token.GetHashCode());
+    }
+
+    [Fact]
+    public void Equal_tokens_have_equal_hash_codes()
+    {
+        // GetHashCode 계약 — Equals 가 참이면 해시도 같아야 사전 버킷이 성립한다.
+        byte[] raw = new byte[SessionResumeToken.Length];
+        Random.Shared.NextBytes(raw);
+
+        SessionResumeToken a = SessionResumeToken.FromBytes(raw);
+        SessionResumeToken b = SessionResumeToken.FromBytes(raw);
+
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+    }
+
     // ── ★ 좀비 커넥션 차단 (CAS 에 얹은 결과) ────────────────────────────────
 
     [Fact]

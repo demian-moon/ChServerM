@@ -25,8 +25,15 @@ public sealed class TickLoopOptions
     /// <summary>기본 캐치업 상한. 4틱.</summary>
     public const int DefaultMaxCatchUpTicks = 4;
 
-    /// <summary>기본 스핀 구간. 1ms.</summary>
-    public static readonly TimeSpan DefaultSpinWaitWindow = TimeSpan.FromMilliseconds(1);
+    /// <summary>기본 스핀 구간. <see cref="TimeSpan.Zero"/>(순수 슬립).</summary>
+    /// <remarks>
+    /// <b>기본값 변경(감사 2026-08-18 R-9).</b> 이전 기본 1ms 는 자체 실측(BENCHMARKS.md 틱 지터
+    /// 절)이 "효과 없음"으로 못박은 구성이었다 — OS 슬립 해상도(≈15.6ms)보다 짧은 스핀 구간은
+    /// 슬립의 초과 수면이 통째로 건너뛴다. 효과 없는 스핀을 기본으로 켜 두는 것은 "지터가
+    /// 억제되고 있다"는 거짓 신호이므로, 기본을 정직한 순수 슬립으로 내렸다.
+    /// 밀리초 미만 지터가 필요하면 <see cref="SpinWaitWindow"/> 문서의 조건에 맞게 명시 설정한다.
+    /// </remarks>
+    public static readonly TimeSpan DefaultSpinWaitWindow = TimeSpan.Zero;
 
     /// <summary>고정 타임스텝 간격. 틱 하나의 실행 예산이기도 하다.</summary>
     public TimeSpan TickInterval { get; set; } = DefaultTickInterval;
@@ -56,9 +63,16 @@ public sealed class TickLoopOptions
     /// 1ms 스핀에서 p99 13.8ms — 순수 슬립과 사실상 같다). 스핀이 효과를 내는 조건은 둘뿐이다:
     /// ① 간격 ≤ 스핀 구간(슬립 없이 전 구간 스핀 — 1ms 틱에서 p99 0µs),
     /// ② 스핀 구간 &gt; OS 해상도(슬립이 구간 안쪽에 착지 — 16ms 스핀에서 p99 밀리초 미만).
-    /// 밀리초 미만 지터가 필요하면 <b>16ms 이상</b>을 준다(50ms 틱 기준 CPU 상한 32%).
+    /// 밀리초 미만 지터가 필요하면 틱 간격과 OS 해상도(Windows 15.6ms)의 관계에 맞게
+    /// <b>명시적으로</b> 설정한다 — 16ms 이상(50ms 틱 기준 CPU 상한 32%), 또는 간격 전체.
+    /// 그 사이의 값은 CPU 만 태우고 지터를 줄이지 못하며, <see cref="Validate"/>가
+    /// <see cref="Logger"/>로 경고를 남긴다(예외는 아니다 — 동작은 하되 효과가 없을 뿐이다).
     /// </para>
-    /// <para><see cref="TimeSpan.Zero"/>면 순수 슬립이다. 지터가 OS 해상도만큼 커진다.</para>
+    /// <para>
+    /// 기본값은 <see cref="TimeSpan.Zero"/>(순수 슬립)다 — 지터가 OS 해상도만큼 커지는 대신
+    /// CPU 를 태우지 않고, "스핀이 켜져 있으니 지터가 억제된다"는 거짓 신호가 없다
+    /// (<see cref="DefaultSpinWaitWindow"/>의 변경 이유 참조, 감사 2026-08-18 R-9).
+    /// </para>
     /// </remarks>
     public TimeSpan SpinWaitWindow { get; set; } = DefaultSpinWaitWindow;
 
@@ -81,7 +95,17 @@ public sealed class TickLoopOptions
     /// </remarks>
     public TimeSpan OverrunLogInterval { get; set; } = TimeSpan.FromSeconds(5);
 
+    // Windows 기본 타이머 해상도. 이보다 짧은 스핀 구간은 슬립의 초과 수면에 먹힌다
+    // (BENCHMARKS.md 틱 지터 절 실측 — 감사 2026-08-18 R-9).
+    private static readonly TimeSpan OsSleepResolution = TimeSpan.FromMilliseconds(15.6);
+
     /// <summary>설정을 검증한다.</summary>
+    /// <remarks>
+    /// "0 &lt; 스핀 구간 &lt; OS 슬립 해상도(15.6ms)이면서 틱 간격 &gt; 스핀 구간"인 조합은
+    /// 실측상 스핀 효과가 없는 함정이다(<see cref="SpinWaitWindow"/> 문서). 유효하긴 하므로
+    /// 예외 대신 <see cref="Logger"/>에 경고를 남긴다 — 기본 로거(무출력)면 이 문서가 유일한
+    /// 경고다.
+    /// </remarks>
     /// <exception cref="InvalidOperationException">값이 유효하지 않을 때.</exception>
     public void Validate()
     {
@@ -117,6 +141,25 @@ public sealed class TickLoopOptions
 
         ArgumentNullException.ThrowIfNull(TimeProvider, nameof(TimeProvider));
         ArgumentNullException.ThrowIfNull(Logger, nameof(Logger));
+
+        // 함정 조합 경고(감사 2026-08-18 R-9): 스핀이 켜져 있지만 실측상 효과가 없는 구성.
+        // 던지지 않는 이유 — 동작 자체는 올바르고, 손해는 "기대한 지터 억제가 없다"뿐이다.
+        if (SpinWaitWindow > TimeSpan.Zero
+            && SpinWaitWindow < OsSleepResolution
+            && TickInterval > SpinWaitWindow
+            && Logger.IsEnabled(LogLevel.Warning))
+        {
+            Logger.Log(
+                LogLevel.Warning,
+                RealTimeEvents.SpinWindowIneffective,
+                (Spin: SpinWaitWindow, Interval: TickInterval),
+                null,
+                static (state, _) =>
+                    $"SpinWaitWindow({state.Spin.TotalMilliseconds:F1}ms)가 OS 슬립 해상도(15.6ms)보다 짧고 " +
+                    $"TickInterval({state.Interval.TotalMilliseconds:F1}ms)보다도 짧다 — 실측상 스핀 효과가 없는 " +
+                    "조합이다(BENCHMARKS.md 틱 지터 절). 밀리초 미만 지터가 필요하면 16ms 이상 또는 간격 전체를, " +
+                    "아니면 0(순수 슬립)을 준다.");
+        }
     }
 
     /// <summary>현재 값을 복사한 스냅샷을 만든다.</summary>

@@ -151,11 +151,18 @@ public readonly struct SessionResumeToken : IEquatable<SessionResumeToken>
 
     /// <inheritdoc/>
     /// <remarks>
-    /// 앞 4바이트만 쓴다. 해시 코드는 비밀이 아니어야 할 곳(사전 버킷)에 쓰이므로
-    /// 전체를 섞어 넣지 않는다.
+    /// <b>전체 바이트를 <see cref="HashCode.AddBytes"/> 로 섞는다.</b> 이전 구현은 "전체를
+    /// 섞지 않는다"며 앞 4바이트를 그대로 반환했는데, 논리가 뒤집혀 있었다 — 해시 코드가
+    /// 관찰 가능한 자리(사전 버킷, 진단)에 노출되면 <b>비밀 원문 4바이트가 그대로 새는</b>
+    /// 쪽이 위험하다. 프로세스별 시드가 섞인 비가역 해시는 원문을 복원할 수 없으므로
+    /// 오히려 안전하다(감사 2026-08-18 H-14).
     /// </remarks>
-    public override int GetHashCode() =>
-        System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(AsReadOnlySpan(in _bytes));
+    public override int GetHashCode()
+    {
+        HashCode hash = default;
+        hash.AddBytes(AsReadOnlySpan(in _bytes));
+        return hash.ToHashCode();
+    }
 
     /// <summary>진단용 표현. <b>토큰 값을 노출하지 않는다.</b></summary>
     public override string ToString() => "SessionResumeToken(재개 자격 — 값은 표시하지 않는다)";

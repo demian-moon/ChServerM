@@ -127,7 +127,8 @@ public sealed class RateLimitEndToEndTests : IDisposable
 
             foreach (MetricTag tag in tags)
             {
-                if (tag.Name == TagNames.ErrorCode && tag.Value == nameof(DispatchStatus.RejectedByRateLimit))
+                // 실패 분류 태그는 error_code 가 아니라 전용 dispatch_status 다(감사 2026-08-18 O-9).
+                if (tag.Name == TagNames.DispatchStatus && tag.Value == nameof(DispatchStatus.RejectedByRateLimit))
                 {
                     Interlocked.Add(ref _rateLimited, (int)delta);
                 }

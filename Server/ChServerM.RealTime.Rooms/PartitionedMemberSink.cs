@@ -107,7 +107,9 @@ public sealed class PartitionedMemberSink : IRoomMemberSink, IPartitionExclusive
         if (!_queue.Writer.TryWrite(frame))
         {
             // 유계 큐 포화 — TryWrite 의 false 를 버리지 않는다(9.6). 소유권은 호출자에 남는다.
-            _metrics?.Count(RoomMetricNames.FramesRejected, 1, default);
+            // 이름이 FramesRejected 가 아닌 이유: 거부 집계는 브로드캐스터 한 곳의 책임이다 —
+            // 여기서도 같은 이름으로 세면 거부 1건이 2로 집계된다(감사 2026-08-18 R-7).
+            _metrics?.Count(RoomMetricNames.SinkQueueFull, 1, default);
             return _faulted ? RoomDeliveryStatus.Closed : RoomDeliveryStatus.QueueFull;
         }
 

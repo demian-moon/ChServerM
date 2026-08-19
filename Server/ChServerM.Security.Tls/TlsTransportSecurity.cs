@@ -3,7 +3,6 @@ using System.IO;
 using System.IO.Pipelines;
 using System.Net.Security;
 using System.Security.Authentication;
-using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -37,7 +36,8 @@ namespace ChServerM.Security.Tls;
 /// </remarks>
 public sealed class TlsTransportSecurity : ITransportSecurity
 {
-    private readonly X509Certificate2? _serverCertificate;
+    /// <summary>고정 인증서 경로의 컨텍스트 — 생성 시점에 1회 만든다(감사 2026-08-18 T-3).</summary>
+    private readonly SslStreamCertificateContext? _serverCertificateContext;
     private readonly IServerCertificateSource? _certificateSource;
     private readonly string? _targetHost;
     private readonly SslProtocols _enabledProtocols;
@@ -53,7 +53,12 @@ public sealed class TlsTransportSecurity : ITransportSecurity
         ArgumentNullException.ThrowIfNull(options);
         options.Validate();
 
-        _serverCertificate = options.ServerCertificate;
+        // 고정 인스턴스는 여기서 컨텍스트로 1회 승격한다 — 원시 인증서를 핸드셰이크마다
+        // 넘기면 SslStream 이 매번 체인을 재구축한다(OS 저장소 조회 포함, 감사 2026-08-18 T-3).
+        // offline: true — 조립 시점이라도 네트워크(AIA) 조회에 매달리지 않는다(원천 쪽과 같은 규율).
+        _serverCertificateContext = options.ServerCertificate is { } serverCertificate
+            ? SslStreamCertificateContext.Create(serverCertificate, additionalCertificates: null, offline: true)
+            : null;
         _certificateSource = options.ServerCertificateSource;
         _targetHost = options.TargetHost;
         _enabledProtocols = options.EnabledProtocols;
@@ -67,8 +72,10 @@ public sealed class TlsTransportSecurity : ITransportSecurity
         ArgumentNullException.ThrowIfNull(transport);
 
         // 원천이 있으면 핸드셰이크마다 해석한다 — 회전이 새 핸드셰이크부터 즉시 반영된다.
-        X509Certificate2? certificate = _certificateSource?.GetCertificate() ?? _serverCertificate;
-        if (certificate is null)
+        // 어느 쪽이든 컨텍스트다 — 체인 구축은 적재·회전 시점에 이미 끝났다(감사 2026-08-18 T-3).
+        SslStreamCertificateContext? certificateContext =
+            _certificateSource?.GetCertificateContext() ?? _serverCertificateContext;
+        if (certificateContext is null)
         {
             throw new InvalidOperationException(
                 $"서버 역할에는 {nameof(TlsSecurityOptions.ServerCertificate)} 또는 " +
@@ -87,7 +94,7 @@ public sealed class TlsTransportSecurity : ITransportSecurity
         {
             SslServerAuthenticationOptions authOptions = new()
             {
-                ServerCertificate = certificate,
+                ServerCertificateContext = certificateContext,
                 EnabledSslProtocols = _enabledProtocols,
                 // 클라이언트 인증서는 쓰지 않는다 — 클라이언트 인증은 IAuthenticator(토큰)의 몫이다.
                 ClientCertificateRequired = false,

@@ -4,11 +4,31 @@ using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
 using ChServerM.Connections;
+using ChServerM.Diagnostics;
 using ChServerM.Execution;
 using ChServerM.Features;
 using ChServerM.Identity;
 
 namespace ChServerM.RealTime.Rooms.Tests;
+
+/// <summary>카운터 메트릭만 이름별로 합산하는 싱크. 이중 집계 회귀(감사 2026-08-18 R-7) 검증용.</summary>
+internal sealed class CountingMetricsSink : IMetricsSink
+{
+    private readonly Dictionary<string, long> _counts = [];
+
+    internal long CountOf(string name) => _counts.TryGetValue(name, out long value) ? value : 0;
+
+    public void Count(string name, long delta, ReadOnlySpan<MetricTag> tags)
+        => _counts[name] = CountOf(name) + delta;
+
+    public void Record(string name, double value, ReadOnlySpan<MetricTag> tags)
+    {
+    }
+
+    public void AdjustGauge(string name, long delta, ReadOnlySpan<MetricTag> tags)
+    {
+    }
+}
 
 /// <summary>브로드캐스트가 수신하는 프레임을 기록만 하는 싱크. 룸·브로드캐스터 단위 테스트용.</summary>
 internal sealed class RecordingSink : IRoomMemberSink

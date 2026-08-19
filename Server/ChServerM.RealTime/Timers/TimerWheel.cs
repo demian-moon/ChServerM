@@ -29,7 +29,10 @@ namespace ChServerM.RealTime;
 ///   <item><description><b>시간이 <c>Frequency/1000</c> 정수 나눗셈이 아니라 정확 변환</b>
 ///   (<see cref="MicrosecondArithmetic"/>) — 원본은 30일 타이머에서 6.5분 오차.</description></item>
 ///   <item><description><b>노드 풀·살아 있는 타이머 수에 상한</b> — 무제한 풀·큐 금지(9.6),
-///   초과는 거부로 관측된다.</description></item>
+///   초과는 거부로 관측된다. 취소됐지만 아직 회수되지 않은 노드도 임계
+///   (<see cref="TimerWheelOptions.CanceledNodeCleanupThreshold"/>) 초과 시 <see cref="Advance"/>
+///   서두의 전 슬롯 청소 패스가 상한을 강제한다 — "긴 지연 예약 → 즉시 취소 → 재예약" 패턴의
+///   무제한 누적 방지(감사 2026-08-18 R-3).</description></item>
 ///   <item><description><b><c>Volatile</c> 일관 적용, 스핀은 CAS 재시도 시에만</b>(9.3) — 원본은
 ///   <c>IsEmpty</c>만 평문 읽기, 첫 시도 전 무조건 스핀.</description></item>
 /// </list>
@@ -99,6 +102,12 @@ public sealed class TimerWheel
     private long _faultedCount;
     private long _pendingCount;
 
+    // 취소됐지만 아직 물리적으로 회수되지 않은 노드 수. 취소자(임의 스레드)가 올리고
+    // 드라이버가 회수하며 내린다. 임계 초과 시 Advance 서두의 전 슬롯 청소 패스가
+    // 누적을 끊는다 — "긴 지연 예약 → 즉시 취소 → 재예약" 패턴의 무제한 누적 방지
+    // (9.6, 감사 2026-08-18 R-3).
+    private long _canceledUnreclaimed;
+
     /// <summary>휠을 만든다. 원점은 생성 시각이다.</summary>
     /// <param name="options">설정. 생성 시점에 검증·스냅샷된다.</param>
     /// <exception cref="InvalidOperationException">옵션이 유효하지 않거나 휠 범위가 오버플로할 때.</exception>
@@ -155,7 +164,8 @@ public sealed class TimerWheel
             Volatile.Read(ref _canceledCount),
             Volatile.Read(ref _rejectedCount),
             Volatile.Read(ref _faultedCount),
-            Volatile.Read(ref _pendingCount));
+            Volatile.Read(ref _pendingCount),
+            Volatile.Read(ref _canceledUnreclaimed));
 
     /// <summary>타이머를 예약한다. 아무 스레드에서나 안전하다.</summary>
     /// <param name="job">만료·취소 콜백.</param>
@@ -238,6 +248,15 @@ public sealed class TimerWheel
             return 0;
         }
 
+        // 취소-미회수 노드가 임계를 넘었으면 전 슬롯 청소 패스로 누적을 끊는다.
+        // Advance 는 단일 드라이버 전용이므로 슬롯 리스트 재구성에 동기화가 필요 없다
+        // (감사 2026-08-18 R-3 — Netty 방식 MPSC 취소 스택 대신 택한 차선책: 슬롯이 단일
+        // 연결 리스트라 개별 언링크에 prev 포인터가 없고, 임계 기반 일괄 청소가 더 단순하다).
+        if (Volatile.Read(ref _canceledUnreclaimed) >= _options.CanceledNodeCleanupThreshold)
+        {
+            SweepCanceledNodes();
+        }
+
         long nowRaw = _timeProvider.GetTimestamp();
         int fired = 0;
 
@@ -274,6 +293,9 @@ public sealed class TimerWheel
         {
             return 0;
         }
+
+        // 셧다운 뒤 휠은 통째로 버려진다 — 취소-미회수 카운터도 의미를 잃으므로 0 으로 접는다.
+        Interlocked.Exchange(ref _canceledUnreclaimed, 0);
 
         int canceled = 0;
 
@@ -319,6 +341,9 @@ public sealed class TimerWheel
 
         Interlocked.Decrement(ref _pendingCount);
         Interlocked.Increment(ref _canceledCount);
+        // 지연 회수의 상한 장치: 이 카운터가 임계를 넘으면 드라이버가 Advance 서두에서
+        // 전 슬롯 청소 패스를 돈다(감사 2026-08-18 R-3). 회수 시 드라이버가 내린다.
+        Interlocked.Increment(ref _canceledUnreclaimed);
         _metrics?.Count(RealTimeMetricNames.TimerCanceled, 1, default);
         _metrics?.AdjustGauge(RealTimeMetricNames.TimerPending, -1, default);
 
@@ -387,7 +412,7 @@ public sealed class TimerWheel
         if (UnpackState(stateAndGen) == StateCanceled)
         {
             // 취소 콜백은 취소자 스레드가 이미 호출했다. 여기서는 회수만 한다.
-            ReturnNode(node);
+            ReturnCanceledNode(node);
             return 0;
         }
 
@@ -444,8 +469,8 @@ public sealed class TimerWheel
         if (Interlocked.CompareExchange(
                 ref node.StateAndGeneration, Pack(generation, StateFired), stateAndGen) != stateAndGen)
         {
-            // 취소가 이겼다. 콜백·통계는 취소자가 처리했다.
-            ReturnNode(node);
+            // 취소가 이겼다. 콜백·통계는 취소자가 처리했다 — 여기는 취소 노드 회수다.
+            ReturnCanceledNode(node);
             return false;
         }
 
@@ -553,6 +578,52 @@ public sealed class TimerWheel
         }
 
         _pool.Enqueue(node);
+    }
+
+    /// <summary>취소 상태로 확인된 노드를 회수한다 — 취소-미회수 카운터를 내리고 풀에 반납한다.</summary>
+    /// <remarks>드라이버 전용. 취소자의 <see cref="Interlocked.Increment(ref long)"/>와 1:1 로 짝지어져야
+    /// 카운터가 정확하다 — 취소 노드의 물리 회수는 반드시 이 메서드를 거친다.</remarks>
+    private void ReturnCanceledNode(TimerNode node)
+    {
+        Interlocked.Decrement(ref _canceledUnreclaimed);
+        ReturnNode(node);
+    }
+
+    /// <summary>전 슬롯을 순회하며 취소 노드를 언링크·반납한다. <b>단일 드라이버 전용.</b></summary>
+    /// <remarks>
+    /// 취소-미회수 노드가 임계(<see cref="TimerWheelOptions.CanceledNodeCleanupThreshold"/>)를
+    /// 넘었을 때만 불린다(감사 2026-08-18 R-3). 슬롯이 단일 연결 리스트라 생존 노드는 역순으로
+    /// 재링크되는데, 슬롯 내 순서는 계약이 아니다 — 슬롯 처리 시 전 노드가 개별 판정된다.
+    /// 유입 스택의 취소 노드는 여기서 건드리지 않는다 — 바로 뒤따르는 유입 드레인이 회수한다.
+    /// </remarks>
+    private void SweepCanceledNodes()
+    {
+        foreach (TimerNode?[] level in _slots)
+        {
+            for (int slot = 0; slot < level.Length; slot++)
+            {
+                TimerNode? node = level[slot];
+                TimerNode? kept = null;
+                while (node is not null)
+                {
+                    TimerNode? next = node.SlotNext;
+                    if (UnpackState(Volatile.Read(ref node.StateAndGeneration)) == StateCanceled)
+                    {
+                        node.SlotNext = null;
+                        ReturnCanceledNode(node);
+                    }
+                    else
+                    {
+                        node.SlotNext = kept;
+                        kept = node;
+                    }
+
+                    node = next;
+                }
+
+                level[slot] = kept;
+            }
+        }
     }
 
     private static void PushStack(ref TimerNode? head, TimerNode node)

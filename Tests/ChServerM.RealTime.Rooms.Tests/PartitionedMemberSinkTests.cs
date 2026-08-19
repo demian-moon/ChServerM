@@ -92,6 +92,38 @@ public sealed class PartitionedMemberSinkTests
     }
 
     [Fact]
+    public async Task 큐_포화_거부는_FramesRejected_에_한_번만_집계된다()
+    {
+        // 회귀(감사 2026-08-18 R-7): 싱크와 브로드캐스터가 같은 이름(FramesRejected)으로 각각
+        // 세면, 양쪽에 같은 IMetricsSink 를 꽂는 자연스러운 구성에서 QueueFull 거부 1건이 2로
+        // 집계됐다. 집계 책임은 브로드캐스터 한 곳이고, 싱크의 큐 포화는 별도 이름이다.
+        var metrics = new CountingMetricsSink();
+        var directory = new RoomDirectory();
+        directory.TryGetOrCreate(new RoomId(1), out Room? room);
+        var broadcaster = new RoomBroadcaster(
+            new FixedHeaderFrameEncoder(),
+            ArrayPool<byte>.Shared,
+            new RoomBroadcasterOptions { MetricsSink = metrics });
+        await using var connection = new PipeConnection(slot: 1);
+        var manual = new ManualPartition();
+        var sink = new PartitionedMemberSink(connection, manual, new PartitionedMemberSinkOptions
+        {
+            SendQueueDepth = 1,
+            MetricsSink = metrics,
+        });
+        room!.TryJoin(sink);
+
+        Assert.Equal(1, broadcaster.Broadcast(room, TestMessage, [1], FrameFlags.None).Accepted);
+        RoomBroadcastResult second = broadcaster.Broadcast(room, TestMessage, [2], FrameFlags.None);
+
+        Assert.Equal(1, second.Rejected);
+        Assert.Equal(1, metrics.CountOf(RoomMetricNames.FramesRejected)); // QueueFull 1건 = 카운트 1
+        Assert.Equal(1, metrics.CountOf(RoomMetricNames.SinkQueueFull));  // 싱크 관점은 별도 이름으로
+
+        await manual.RunPendingAsync(); // 잔여 프레임 정리 — 풀 대여물을 붙들고 끝나지 않는다.
+    }
+
+    [Fact]
     public async Task 상대가_닫히면_싱크가_사망하고_통지된다()
     {
         (RoomBroadcaster broadcaster, Room room) = CreateRoom();

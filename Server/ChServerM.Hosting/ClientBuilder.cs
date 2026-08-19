@@ -196,6 +196,12 @@ public sealed class ClientBuilder
 
     /// <summary>조립을 끝내고 클라이언트를 만든다.</summary>
     /// <exception cref="InvalidOperationException">필수 축이 지정되지 않았을 때.</exception>
+    /// <remarks>
+    /// <see cref="ServerBuilder.Build"/> 와 달리 1회 제한이 없다 — 이 Build 는 공유 상태를
+    /// 변이하지 않는다(서버 쪽은 관측 미들웨어·세션 라우팅을 디스패처에 <b>추가</b>해서
+    /// 재호출이 이중 배선이 된다, 감사 2026-08-18 H-3). 여기서 변이가 생기는 날 같은 계약을
+    /// 얹어야 한다.
+    /// </remarks>
     public ChServerMClient Build()
     {
         IClientTransport transport = _transport

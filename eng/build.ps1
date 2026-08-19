@@ -386,5 +386,44 @@ else {
     }
 }
 
+# ─────────────────────────────────────────────────────────────────────────────
+# GC 산출물 게이트 — 선언(Directory.Build.props)이 아니라 산출물(runtimeconfig.json)을 본다.
+#
+# `ServerGarbageCollection` 을 `...Collector` 로 잘못 적으면 MSBuild 가 조용히 무시해
+# 3개월간 Workstation GC 로 돌았던 실사고가 있다(ADR-0031). 지금까지 그 재발 방지가
+# props 의 "수동 grep 안내" 주석뿐이었다 — "선언을 믿지 말고 산출물을 확인한다"는 규약을
+# 여기서 기계화한다(감사 2026-08-18 O-4). AOT 게이트의 fail-closed 와 같은 원리로,
+# 확인 대상 파일이 없어도 실패한다.
+Write-Step 'gc-config'
+
+$gcProbeProject = 'ChServerM.Samples.EchoServer'
+$gcConfig = Get-ChildItem `
+    -Path (Join-Path $PSScriptRoot "..\Samples\$gcProbeProject\bin") `
+    -Recurse -File -Filter "$gcProbeProject.runtimeconfig.json" -ErrorAction SilentlyContinue |
+    Sort-Object LastWriteTimeUtc -Descending |
+    Select-Object -First 1
+
+if (-not $gcConfig) {
+    Write-Host "FAILED — $gcProbeProject 의 runtimeconfig.json 을 찾지 못했다." -ForegroundColor Red
+    Write-Host '  build 단계가 샘플을 빌드하지 않았거나 경로가 바뀌었다 — 게이트가 조용히 사라지면 안 된다.'
+    exit 1
+}
+
+# ⚠ 호출부를 @() 로 감싼다 — PS 5.1 은 단일 요소 배열 반환을 스칼라로 언롤하고,
+#   StrictMode 에서 스칼라의 .Count 접근은 PropertyNotFound 로 죽는다(이 게이트 첫 실행에서 실증).
+$gcJson = Get-Content -LiteralPath $gcConfig.FullName -Raw | ConvertFrom-Json
+$runtimeOptions = @(Get-JsonProperty $gcJson 'runtimeOptions')
+$gcProps = @(if ($runtimeOptions.Count -gt 0) { Get-JsonProperty $runtimeOptions[0] 'configProperties' })
+$serverGc = @(if ($gcProps.Count -gt 0) { Get-JsonProperty $gcProps[0] 'System.GC.Server' })
+
+if ($serverGc.Count -eq 0 -or $serverGc[0] -ne $true) {
+    Write-Host "FAILED — $($gcConfig.FullName) 의 System.GC.Server 가 true 가 아니다." -ForegroundColor Red
+    Write-Host '  Directory.Build.props 의 ServerGarbageCollection 철자를 확인한다 —'
+    Write-Host '  `...Collector` 는 MSBuild 가 조용히 무시한다(ADR-0031, 3개월 잠복 실사고).'
+    exit 1
+}
+
+Write-Host "OK — System.GC.Server=true ($($gcConfig.FullName))" -ForegroundColor Green
+
 Write-Host ''
 Write-Host '모든 단계 통과' -ForegroundColor Green

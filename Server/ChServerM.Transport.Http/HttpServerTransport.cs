@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using ChServerM.Connections;
 using ChServerM.Diagnostics;
 using ChServerM.Identity;
+using ChServerM.Resilience;
 using ChServerM.Transports;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -70,6 +71,8 @@ public sealed class HttpServerTransport : IServerTransport, ITransportBufferLimi
     private readonly int _streamReceiveWindowSize;
     private readonly TimeSpan _shutdownTimeout;
     private readonly IServerLogger _logger;
+    private readonly IAdmissionControl? _admissionControl;
+    private readonly IMetricsSink? _metricsSink;
 
     private readonly ConcurrentDictionary<ConnectionId, ActiveConnection> _connections = new();
 
@@ -110,6 +113,8 @@ public sealed class HttpServerTransport : IServerTransport, ITransportBufferLimi
         _streamReceiveWindowSize = options.StreamReceiveWindowSize;
         _shutdownTimeout = options.ShutdownTimeout;
         _logger = logger ?? NullServerLogger.Instance;
+        _admissionControl = options.AdmissionControl;
+        _metricsSink = options.MetricsSink;
     }
 
     /// <inheritdoc />
@@ -216,9 +221,15 @@ public sealed class HttpServerTransport : IServerTransport, ITransportBufferLimi
         {
             try
             {
-                await Task.WhenAll(pending).WaitAsync(cancellationToken).ConfigureAwait(false);
+                // 취소 불가 토큰(기본 인자 포함)이면 1차 드레인에도 ShutdownTimeout 을 적용한다 —
+                // 상시 연결 워크로드에서 상한 없는 대기는 종료를 영원히 막는다(감사 2026-08-18 T-2).
+                Task drain = Task.WhenAll(pending);
+                await (cancellationToken.CanBeCanceled
+                        ? drain.WaitAsync(cancellationToken)
+                        : drain.WaitAsync(_shutdownTimeout, CancellationToken.None))
+                    .ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
+            catch (Exception exception) when (exception is OperationCanceledException or TimeoutException)
             {
                 // 드레인 제한 시간이 끝났다. 남은 것은 끊는다.
                 foreach (ActiveConnection active in _connections.Values)
@@ -305,6 +316,15 @@ public sealed class HttpServerTransport : IServerTransport, ITransportBufferLimi
             return;
         }
 
+        // 원격 주소는 수용 판정과 커넥션 식별 양쪽에 쓴다 — 여기서 한 번만 읽는다.
+        IHttpConnectionFeature? httpConnection = features.Get<IHttpConnectionFeature>();
+        IPEndPoint? remote = httpConnection?.RemoteIpAddress is { } remoteIp
+            ? new IPEndPoint(remoteIp, httpConnection.RemotePort)
+            : null;
+        IPEndPoint? local = httpConnection?.LocalIpAddress is { } localIp
+            ? new IPEndPoint(localIp, httpConnection.LocalPort)
+            : _localEndPoint;
+
         // 증가 후 검사-롤백 — 요청은 여러 IO 스레드에서 동시에 도착하므로 Count 검사로는
         // 상한을 소폭 초과할 수 있다. 유계는 엄격해야 유계다(CLAUDE.md 9.6).
         if (Interlocked.Increment(ref _activeCount) > _maxConnections)
@@ -316,20 +336,22 @@ public sealed class HttpServerTransport : IServerTransport, ITransportBufferLimi
             return;
         }
 
+        // 동적 수용 제어 — 상한 안의 연결 폭주(재접속 스톰)를 막는다. 정적 상한 통과 후에만
+        // 묻고, 거부 시 증가시킨 카운터를 되돌린다 — TCP·인메모리와 같은 배선(감사 2026-08-18 T-5).
+        if (_admissionControl is { } admissionControl
+            && !admissionControl.TryAdmit(remote).IsAdmitted)
+        {
+            Interlocked.Decrement(ref _activeCount);
+            EmitRejected(response, CloseReasonTags.Admission);
+            return;
+        }
+
         HttpServerConnection? connection = null;
         TaskCompletionSource completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         try
         {
             IHttpRequestLifetimeFeature lifetime = features.GetRequiredFeature<IHttpRequestLifetimeFeature>();
-            IHttpConnectionFeature? httpConnection = features.Get<IHttpConnectionFeature>();
-
-            IPEndPoint? remote = httpConnection?.RemoteIpAddress is { } remoteIp
-                ? new IPEndPoint(remoteIp, httpConnection.RemotePort)
-                : null;
-            IPEndPoint? local = httpConnection?.LocalIpAddress is { } localIp
-                ? new IPEndPoint(localIp, httpConnection.LocalPort)
-                : _localEndPoint;
 
             // 요청 본문은 파이프로 직접 읽는다 — Stream 어댑터 계층을 끼우지 않는다.
             PipeReader input = features.Get<IRequestBodyPipeFeature>()?.Reader
@@ -399,10 +421,22 @@ public sealed class HttpServerTransport : IServerTransport, ITransportBufferLimi
     private ConnectionId NextConnectionId() =>
         new((uint)Interlocked.Increment(ref _nextSlot), generation: 1);
 
-    /// <summary>거부 응답(503)을 만들고 기록한다.</summary>
+    /// <summary>거부 응답(503)을 만들고 관측·기록한다.</summary>
+    /// <remarks>
+    /// 정적 상한·동적 수용·드레인 거부가 같은 경로를 쓴다 — 통지·관측 로직이 두 벌이 되면
+    /// 한쪽만 고치는 사고가 난다(TCP 의 <c>RejectConnection</c> 과 같은 판단).
+    /// </remarks>
     private void EmitRejected(IHttpResponseFeature response, string reason)
     {
         response.StatusCode = 503;
+
+        // 거부는 핸들러에 닿지 않으므로 전송이 직접 방출한다 — 조용한 유실은 관측되지
+        // 않으면 존재하지 않는 것과 같다(CLAUDE.md 9.6). TCP 와 같은 배선(감사 2026-08-18 T-5).
+        if (_metricsSink is { } sink)
+        {
+            Span<MetricTag> tags = [new MetricTag(TagNames.CloseReason, reason)];
+            sink.Count(MetricNames.ConnectionsRejected, 1, tags);
+        }
 
         if (_logger.IsEnabled(LogLevel.Warning))
         {
@@ -428,11 +462,12 @@ public sealed class HttpServerTransport : IServerTransport, ITransportBufferLimi
         }
     }
 
-    /// <summary>커넥션 거부 로그의 저카디널리티 사유 태그 값.</summary>
+    /// <summary>커넥션 거부 메트릭·로그의 저카디널리티 사유 태그 값.</summary>
     private static class CloseReasonTags
     {
         public const string ConnectionLimit = "connection_limit";
         public const string Draining = "draining";
+        public const string Admission = "admission";
     }
 
     private readonly record struct ActiveConnection(HttpServerConnection Connection, Task Completion);

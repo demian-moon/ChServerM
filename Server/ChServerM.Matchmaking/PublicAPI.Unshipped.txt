@@ -15,6 +15,8 @@ ChServerM.Matchmaking.MatchmakingOptions
 ChServerM.Matchmaking.MatchmakingOptions.InitialRatingWindow.get -> double
 ChServerM.Matchmaking.MatchmakingOptions.InitialRatingWindow.set -> void
 ChServerM.Matchmaking.MatchmakingOptions.MatchmakingOptions() -> void
+ChServerM.Matchmaking.MatchmakingOptions.MaxCompatibilityChecksPerPass.get -> int
+ChServerM.Matchmaking.MatchmakingOptions.MaxCompatibilityChecksPerPass.set -> void
 ChServerM.Matchmaking.MatchmakingOptions.MaxQueueDepth.get -> int
 ChServerM.Matchmaking.MatchmakingOptions.MaxQueueDepth.set -> void
 ChServerM.Matchmaking.MatchmakingOptions.MaxRatingWindow.get -> double
@@ -55,6 +57,7 @@ ChServerM.Matchmaking.MatchTicketId.MatchTicketId() -> void
 ChServerM.Matchmaking.MatchTicketId.MatchTicketId(ulong value) -> void
 ChServerM.Matchmaking.MatchTicketId.Value.get -> ulong
 const ChServerM.Matchmaking.MatchmakingOptions.DefaultInitialRatingWindow = 100 -> double
+const ChServerM.Matchmaking.MatchmakingOptions.DefaultMaxCompatibilityChecksPerPass = 0 -> int
 const ChServerM.Matchmaking.MatchmakingOptions.DefaultMaxQueueDepth = 4096 -> int
 const ChServerM.Matchmaking.MatchmakingOptions.DefaultMaxRatingWindow = 1000 -> double
 const ChServerM.Matchmaking.MatchmakingOptions.DefaultRatingWindowGrowthPerSecond = 50 -> double

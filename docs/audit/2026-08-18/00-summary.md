@@ -36,7 +36,23 @@
   Testcontainers 전이 의존)를 잡아 2026.0.0 전이 고정으로 해소.
 - ✅ **전체 게이트(eng/build.ps1) 6단계 전부 통과** — restore·build·test·pack(ApiCompat)·
   audit·AOT(publish+실행 검증) "모든 단계 통과".
-- 남은 것: **D 목록(1.0 전 권장)과 E 백로그는 미착수** — 이 문서의 해당 절이 이후 작업 목록이다.
+- ✅ **D 목록(1.0 전 권장) 반영 (2026-08-19 2차 세션)** — 19건 전량:
+  - 전송·TLS: StopAsync 무토큰 드레인에 ShutdownTimeout 적용(5전송) [T-2] ·
+    `SslStreamCertificateContext` 도입 + `IServerCertificateSource.GetCertificateContext()` 로
+    교체 [T-3] · QUIC 인증서 회전(`ServerCertificateContextSource`) [T-4] · HTTP/WS/QUIC
+    AdmissionControl+거부 메트릭 대칭 [T-5] · WS Origin 화이트리스트 + 버전 정확 비교 [T-6]
+  - Hosting·관측: Build() 1회 계약 [H-3] · 실패 경로 상태명 캐시 + `dispatch_status` 태그
+    분리 [H-4/O-9] · DrainAsync TimeProvider [H-5] · DisposeAsync try/finally [H-6] ·
+    SessionResumeToken 해시 [H-14] · 히스토그램 단위/버킷 + ObserveCounter 중복 방지 [O-3/O-10]
+  - 실시간·매치: TickLoop 스핀 창 기본 0 + 함정 조합 경고 [R-9] · 매치 패스 앵커 재개 +
+    검사 상한 옵션 [R-4②③] · FramesRejected 단일 집계 + `sink.queue.full` 분리 [R-7] ·
+    TimerWheel 취소 노드 카운터 + 임계 청소 패스 + 통계 노출 [R-3]
+  - Core: 값 타입 11종 `ISpanFormattable`/`IUtf8SpanFormattable` [C-4]
+  - 운영: Bench GC 오타 잔재 제거 [X-2] · 기준선 ENV-B 정정 [X-4] · gc-config 산출물
+    게이트 신설 [O-4] · 결정적 빌드 검증을 release.yml 에 연결(+리눅스 경로 거짓 통과
+    결함 수정) [O-6]
+  - T-3 파괴 변경은 ApiCompat 억제 파일(Security.Tls 3건)로 의도 명시(0.2.0 범위)
+- 남은 것: **E 백로그(1.0 후)만 미착수** — 이 문서의 E 절이 이후 작업 목록이다.
 
 ## 영역별 문서
 

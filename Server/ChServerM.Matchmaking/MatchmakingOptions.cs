@@ -37,6 +37,9 @@ public sealed class MatchmakingOptions
     /// <summary>큐 깊이 상한 기본값.</summary>
     public const int DefaultMaxQueueDepth = 4096;
 
+    /// <summary>패스당 호환성 검사 수 상한 기본값. 0 = 무제한(기존 동작).</summary>
+    public const int DefaultMaxCompatibilityChecksPerPass = 0;
+
     /// <summary>팀당 인원. 파티는 이 값을 넘을 수 없다.</summary>
     public int TeamSize { get; set; } = DefaultTeamSize;
 
@@ -61,6 +64,25 @@ public sealed class MatchmakingOptions
 
     /// <summary>큐 깊이 상한. 초과 등록은 <see cref="MatchEnqueueStatus.QueueFull"/> 로 거부된다(9.6).</summary>
     public int MaxQueueDepth { get; set; } = DefaultMaxQueueDepth;
+
+    /// <summary>
+    /// 패스 하나가 수행할 수 있는 호환성 검사(<c>AreCompatible</c>) 수의 상한.
+    /// <c>0</c> 이면 무제한 — 기존 동작 그대로다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>존재 이유(감사 2026-08-18 R-4).</b> 이 큐의 드라이버는 틱 루프다. 매치가 하나도
+    /// 성립하지 않는 최악 패스는 O(대기 티켓²)의 호환성 검사를 돌아 틱 예산을 통째로 태울 수
+    /// 있다 — 기본 큐 깊이 4,096 에서 최대 ~1,670만 회. 이 상한이 패스당 비용을 실용 예산에
+    /// 묶는다(ADR-0068 결정 4의 '패스당 비용 유계'를 수치로 강제).
+    /// </para>
+    /// <para>
+    /// 상한 검사는 <b>앵커 경계</b>에서 한다 — 초과분은 최대 앵커 1개 분량(대기 티켓 수에
+    /// 비례)이다. 상한에 도달하면 패스를 중단하고 끊긴 앵커 위치를 보존해 <b>다음 패스가
+    /// 거기서 이어서</b> 본다(<see cref="Matchmaker.RunPass"/> 문서의 재개 규약).
+    /// </para>
+    /// </remarks>
+    public int MaxCompatibilityChecksPerPass { get; set; } = DefaultMaxCompatibilityChecksPerPass;
 
     /// <summary>설정을 검증한다.</summary>
     /// <exception cref="InvalidOperationException">값이 성립하지 않는다.</exception>
@@ -110,6 +132,13 @@ public sealed class MatchmakingOptions
             throw new InvalidOperationException(
                 $"{nameof(MaxQueueDepth)} 는 1 이상이어야 한다. 현재 값: {MaxQueueDepth}. "
                 + "무제한 큐는 만들 수 없다 — 거부가 붕괴보다 낫다(9.6).");
+        }
+
+        if (MaxCompatibilityChecksPerPass < 0)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(MaxCompatibilityChecksPerPass)} 는 음수일 수 없다. 무제한은 0 이다. "
+                + $"현재 값: {MaxCompatibilityChecksPerPass}.");
         }
     }
 }

@@ -18,9 +18,15 @@ namespace ChServerM.Identity;
 /// 리소스 객체가 키가 되어 수명이 얽혔고, 조회할 때마다 래퍼를 새로 할당했다.
 /// </para>
 /// <para>이 타입은 <b>영속화하지 않는다.</b> 프로세스 수명 안에서만 유효하다.</para>
+/// <para>
+/// <see cref="ISpanFormattable"/>·<see cref="IUtf8SpanFormattable"/>을 구현해 ZLogger 같은
+/// 무할당 로깅 축과 보간 문자열 핸들러가 <b>문자열 할당 없이</b> 인라인 포맷할 수 있다
+/// (감사 2026-08-18 C-4). 표기는 진단 전용 단일 형식이므로 format/provider 인자는 무시하며,
+/// 출력은 <see cref="ToString()"/>과 문자·바이트 단위로 동일하다.
+/// </para>
 /// </remarks>
 [DebuggerDisplay("{ToString(),nq}")]
-public readonly struct ConnectionId : IEquatable<ConnectionId>
+public readonly struct ConnectionId : IEquatable<ConnectionId>, ISpanFormattable, IUtf8SpanFormattable
 {
     private readonly uint _slot;
     private readonly uint _generation;
@@ -73,4 +79,107 @@ public readonly struct ConnectionId : IEquatable<ConnectionId>
         IsNone
             ? "conn:none"
             : string.Create(CultureInfo.InvariantCulture, $"conn:{_slot}/{_generation}");
+
+    /// <summary><see cref="ISpanFormattable"/> 계약용 오버로드. 인자를 무시하고 <see cref="ToString()"/>과 같은 표기를 돌려준다.</summary>
+    /// <param name="format">무시한다 — 진단 전용 단일 표기다.</param>
+    /// <param name="formatProvider">무시한다 — 표기는 항상 인바리언트다.</param>
+    public string ToString(string? format, IFormatProvider? formatProvider) => ToString();
+
+    /// <summary>진단 표기를 문자 버퍼에 쓴다. 출력은 <see cref="ToString()"/>과 동일하다.</summary>
+    /// <param name="destination">쓸 버퍼.</param>
+    /// <param name="charsWritten">성공 시 쓴 문자 수. 실패 시 0.</param>
+    /// <param name="format">무시한다 — 진단 전용 단일 표기다.</param>
+    /// <param name="provider">무시한다 — 표기는 항상 인바리언트다.</param>
+    /// <returns>버퍼가 충분하면 <see langword="true"/>.</returns>
+    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
+    {
+        charsWritten = 0;
+        if (IsNone)
+        {
+            ReadOnlySpan<char> none = "conn:none";
+            if (!none.TryCopyTo(destination))
+            {
+                return false;
+            }
+
+            charsWritten = none.Length;
+            return true;
+        }
+
+        ReadOnlySpan<char> prefix = "conn:";
+        if (!prefix.TryCopyTo(destination))
+        {
+            return false;
+        }
+
+        int pos = prefix.Length;
+        if (!_slot.TryFormat(destination[pos..], out int written, default, CultureInfo.InvariantCulture))
+        {
+            return false;
+        }
+
+        pos += written;
+        if ((uint)pos >= (uint)destination.Length)
+        {
+            return false;
+        }
+
+        destination[pos++] = '/';
+        if (!_generation.TryFormat(destination[pos..], out written, default, CultureInfo.InvariantCulture))
+        {
+            return false;
+        }
+
+        charsWritten = pos + written;
+        return true;
+    }
+
+    /// <summary>진단 표기를 UTF-8 버퍼에 쓴다. 출력은 <see cref="ToString()"/>의 UTF-8 인코딩과 동일하다.</summary>
+    /// <param name="utf8Destination">쓸 버퍼.</param>
+    /// <param name="bytesWritten">성공 시 쓴 바이트 수. 실패 시 0.</param>
+    /// <param name="format">무시한다 — 진단 전용 단일 표기다.</param>
+    /// <param name="provider">무시한다 — 표기는 항상 인바리언트다.</param>
+    /// <returns>버퍼가 충분하면 <see langword="true"/>.</returns>
+    public bool TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
+    {
+        bytesWritten = 0;
+        if (IsNone)
+        {
+            ReadOnlySpan<byte> none = "conn:none"u8;
+            if (!none.TryCopyTo(utf8Destination))
+            {
+                return false;
+            }
+
+            bytesWritten = none.Length;
+            return true;
+        }
+
+        ReadOnlySpan<byte> prefix = "conn:"u8;
+        if (!prefix.TryCopyTo(utf8Destination))
+        {
+            return false;
+        }
+
+        int pos = prefix.Length;
+        if (!_slot.TryFormat(utf8Destination[pos..], out int written, default, CultureInfo.InvariantCulture))
+        {
+            return false;
+        }
+
+        pos += written;
+        if ((uint)pos >= (uint)utf8Destination.Length)
+        {
+            return false;
+        }
+
+        utf8Destination[pos++] = (byte)'/';
+        if (!_generation.TryFormat(utf8Destination[pos..], out written, default, CultureInfo.InvariantCulture))
+        {
+            return false;
+        }
+
+        bytesWritten = pos + written;
+        return true;
+    }
 }

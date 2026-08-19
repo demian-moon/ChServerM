@@ -36,6 +36,9 @@ public sealed class TimerWheelOptions
     /// <summary>기본 노드 풀 상한. 8,192.</summary>
     public const int DefaultNodePoolCapacity = 8_192;
 
+    /// <summary>기본 취소 노드 청소 임계. 8,192(노드 풀 상한과 같은 값).</summary>
+    public const int DefaultCanceledNodeCleanupThreshold = 8_192;
+
     /// <summary>최하위 레벨의 슬롯 길이 = 타이머 발화 해상도. 만료는 최대 이 시간만큼 늦게 관측된다.</summary>
     public TimeSpan TickDuration { get; set; } = DefaultTickDuration;
 
@@ -55,6 +58,22 @@ public sealed class TimerWheelOptions
     /// <c>ObjectPoolM&lt;Node&gt;</c>를 두어 3,000개 슬롯이 각자 최대 수위를 유지했다.
     /// </remarks>
     public int NodePoolCapacity { get; set; } = DefaultNodePoolCapacity;
+
+    /// <summary>취소-미회수 노드가 이 수를 넘으면 다음 <see cref="TimerWheel.Advance"/> 서두에 전 슬롯 청소 패스를 돈다.</summary>
+    /// <remarks>
+    /// <para>
+    /// 취소는 상태 전이만 하고 물리적 슬롯 제거는 드라이버가 슬롯에 도달했을 때 한다(드라이버
+    /// 전용 계약). 그 지연 회수 탓에 "긴 지연 예약 → 즉시 취소 → 재예약"(세션 타임아웃 연장,
+    /// 쿨다운 리셋)이 반복되면 죽은 노드가 마감 슬롯까지 링크에 남아 <b>어떤 상한에도 걸리지
+    /// 않고</b> 누적된다 — 9.6("무제한 금지")의 사각지대였다(감사 2026-08-18 R-3).
+    /// 이 임계가 그 누적의 상한이다.
+    /// </para>
+    /// <para>
+    /// 청소 패스 비용은 전 슬롯 순회(레벨 수 × 슬롯 수 + 링크된 노드 수)이고 드라이버 스레드에서
+    /// 든다. 임계를 낮추면 메모리 상한이 내려가는 대신 청소가 잦아진다.
+    /// </para>
+    /// </remarks>
+    public int CanceledNodeCleanupThreshold { get; set; } = DefaultCanceledNodeCleanupThreshold;
 
     /// <summary>시간 원본. 테스트에서 대체할 수 있다.</summary>
     public TimeProvider TimeProvider { get; set; } = TimeProvider.System;
@@ -103,6 +122,13 @@ public sealed class TimerWheelOptions
                 $"{nameof(NodePoolCapacity)}는 음수일 수 없다. 풀 비활성은 0이다. 현재 값: {NodePoolCapacity}");
         }
 
+        if (CanceledNodeCleanupThreshold < 1)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(CanceledNodeCleanupThreshold)}는 1 이상이어야 한다. 현재 값: {CanceledNodeCleanupThreshold}. "
+                + "청소를 끌 수는 없다 — 취소-미회수 노드의 무제한 누적 금지(9.6, 감사 2026-08-18 R-3).");
+        }
+
         if (RejectionLogInterval <= TimeSpan.Zero)
         {
             throw new InvalidOperationException(
@@ -121,6 +147,7 @@ public sealed class TimerWheelOptions
         LevelCount = LevelCount,
         MaxPendingTimers = MaxPendingTimers,
         NodePoolCapacity = NodePoolCapacity,
+        CanceledNodeCleanupThreshold = CanceledNodeCleanupThreshold,
         TimeProvider = TimeProvider,
         Logger = Logger,
         MetricsSink = MetricsSink,

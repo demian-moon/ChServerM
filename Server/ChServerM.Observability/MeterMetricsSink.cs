@@ -33,6 +33,16 @@ namespace ChServerM.Observability;
 /// 인라인 저장 범위 안이다.
 /// </para>
 /// <para>
+/// <b>단위·버킷 메타데이터는 어댑터가 이름으로 붙인다</b>(감사 2026-08-18 O-3).
+/// <see cref="IMetricsSink"/> 계약에는 단위 표면이 없다 — 축 인터페이스를 늘리는 대신,
+/// 알려진 이름(<see cref="MetricNames"/>)에 대해 이 어댑터가 메타데이터를 매핑한다:
+/// 지연 히스토그램(<see cref="MetricNames.DispatchDuration"/>, 초 단위 규약)은
+/// <c>unit: "s"</c> + 초 스케일 명시 버킷 <see cref="InstrumentAdvice{T}"/>, 바이트 카운터는
+/// <c>unit: "By"</c>(UCUM). 이것이 없으면 OTel 을 Meter 구독으로 얹는 순간(ADR-0020) 기본
+/// 명시 버킷(0, 5, 10, 25…)이 초 단위 값(~0.001)을 전부 첫 버킷에 넣어 p50/p99 가
+/// 무의미해진다.
+/// </para>
+/// <para>
 /// <b>스레드 규약.</b> <see cref="Meter"/> 와 계측기는 스레드 안전하다. 캐시도
 /// <see cref="ConcurrentDictionary{TKey,TValue}"/> 라 안전하다. <see cref="Dispose"/> 는
 /// 조립을 소유한 쪽이 서버 종료 시 1회 호출한다.
@@ -40,10 +50,24 @@ namespace ChServerM.Observability;
 /// </remarks>
 public sealed class MeterMetricsSink : IMetricsSink, IDisposable
 {
+    // 초 스케일 로그 계열 명시 버킷(0.5ms~10s). OTel 기본 버킷은 밀리초 시대의 값이라
+    // 초 단위 히스토그램(DiagnosticNames 규약)과 맞지 않는다(감사 2026-08-18 O-3).
+    private static readonly InstrumentAdvice<double> SecondsHistogramAdvice = new()
+    {
+        HistogramBucketBoundaries =
+        [
+            0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+        ],
+    };
+
     private readonly Meter _meter;
     private readonly ConcurrentDictionary<string, Counter<long>> _counters = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, Histogram<double>> _histograms = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, UpDownCounter<long>> _gauges = new(StringComparer.Ordinal);
+
+    // Observable 계측기는 등록마다 인스턴스가 늘어 수집 시점에 값이 중복 보고된다 —
+    // Counter/Histogram 은 캐시가 막는데 Observable 만 무방비였던 비대칭을 없앤다(O-10).
+    private readonly ConcurrentDictionary<string, byte> _observables = new(StringComparer.Ordinal);
 
     /// <summary>기본 <see cref="Meter"/> 이름(<see cref="DiagnosticNames.MeterName"/>)으로 만든다.</summary>
     public MeterMetricsSink()
@@ -63,14 +87,22 @@ public sealed class MeterMetricsSink : IMetricsSink, IDisposable
     /// <inheritdoc />
     public void Count(string name, long delta, ReadOnlySpan<MetricTag> tags)
     {
-        Counter<long> counter = _counters.GetOrAdd(name, static (n, m) => m.CreateCounter<long>(n), _meter);
+        Counter<long> counter = _counters.GetOrAdd(
+            name, static (n, m) => m.CreateCounter<long>(n, UnitFor(n)), _meter);
         counter.Add(delta, ToTagList(tags));
     }
 
     /// <inheritdoc />
     public void Record(string name, double value, ReadOnlySpan<MetricTag> tags)
     {
-        Histogram<double> histogram = _histograms.GetOrAdd(name, static (n, m) => m.CreateHistogram<double>(n), _meter);
+        // 알려진 지연 히스토그램에는 unit "s" + 초 스케일 버킷 advice 를 붙인다(O-3).
+        // 이름 검사는 계측기 생성(이름당 1회) 시에만 돈다 — 기록 핫패스 비용이 아니다.
+        Histogram<double> histogram = _histograms.GetOrAdd(
+            name,
+            static (n, m) => n is MetricNames.DispatchDuration
+                ? m.CreateHistogram<double>(n, unit: "s", description: null, tags: null, advice: SecondsHistogramAdvice)
+                : m.CreateHistogram<double>(n),
+            _meter);
         histogram.Record(value, ToTagList(tags));
     }
 
@@ -83,14 +115,28 @@ public sealed class MeterMetricsSink : IMetricsSink, IDisposable
 
     /// <inheritdoc />
     /// <remarks>
+    /// <para>
     /// BCL <see cref="ObservableCounter{T}"/> 로 위임한다 — 수집 시점에
     /// <paramref name="observe"/> 를 호출하는 것이 이 계측기의 정의된 동작이라,
     /// pull 계약이 어댑터에서 그대로 성립한다(중간 저장·주기 타이머가 필요 없다).
     /// <see cref="Meter"/> 가 생성한 계측기를 붙들고 있으므로 GC 로 사라지지 않는다.
+    /// </para>
+    /// <para>
+    /// <b>같은 이름의 재등록은 무시된다 — 먼저 등록한 콜백이 이긴다.</b> Observable 은
+    /// 등록마다 계측기 인스턴스가 늘어 수집 시점에 값이 <b>중복 보고</b>되므로
+    /// (감사 2026-08-18 O-10), 이름 캐시로 두 번째 등록을 거른다. 실사용 등록부
+    /// (<see cref="BufferPoolMetrics"/> 류)는 프로세스 전역 카운터를 읽으므로 어느 콜백이
+    /// 남아도 값이 같다 — 무시가 예외보다 조립을 덜 부순다.
+    /// </para>
     /// </remarks>
     public void ObserveCounter(string name, Func<long> observe, ReadOnlySpan<MetricTag> tags)
     {
         ArgumentNullException.ThrowIfNull(observe);
+
+        if (!_observables.TryAdd(name, 0))
+        {
+            return;
+        }
 
         if (tags.IsEmpty)
         {
@@ -106,6 +152,17 @@ public sealed class MeterMetricsSink : IMetricsSink, IDisposable
 
     /// <inheritdoc />
     public void Dispose() => _meter.Dispose();
+
+    /// <summary>알려진 카운터 이름의 단위(UCUM). 모르는 이름은 단위 없음.</summary>
+    /// <remarks>
+    /// <see cref="IMetricsSink"/> 계약에 단위 표면을 얹지 않고 어댑터가 이름으로 매핑한다
+    /// (감사 2026-08-18 O-3). 계측기 생성(이름당 1회) 시에만 호출된다.
+    /// </remarks>
+    private static string? UnitFor(string name) => name switch
+    {
+        MetricNames.BytesReceived or MetricNames.BytesSent => "By",
+        _ => null,
+    };
 
     /// <summary>중립 태그 스팬을 BCL <see cref="TagList"/>(무할당 struct)로 옮긴다.</summary>
     private static TagList ToTagList(ReadOnlySpan<MetricTag> tags)

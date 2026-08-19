@@ -26,9 +26,11 @@ namespace ChServerM.Hosting.Dispatch;
 /// <b>남기는 것</b>: 처리한 프레임 수(<see cref="MetricNames.FramesReceived"/> — 디스패처에
 /// 도달한 프레임), 디스패치 지연 히스토그램(<see cref="MetricNames.DispatchDuration"/>,
 /// 초), 그리고 <see cref="DispatchStatus.Handled"/> 가 아닌 결과의 실패 카운터
-/// (<see cref="MetricNames.DispatchFailures"/>, <see cref="TagNames.ErrorCode"/> 없이 상태명
-/// 태그로 분류). <b>조용한 거부가 메트릭에 남는 것</b>이 이 계층의 목적이다 — 거부는
-/// 정상 동작이지만 관측되지 않으면 레거시의 병이 된다(<c>IServerMiddleware</c> 문서).
+/// (<see cref="MetricNames.DispatchFailures"/>, <see cref="TagNames.DispatchStatus"/> 태그에
+/// 상태명으로 분류 — <see cref="TagNames.ErrorCode"/> 는 <see cref="ErrorCode"/> 값 계약이라
+/// 쓰지 않는다, 감사 2026-08-18 O-9). <b>조용한 거부가 메트릭에 남는 것</b>이 이 계층의
+/// 목적이다 — 거부는 정상 동작이지만 관측되지 않으면 레거시의 병이 된다
+/// (<c>IServerMiddleware</c> 문서).
 /// </para>
 /// <para>
 /// <b>지연 측정은 단조 시각으로.</b> 벽시계는 NTP 보정으로 뒤로 갈 수 있어 지연이 음수가
@@ -77,8 +79,10 @@ public sealed class MetricsMiddleware : IServerMiddleware
         if (status != DispatchStatus.Handled)
         {
             // 실패·거부를 상태명으로 분류한다 — 어느 관문에서 얼마나 떨어지는지 대시보드에서 갈린다.
-            // 상태값은 유한 enum 이라 카디널리티가 안전하다.
-            Span<MetricTag> tags = [new MetricTag(TagNames.ErrorCode, status.ToString())];
+            // 상태값은 유한 enum 이라 카디널리티가 안전하고, 이름은 정적 캐시라 이 경로가
+            // 과부하 시 프레임마다 돌아도 할당이 없다(감사 2026-08-18 H-4). 태그는 error_code
+            // (ErrorCode 값 계약)가 아니라 전용 dispatch_status 다(O-9).
+            Span<MetricTag> tags = [new MetricTag(TagNames.DispatchStatus, DispatchStatusNames.Get(status))];
             _sink.Count(MetricNames.DispatchFailures, 1, tags);
         }
 

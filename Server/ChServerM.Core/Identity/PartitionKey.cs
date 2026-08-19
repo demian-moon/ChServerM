@@ -22,9 +22,15 @@ namespace ChServerM.Identity;
 /// 레거시는 <c>oid % n</c>을 썼다. 음수 ID면 결과도 음수라 배열 인덱스가 되지 못하고,
 /// <c>n</c>이 0이면 <see cref="DivideByZeroException"/>이 나며, 순차 ID가 특정 샤드에 몰린다.
 /// </para>
+/// <para>
+/// <see cref="ISpanFormattable"/>·<see cref="IUtf8SpanFormattable"/>을 구현해 ZLogger 같은
+/// 무할당 로깅 축과 보간 문자열 핸들러가 <b>문자열 할당 없이</b> 인라인 포맷할 수 있다
+/// (감사 2026-08-18 C-4). 표기는 진단 전용 단일 형식(<c>pk:</c> + 16진 16자리)이므로
+/// format/provider 인자는 무시하며, 출력은 <see cref="ToString()"/>과 문자·바이트 단위로 동일하다.
+/// </para>
 /// </remarks>
 [DebuggerDisplay("{ToString(),nq}")]
-public readonly struct PartitionKey : IEquatable<PartitionKey>
+public readonly struct PartitionKey : IEquatable<PartitionKey>, ISpanFormattable, IUtf8SpanFormattable
 {
     /// <summary>2⁶⁴ / φ. 황금비 역수를 64비트로 스케일한 값.</summary>
     private const ulong GoldenRatio64 = 0x9E37_79B9_7F4A_7C15UL;
@@ -77,4 +83,57 @@ public readonly struct PartitionKey : IEquatable<PartitionKey>
 
     /// <inheritdoc />
     public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"pk:{_hash:x16}");
+
+    /// <summary><see cref="ISpanFormattable"/> 계약용 오버로드. 인자를 무시하고 <see cref="ToString()"/>과 같은 표기를 돌려준다.</summary>
+    /// <param name="format">무시한다 — 진단 전용 단일 표기다.</param>
+    /// <param name="formatProvider">무시한다 — 표기는 항상 인바리언트다.</param>
+    public string ToString(string? format, IFormatProvider? formatProvider) => ToString();
+
+    /// <summary>진단 표기를 문자 버퍼에 쓴다. 출력은 <see cref="ToString()"/>과 동일하다.</summary>
+    /// <param name="destination">쓸 버퍼.</param>
+    /// <param name="charsWritten">성공 시 쓴 문자 수. 실패 시 0.</param>
+    /// <param name="format">무시한다 — 진단 전용 단일 표기다.</param>
+    /// <param name="provider">무시한다 — 표기는 항상 인바리언트다.</param>
+    /// <returns>버퍼가 충분하면 <see langword="true"/>.</returns>
+    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
+    {
+        charsWritten = 0;
+        ReadOnlySpan<char> prefix = "pk:";
+        if (!prefix.TryCopyTo(destination))
+        {
+            return false;
+        }
+
+        if (!_hash.TryFormat(destination[prefix.Length..], out int written, "x16", CultureInfo.InvariantCulture))
+        {
+            return false;
+        }
+
+        charsWritten = prefix.Length + written;
+        return true;
+    }
+
+    /// <summary>진단 표기를 UTF-8 버퍼에 쓴다. 출력은 <see cref="ToString()"/>의 UTF-8 인코딩과 동일하다.</summary>
+    /// <param name="utf8Destination">쓸 버퍼.</param>
+    /// <param name="bytesWritten">성공 시 쓴 바이트 수. 실패 시 0.</param>
+    /// <param name="format">무시한다 — 진단 전용 단일 표기다.</param>
+    /// <param name="provider">무시한다 — 표기는 항상 인바리언트다.</param>
+    /// <returns>버퍼가 충분하면 <see langword="true"/>.</returns>
+    public bool TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
+    {
+        bytesWritten = 0;
+        ReadOnlySpan<byte> prefix = "pk:"u8;
+        if (!prefix.TryCopyTo(utf8Destination))
+        {
+            return false;
+        }
+
+        if (!_hash.TryFormat(utf8Destination[prefix.Length..], out int written, "x16", CultureInfo.InvariantCulture))
+        {
+            return false;
+        }
+
+        bytesWritten = prefix.Length + written;
+        return true;
+    }
 }

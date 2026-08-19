@@ -1,4 +1,6 @@
 using System;
+using ChServerM.Diagnostics;
+using ChServerM.Resilience;
 
 namespace ChServerM.Transport.Http;
 
@@ -45,6 +47,22 @@ public sealed class HttpTransportOptions
     /// 상한을 넘는 스트림은 <c>503</c> 으로 거부한다. <b>거부가 붕괴보다 낫다</b>(CLAUDE.md 9.6).
     /// </remarks>
     public int MaxConnections { get; set; } = int.MaxValue;
+
+    /// <summary>신규 커넥션(스트림) 동적 수용 제어. <see langword="null"/>이면 정적 상한만 적용.</summary>
+    /// <remarks>
+    /// <see cref="MaxConnections"/>(정적 하드 상한)를 통과한 뒤에만 물어본다. 거부하면
+    /// <c>503</c> 으로 응답한다 — TCP 전송과 같은 배선(감사 2026-08-18 T-5). 참조 구현:
+    /// <c>ChServerM.Hosting.ConnectionRateAdmissionControl</c>(토큰 버킷).
+    /// </remarks>
+    public IAdmissionControl? AdmissionControl { get; set; }
+
+    /// <summary>커넥션 거부를 관측할 메트릭 싱크. <see langword="null"/>이면 기록하지 않는다.</summary>
+    /// <remarks>
+    /// 거부된 스트림은 핸들러에 닿지 않으므로 거부(<see cref="MetricNames.ConnectionsRejected"/>)는
+    /// 전송이 직접 방출한다 — 정적 상한·동적 수용·드레인 거부 모두 관측된다(감사 2026-08-18 T-5,
+    /// CLAUDE.md 9.6 "드롭 수를 메트릭으로 노출한다").
+    /// </remarks>
+    public IMetricsSink? MetricsSink { get; set; }
 
     /// <summary>스트림 하나의 수신 흐름 제어 윈도(바이트).</summary>
     /// <remarks>
